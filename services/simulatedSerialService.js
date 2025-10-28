@@ -31,7 +31,9 @@ export class SimulatedSerialManager {
         this.callbacks.onConnect({ usbVendorId: 0xAAAA, usbProductId: 0xBBBB });
         this.callbacks.onLog({ type: 'received', message: "Grbl 1.1h ['$' for help]" });
         this.statusInterval = window.setInterval(() => {
-            this.callbacks.onStatus(this.position);
+            // Deep clone the position object to ensure React detects a state change
+            const newPosition = JSON.parse(JSON.stringify(this.position));
+            this.callbacks.onStatus(newPosition);
         }, 250);
     }
 

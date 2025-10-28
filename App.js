@@ -403,7 +403,7 @@ const App = () => {
         }),
         React.createElement('header', { className: "bg-surface shadow-md p-4 flex justify-between items-center z-10 flex-shrink-0 gap-4" },
             React.createElement('div', { className: "flex items-center gap-4" },
-                React.createElement('h1', { className: "text-xl font-bold hidden sm:block" }, "CNC G-Code Sender"),
+                React.createElement('h1', { className: "text-xl font-bold hidden sm:block" }, "CNC G-Code Sender", React.createElement('span', { className: "ml-2 bg-primary/20 text-primary text-xs font-semibold px-2 py-0.5 rounded-full align-middle" }, "Milestone 2")),
                 React.createElement(StatusIndicator, { isConnected: isConnected, machineState: machineState })
             ),
             React.createElement('div', { className: "flex items-center gap-4" },
@@ -471,7 +471,8 @@ const App = () => {
                     progress: progress,
                     isConnected: isConnected,
                     unit: unit,
-                    onGCodeChange: handleGCodeChange
+                    onGCodeChange: handleGCodeChange,
+                    machineState: machineState
                 })
             ),
             React.createElement('div', { className: "flex flex-col gap-4 overflow-hidden" },

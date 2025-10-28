@@ -4,7 +4,7 @@ import { Play, Pause, Square, Upload, FileText, Code, Eye, Maximize, Pencil, Che
 import GCodeVisualizer from './GCodeVisualizer.js';
 import GCodeLine from './GCodeLine.js';
 
-const GCodePanel = ({ onFileLoad, fileName, gcodeLines, onJobControl, jobStatus, progress, isConnected, unit, onGCodeChange }) => {
+const GCodePanel = ({ onFileLoad, fileName, gcodeLines, onJobControl, jobStatus, progress, isConnected, unit, onGCodeChange, machineState }) => {
     const fileInputRef = useRef(null);
     const visualizerRef = useRef(null);
     const [view, setView] = useState('visualizer');
@@ -70,12 +70,19 @@ const GCodePanel = ({ onFileLoad, fileName, gcodeLines, onJobControl, jobStatus,
 
     const isJobActive = jobStatus === JobStatus.Running || jobStatus === JobStatus.Paused;
     const isReadyToStart = isConnected && gcodeLines.length > 0 && (jobStatus === JobStatus.Idle || jobStatus === JobStatus.Stopped || jobStatus === JobStatus.Complete);
-    const currentLine = Math.floor((progress / 100) * gcodeLines.length);
+    const totalLines = gcodeLines.length;
+    const currentLine = Math.floor((progress / 100) * totalLines);
 
     const renderContent = () => {
         if (gcodeLines.length > 0) {
             if (view === 'visualizer') {
-                return React.createElement(GCodeVisualizer, { ref: visualizerRef, gcodeLines, currentLine, unit: unit });
+                return React.createElement(GCodeVisualizer, { 
+                    ref: visualizerRef, 
+                    gcodeLines, 
+                    currentLine, 
+                    unit: unit, 
+                    spindlePosition: isJobActive ? machineState?.wpos : null 
+                });
             }
             if (view === 'code') {
                 if (isEditing) {
@@ -212,7 +219,11 @@ const GCodePanel = ({ onFileLoad, fileName, gcodeLines, onJobControl, jobStatus,
                 React.createElement('div', { className: "bg-primary h-4 rounded-full transition-all duration-300", style: { width: `${progress}%` } })
             ),
             React.createElement('div', { className: "flex justify-between items-center text-sm font-medium" },
-                React.createElement('p', null, "Status: ", React.createElement('span', { className: "font-bold capitalize" }, jobStatus)),
+                React.createElement('p', null, 
+                    "Status: ", 
+                    React.createElement('span', { className: "font-bold capitalize" }, jobStatus),
+                    (isJobActive && totalLines > 0) && React.createElement('span', { className: 'ml-2 font-mono text-text-secondary bg-background px-2 py-0.5 rounded-md' }, `${currentLine} / ${totalLines}`)
+                ),
                 React.createElement('p', { className: "font-bold" }, `${progress.toFixed(1)}%`)
             )
         ),

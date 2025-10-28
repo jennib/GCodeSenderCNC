@@ -1,7 +1,38 @@
 import React, { useRef, useEffect, useState, useCallback, useImperativeHandle } from 'react';
 import { parseGCode } from '../services/gcodeParser.js';
 
-const GCodeVisualizer = React.forwardRef(({ gcodeLines, currentLine, unit }, ref) => {
+const drawSpindle = (ctx, scale, position) => {
+    if (!position) return;
+
+    ctx.save();
+    
+    const spindleRadius = 5 / scale; // Target a 5px radius
+    const crosshairSize = 8 / scale; // Target an 8px crosshair radius
+
+    // Outer circle
+    ctx.strokeStyle = '#EF4444'; // accent-red
+    ctx.fillStyle = 'rgba(239, 68, 68, 0.3)'; // semi-transparent red
+    ctx.lineWidth = 1.5 / scale; // Keep line width consistent
+
+    ctx.beginPath();
+    ctx.arc(position.x, position.y, spindleRadius, 0, 2 * Math.PI);
+    ctx.fill();
+    ctx.stroke();
+
+    // Crosshairs
+    ctx.beginPath();
+    ctx.lineWidth = 1 / scale;
+    ctx.moveTo(position.x - crosshairSize, position.y);
+    ctx.lineTo(position.x + crosshairSize, position.y);
+    ctx.moveTo(position.x, position.y - crosshairSize);
+    ctx.lineTo(position.x, position.y + crosshairSize);
+    ctx.stroke();
+
+    ctx.restore();
+};
+
+
+const GCodeVisualizer = React.forwardRef(({ gcodeLines, currentLine, unit, spindlePosition }, ref) => {
     const canvasRef = useRef(null);
     const containerRef = useRef(null);
     const [parsedGCode, setParsedGCode] = useState(null);
@@ -181,13 +212,16 @@ const GCodeVisualizer = React.forwardRef(({ gcodeLines, currentLine, unit }, ref
             ctx.stroke();
         });
 
+        // Draw spindle on top of the path
+        drawSpindle(ctx, scale, spindlePosition);
+
         ctx.restore();
 
         // Draw Overlays
         drawOrigin(ctx, canvas.width, canvas.height);
         drawScaleBar(ctx, canvas.width, canvas.height, viewTransform.scale, unit);
 
-    }, [parsedGCode, currentLine, viewTransform, unit]);
+    }, [parsedGCode, currentLine, viewTransform, unit, spindlePosition]);
     
     useEffect(() => {
         const parsed = parseGCode(gcodeLines);
