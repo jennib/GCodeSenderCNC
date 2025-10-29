@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { CheckCircle, X, AlertTriangle } from './Icons.js';
 
@@ -16,9 +17,10 @@ const ChecklistItem = ({ isMet, text, children }) => {
 };
 
 
-const PreflightChecklistModal = ({ isOpen, onCancel, onConfirm, jobInfo, isHomed }) => {
+const PreflightChecklistModal = ({ isOpen, onCancel, onConfirm, jobInfo, isHomed, warnings, selectedTool }) => {
     const [isWorkZeroSet, setIsWorkZeroSet] = useState(false);
     const [isToolpathChecked, setIsToolpathChecked] = useState(false);
+    const [isToolConfirmed, setIsToolConfirmed] = useState(false);
     const [isDryRun, setIsDryRun] = useState(false);
 
     // Reset checkboxes when modal is opened
@@ -26,6 +28,7 @@ const PreflightChecklistModal = ({ isOpen, onCancel, onConfirm, jobInfo, isHomed
         if (isOpen) {
             setIsWorkZeroSet(false);
             setIsToolpathChecked(false);
+            setIsToolConfirmed(false);
             setIsDryRun(false);
         }
     }, [isOpen]);
@@ -34,14 +37,32 @@ const PreflightChecklistModal = ({ isOpen, onCancel, onConfirm, jobInfo, isHomed
         return null;
     }
     
-    const allChecksPassed = isHomed && isWorkZeroSet && isToolpathChecked;
+    const allChecksPassed = isHomed && isWorkZeroSet && isToolpathChecked && (selectedTool ? isToolConfirmed : true);
     const { startLine = 0 } = jobInfo;
+    const hasErrors = warnings.some(w => w.type === 'error');
 
     const formatTime = (totalSeconds) => {
         if (totalSeconds < 1) return '< 1 minute';
         const hours = Math.floor(totalSeconds / 3600);
         const minutes = Math.floor((totalSeconds % 3600) / 60);
         return `${hours > 0 ? `${hours}h ` : ''}${minutes}m`;
+    };
+
+    const WarningSection = () => {
+        if (!warnings || warnings.length === 0) return null;
+        
+        return h('div', { className: 'bg-background p-4 rounded-md border-l-4 border-accent-yellow' },
+            h('h3', { className: 'font-bold text-accent-yellow mb-2 flex items-center gap-2' }, 
+                h(AlertTriangle, { className: 'w-5 h-5'}),
+                'Pre-Run Analysis Warnings'
+            ),
+            h('ul', { className: 'space-y-1 text-sm' },
+                warnings.map((w, i) => h('li', { 
+                    key: i,
+                    className: `pl-2 ${w.type === 'error' ? 'text-accent-red font-semibold' : 'text-accent-yellow'}`
+                }, `- ${w.message}`))
+            )
+        );
     };
 
     return h('div', {
@@ -59,6 +80,7 @@ const PreflightChecklistModal = ({ isOpen, onCancel, onConfirm, jobInfo, isHomed
                 h('p', { className: 'text-text-secondary mt-1' }, 'Confirm machine state before starting job.')
             ),
             h('div', { className: 'p-6 space-y-4' },
+                 h(WarningSection, {}),
                 h('div', { className: 'bg-background p-4 rounded-md' },
                     h('h3', { className: 'font-bold text-text-primary mb-2' }, 'Job Summary'),
                     h('p', { className: 'text-sm text-text-secondary truncate' }, h('strong', null, 'File: '), jobInfo.fileName),
@@ -72,6 +94,17 @@ const PreflightChecklistModal = ({ isOpen, onCancel, onConfirm, jobInfo, isHomed
                 h('ul', { className: 'space-y-2' },
                     h(ChecklistItem, { isMet: isHomed, text: 'Machine is Homed' },
                         !isHomed && h('p', null, 'The machine must be homed before starting a job. Use the "Home" command in the jog panel.')
+                    ),
+                    selectedTool && h(ChecklistItem, { isMet: isToolConfirmed, text: 'Correct Tool is Loaded' },
+                        h('label', { className: 'flex items-center gap-2 mt-2 cursor-pointer' },
+                            h('input', {
+                                type: 'checkbox',
+                                checked: isToolConfirmed,
+                                onChange: e => setIsToolConfirmed(e.target.checked),
+                                className: 'h-4 w-4 rounded border-secondary text-primary focus:ring-primary'
+                            }),
+                            h('span', null, 'I confirm ', h('strong', {className: 'text-primary'}, selectedTool.name), ' is in the spindle.')
+                        )
                     ),
                     h(ChecklistItem, { isMet: isWorkZeroSet, text: 'Work Zero is Set' },
                         h('label', { className: 'flex items-center gap-2 mt-2 cursor-pointer' },
@@ -117,7 +150,8 @@ const PreflightChecklistModal = ({ isOpen, onCancel, onConfirm, jobInfo, isHomed
                     }, 'Cancel'),
                     h('button', {
                         onClick: () => onConfirm({ isDryRun }),
-                        disabled: !allChecksPassed,
+                        disabled: !allChecksPassed || hasErrors,
+                        title: hasErrors ? 'Cannot start job with critical errors (red warnings).' : (!allChecksPassed ? 'Complete all checklist items to start.' : 'Start Job'),
                         className: 'px-6 py-2 bg-accent-green text-white font-bold rounded-md hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 focus:ring-offset-background disabled:bg-secondary disabled:cursor-not-allowed flex items-center gap-2'
                     }, h(CheckCircle, { className: 'w-5 h-5' }), 'Confirm & Start Job')
                 )

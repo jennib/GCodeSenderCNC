@@ -1,3 +1,4 @@
+
 import React, { useRef, useEffect, useState, useCallback, useImperativeHandle } from 'react';
 import { parseGCode } from '../services/gcodeParser.js';
 
@@ -147,7 +148,7 @@ const mat4 = {
     }
 };
 
-const GCodeVisualizer = React.forwardRef(({ gcodeLines, currentLine, hoveredLineIndex }, ref) => {
+const GCodeVisualizer = React.forwardRef(({ gcodeLines, currentLine, hoveredLineIndex, machineSettings }, ref) => {
     const canvasRef = useRef(null);
     const glRef = useRef(null);
     const programInfoRef = useRef(null);
@@ -238,6 +239,48 @@ const GCodeVisualizer = React.forwardRef(({ gcodeLines, currentLine, hoveredLine
         const gl = glRef.current;
         if (!gl || !parsedGCode) return;
 
+        // --- Create Work Area Buffers ---
+        const workArea = machineSettings.workArea;
+        const gridVertices = [];
+        const boundsVertices = [];
+        const gridColor = [0.2, 0.25, 0.35, 1.0];
+        const boundsColor = [0.4, 0.45, 0.55, 1.0];
+        const gridSpacing = 10; // mm
+
+        for (let i = 0; i <= workArea.x; i += gridSpacing) {
+            gridVertices.push(i, 0, 0, i, workArea.y, 0);
+        }
+        for (let i = 0; i <= workArea.y; i += gridSpacing) {
+            gridVertices.push(0, i, 0, workArea.x, i, 0);
+        }
+        
+        const wx = workArea.x, wy = workArea.y, wz = workArea.z;
+        boundsVertices.push(
+            0, 0, 0, wx, 0, 0,  wx, 0, 0, wx, wy, 0,  wx, wy, 0, 0, wy, 0,  0, wy, 0, 0, 0, 0, // bottom
+            0, 0, wz, wx, 0, wz,  wx, 0, wz, wx, wy, wz,  wx, wy, wz, 0, wy, wz,  0, wy, wz, 0, 0, wz, // top
+            0, 0, 0, 0, 0, wz,  wx, 0, 0, wx, 0, wz,  wx, wy, 0, wx, wy, wz,  0, wy, 0, 0, wy, wz // sides
+        );
+
+        const workAreaBuffers = {};
+        const gridPositionBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, gridPositionBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(gridVertices), gl.STATIC_DRAW);
+        workAreaBuffers.gridPosition = gridPositionBuffer;
+        workAreaBuffers.gridColor = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, workAreaBuffers.gridColor);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(Array(gridVertices.length / 3).fill(gridColor).flat()), gl.STATIC_DRAW);
+        workAreaBuffers.gridVertexCount = gridVertices.length / 3;
+
+        const boundsPositionBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, boundsPositionBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(boundsVertices), gl.STATIC_DRAW);
+        workAreaBuffers.boundsPosition = boundsPositionBuffer;
+        workAreaBuffers.boundsColor = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, workAreaBuffers.boundsColor);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(Array(boundsVertices.length / 3).fill(boundsColor).flat()), gl.STATIC_DRAW);
+        workAreaBuffers.boundsVertexCount = boundsVertices.length / 3;
+        
+        // --- Create Toolpath Buffers ---
         const { segments } = parsedGCode;
         const vertices = [];
         const colors = [];
@@ -321,10 +364,11 @@ const GCodeVisualizer = React.forwardRef(({ gcodeLines, currentLine, hoveredLine
             vertexCount: vertices.length / 3,
             toolPosition: toolPositionBuffer,
             toolColor: toolColorBuffer,
-            toolVertexCount: toolModel ? toolModel.vertices.length / 3 : 0
+            toolVertexCount: toolModel ? toolModel.vertices.length / 3 : 0,
+            workArea: workAreaBuffers,
         };
 
-    }, [parsedGCode, currentLine, hoveredLineIndex]);
+    }, [parsedGCode, currentLine, hoveredLineIndex, machineSettings]);
 
     const drawScene = useCallback(() => {
         const gl = glRef.current;
@@ -352,7 +396,27 @@ const GCodeVisualizer = React.forwardRef(({ gcodeLines, currentLine, hoveredLine
         gl.uniformMatrix4fv(programInfo.uniformLocations.projectionMatrix, false, projectionMatrix);
         gl.uniformMatrix4fv(programInfo.uniformLocations.modelViewMatrix, false, viewMatrix);
         
-        // Draw Toolpath
+        // --- Draw Work Area ---
+        if (buffers.workArea) {
+            const wa = buffers.workArea;
+            // Draw Grid
+            gl.bindBuffer(gl.ARRAY_BUFFER, wa.gridPosition);
+            gl.vertexAttribPointer(programInfo.attribLocations.vertexPosition, 3, gl.FLOAT, false, 0, 0);
+            gl.enableVertexAttribArray(programInfo.attribLocations.vertexPosition);
+            gl.bindBuffer(gl.ARRAY_BUFFER, wa.gridColor);
+            gl.vertexAttribPointer(programInfo.attribLocations.vertexColor, 4, gl.FLOAT, false, 0, 0);
+            gl.enableVertexAttribArray(programInfo.attribLocations.vertexColor);
+            gl.drawArrays(gl.LINES, 0, wa.gridVertexCount);
+
+            // Draw Bounds
+            gl.bindBuffer(gl.ARRAY_BUFFER, wa.boundsPosition);
+            gl.vertexAttribPointer(programInfo.attribLocations.vertexPosition, 3, gl.FLOAT, false, 0, 0);
+            gl.bindBuffer(gl.ARRAY_BUFFER, wa.boundsColor);
+            gl.vertexAttribPointer(programInfo.attribLocations.vertexColor, 4, gl.FLOAT, false, 0, 0);
+            gl.drawArrays(gl.LINES, 0, wa.boundsVertexCount);
+        }
+
+        // --- Draw Toolpath ---
         if (buffers.position) {
             gl.bindBuffer(gl.ARRAY_BUFFER, buffers.position);
             gl.vertexAttribPointer(programInfo.attribLocations.vertexPosition, 3, gl.FLOAT, false, 0, 0);
@@ -365,7 +429,7 @@ const GCodeVisualizer = React.forwardRef(({ gcodeLines, currentLine, hoveredLine
             gl.drawArrays(gl.LINES, 0, buffers.vertexCount);
         }
 
-        // Draw Tool
+        // --- Draw Tool ---
         if (buffers.toolPosition) {
              gl.bindBuffer(gl.ARRAY_BUFFER, buffers.toolPosition);
             gl.vertexAttribPointer(programInfo.attribLocations.vertexPosition, 3, gl.FLOAT, false, 0, 0);

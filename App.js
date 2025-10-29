@@ -18,6 +18,7 @@ import ThemeToggle from './components/ThemeToggle.js';
 import StatusBar from './components/StatusBar.js';
 import { AlertTriangle, OctagonAlert, Unlock, Settings } from './components/Icons.js';
 import { estimateGCodeTime } from './services/gcodeTimeEstimator.js';
+import { analyzeGCode } from './services/gcodeAnalyzer.js';
 
 const GRBL_ALARM_CODES = {
     1: { name: 'Hard limit', desc: 'A limit switch was triggered. Usually due to machine travel limits.', resolution: 'Check for obstructions. The machine may need to be moved off the switch manually. Use the "$X" command to unlock after clearing the issue, then perform a homing cycle ($H).' },
@@ -119,6 +120,7 @@ const App = () => {
     const [jobStartOptions, setJobStartOptions] = useState({ startLine: 0, isDryRun: false });
     const [isHomedSinceConnect, setIsHomedSinceConnect] = useState(false);
     const [isMacroRunning, setIsMacroRunning] = useState(false);
+    const [preflightWarnings, setPreflightWarnings] = useState([]);
 
     // Macro Editing State
     const [isMacroEditorOpen, setIsMacroEditorOpen] = useState(false);
@@ -128,6 +130,7 @@ const App = () => {
     // Advanced Features State
     const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
     const [isToolLibraryModalOpen, setIsToolLibraryModalOpen] = useState(false);
+    const [selectedToolId, setSelectedToolId] = useState(null);
 
 
     // Persisted State
@@ -476,6 +479,7 @@ const App = () => {
         setFileName(name);
         setProgress(0);
         setJobStatus(JobStatus.Idle);
+        setSelectedToolId(null);
         setTimeEstimate(estimateGCodeTime(lines));
         addLog({ type: 'status', message: `Loaded ${name} (${lines.length} lines).` });
     };
@@ -518,6 +522,8 @@ const App = () => {
         switch (action) {
             case 'start':
                 if (gcodeLines.length > 0) {
+                    const warnings = analyzeGCode(gcodeLines, machineSettings);
+                    setPreflightWarnings(warnings);
                     setJobStartOptions({ startLine: options?.startLine ?? 0, isDryRun: false });
                     setIsPreflightModalOpen(true);
                 }
@@ -551,7 +557,7 @@ const App = () => {
                 });
                 break;
         }
-    }, [isConnected, gcodeLines]);
+    }, [isConnected, gcodeLines, machineSettings]);
     
     const handleManualCommand = useCallback((command) => {
         serialManagerRef.current?.sendLine(command);
@@ -881,6 +887,7 @@ const App = () => {
 
 
     const isAnyControlLocked = !isConnected || isJobActive || isJogging || isMacroRunning || ['Alarm', 'Home'].includes(machineState?.status);
+    const selectedTool = toolLibrary.find(t => t.id === selectedToolId) || null;
 
     return React.createElement('div', { className: "min-h-screen bg-background font-sans text-text-primary flex flex-col" },
         !isAudioUnlocked && React.createElement('div', { className: "bg-accent-yellow/20 text-accent-yellow text-center p-2 text-sm font-semibold animate-pulse" },
@@ -895,7 +902,9 @@ const App = () => {
             onCancel: () => setIsPreflightModalOpen(false),
             onConfirm: handleStartJobConfirmed,
             jobInfo: { fileName, gcodeLines, timeEstimate, startLine: jobStartOptions.startLine },
-            isHomed: isHomedSinceConnect
+            isHomed: isHomedSinceConnect,
+            warnings: preflightWarnings,
+            selectedTool: selectedTool,
         }),
         React.createElement(MacroEditorModal, {
             isOpen: isMacroEditorOpen,
@@ -994,7 +1003,11 @@ const App = () => {
                     onGCodeChange: handleGCodeChange,
                     machineState: machineState,
                     onFeedOverride: handleFeedOverride,
-                    timeEstimate: timeEstimate
+                    timeEstimate: timeEstimate,
+                    machineSettings: machineSettings,
+                    toolLibrary: toolLibrary,
+                    selectedToolId: selectedToolId,
+                    onToolSelect: setSelectedToolId,
                 })
             ),
             React.createElement('div', { className: "flex flex-col gap-4 overflow-hidden min-h-0" },

@@ -1,6 +1,7 @@
+
 import React, { useRef, useState, useEffect } from 'react';
 import { JobStatus } from '../types.js';
-import { Play, Pause, Square, Upload, FileText, Code, Eye, Maximize, Pencil, CheckCircle, X, Save, Plus, Minus, RefreshCw, Percent, ZoomIn, ZoomOut, Clock } from './Icons.js';
+import { Play, Pause, Square, Upload, FileText, Code, Eye, Maximize, Pencil, CheckCircle, X, Save, Plus, Minus, RefreshCw, Percent, ZoomIn, ZoomOut, Clock, BookOpen } from './Icons.js';
 import GCodeVisualizer from './GCodeVisualizer.js';
 import GCodeLine from './GCodeLine.js';
 
@@ -35,7 +36,12 @@ const formatTime = (totalSeconds) => {
     return `${hh}:${mm}:${ss}`;
 };
 
-const GCodePanel = ({ onFileLoad, fileName, gcodeLines, onJobControl, jobStatus, progress, isConnected, unit, onGCodeChange, machineState, onFeedOverride, timeEstimate }) => {
+const GCodePanel = ({ 
+    onFileLoad, fileName, gcodeLines, onJobControl, 
+    jobStatus, progress, isConnected, unit, onGCodeChange, 
+    machineState, onFeedOverride, timeEstimate, 
+    machineSettings, toolLibrary, selectedToolId, onToolSelect 
+}) => {
     const fileInputRef = useRef(null);
     const visualizerRef = useRef(null);
     const codeContainerRef = useRef(null);
@@ -165,7 +171,8 @@ const GCodePanel = ({ onFileLoad, fileName, gcodeLines, onJobControl, jobStatus,
                     gcodeLines, 
                     currentLine, 
                     unit: unit,
-                    hoveredLineIndex: hoveredLineIndex
+                    hoveredLineIndex: hoveredLineIndex,
+                    machineSettings: machineSettings,
                 });
             }
             if (view === 'code') {
@@ -347,7 +354,21 @@ const GCodePanel = ({ onFileLoad, fileName, gcodeLines, onJobControl, jobStatus,
                 )
             )
         ),
-        fileName && React.createElement('p', { className: "text-sm text-text-secondary mb-2 truncate", title: fileName }, `File: ${fileName}`),
+        fileName && React.createElement('div', { className: 'grid grid-cols-2 gap-4 mb-2' },
+            React.createElement('p', { className: "text-sm text-text-secondary truncate", title: fileName }, React.createElement('strong', null, 'File: '), fileName),
+            React.createElement('div', { className: 'flex items-center gap-2' },
+                React.createElement(BookOpen, { className: 'w-5 h-5 text-text-secondary flex-shrink-0' }),
+                React.createElement('select', {
+                    value: selectedToolId || '',
+                    onChange: e => onToolSelect(e.target.value ? parseInt(e.target.value, 10) : null),
+                    disabled: isJobActive || toolLibrary.length === 0,
+                    className: 'w-full bg-background border border-secondary rounded-md py-1 px-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50'
+                },
+                    React.createElement('option', { value: '' }, toolLibrary.length > 0 ? 'Select a tool...' : 'No tools in library'),
+                    toolLibrary.map(tool => React.createElement('option', { key: tool.id, value: tool.id }, tool.name))
+                )
+            )
+        ),
         
         React.createElement('div', { className: "space-y-4 flex-shrink-0 mb-4" },
             React.createElement('div', { className: "grid grid-cols-3 gap-4" },
