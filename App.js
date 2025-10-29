@@ -1,7 +1,4 @@
 
-
-
-
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { SerialManager } from './services/serialService.js';
 import { SimulatedSerialManager } from './services/simulatedSerialService.js';
@@ -508,7 +505,7 @@ const App = () => {
             return;
         }
     
-        const probeTravel = unit === 'mm' ? -20 : -0.8;
+        const probeTravel = unit === 'mm' ? -25 : -1.0;
         const probeFeed = unit === 'mm' ? 25 : 1;
         const retractDist = unit === 'mm' ? 5 : 0.2;
     
