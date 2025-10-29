@@ -1,0 +1,109 @@
+import React, { useState, useEffect } from 'react';
+import { CheckCircle, X, AlertTriangle } from './Icons.js';
+
+const h = React.createElement;
+
+const ChecklistItem = ({ isMet, text, children }) => {
+    return h('li', { className: 'flex items-start gap-3 py-2' },
+        isMet
+            ? h(CheckCircle, { className: 'w-6 h-6 text-accent-green flex-shrink-0 mt-0.5' })
+            : h(AlertTriangle, { className: 'w-6 h-6 text-accent-yellow flex-shrink-0 mt-0.5' }),
+        h('div', null,
+            h('span', { className: `font-semibold ${isMet ? 'text-text-primary' : 'text-accent-yellow'}` }, text),
+            children && h('div', { className: 'text-sm text-text-secondary mt-1' }, children)
+        )
+    );
+};
+
+
+const PreflightChecklistModal = ({ isOpen, onCancel, onConfirm, jobInfo, isHomed }) => {
+    const [isWorkZeroSet, setIsWorkZeroSet] = useState(false);
+    const [isToolpathChecked, setIsToolpathChecked] = useState(false);
+
+    // Reset checkboxes when modal is opened
+    useEffect(() => {
+        if (isOpen) {
+            setIsWorkZeroSet(false);
+            setIsToolpathChecked(false);
+        }
+    }, [isOpen]);
+
+    if (!isOpen) {
+        return null;
+    }
+    
+    const allChecksPassed = isHomed && isWorkZeroSet && isToolpathChecked;
+
+    const formatTime = (totalSeconds) => {
+        if (totalSeconds < 1) return '< 1 minute';
+        const hours = Math.floor(totalSeconds / 3600);
+        const minutes = Math.floor((totalSeconds % 3600) / 60);
+        return `${hours > 0 ? `${hours}h ` : ''}${minutes}m`;
+    };
+
+    return h('div', {
+        className: 'fixed inset-0 bg-background/80 backdrop-blur-sm z-40 flex items-center justify-center',
+        onClick: onCancel,
+        'aria-modal': true,
+        role: 'dialog'
+    },
+        h('div', {
+            className: 'bg-surface rounded-lg shadow-2xl w-full max-w-lg border border-secondary transform transition-all',
+            onClick: e => e.stopPropagation()
+        },
+            h('div', { className: 'p-6 border-b border-secondary' },
+                h('h2', { className: 'text-2xl font-bold text-text-primary' }, 'Pre-Flight Checklist'),
+                h('p', { className: 'text-text-secondary mt-1' }, 'Confirm machine state before starting job.')
+            ),
+            h('div', { className: 'p-6 space-y-4' },
+                h('div', { className: 'bg-background p-4 rounded-md' },
+                    h('h3', { className: 'font-bold text-text-primary mb-2' }, 'Job Summary'),
+                    h('p', { className: 'text-sm text-text-secondary truncate' }, h('strong', null, 'File: '), jobInfo.fileName),
+                    h('p', { className: 'text-sm text-text-secondary' }, h('strong', null, 'Lines: '), jobInfo.gcodeLines.length.toLocaleString()),
+                    h('p', { className: 'text-sm text-text-secondary' }, h('strong', null, 'Est. Time: '), formatTime(jobInfo.timeEstimate.totalSeconds))
+                ),
+
+                h('ul', { className: 'space-y-2' },
+                    h(ChecklistItem, { isMet: isHomed, text: 'Machine is Homed' },
+                        !isHomed && h('p', null, 'The machine must be homed before starting a job. Use the "Home" command in the jog panel.')
+                    ),
+                    h(ChecklistItem, { isMet: isWorkZeroSet, text: 'Work Zero is Set' },
+                        h('label', { className: 'flex items-center gap-2 mt-2 cursor-pointer' },
+                            h('input', {
+                                type: 'checkbox',
+                                checked: isWorkZeroSet,
+                                onChange: e => setIsWorkZeroSet(e.target.checked),
+                                className: 'h-4 w-4 rounded border-secondary text-primary focus:ring-primary'
+                            }),
+                            'I have correctly set the WCS origin (X, Y, and Z zero) for this job.'
+                        )
+                    ),
+                    h(ChecklistItem, { isMet: isToolpathChecked, text: 'Toolpath is Safe and Correct' },
+                         h('label', { className: 'flex items-center gap-2 mt-2 cursor-pointer' },
+                            h('input', {
+                                type: 'checkbox',
+                                checked: isToolpathChecked,
+                                onChange: e => setIsToolpathChecked(e.target.checked),
+                                className: 'h-4 w-4 rounded border-secondary text-primary focus:ring-primary'
+                            }),
+                            'I have verified the toolpath, clamps, and stock are clear and correct.'
+                        )
+                    )
+                )
+            ),
+            h('div', { className: 'bg-background px-6 py-4 flex justify-end items-center gap-4 rounded-b-lg' },
+                h('button', {
+                    onClick: onCancel,
+                    className: 'px-4 py-2 bg-secondary text-white font-semibold rounded-md hover:bg-secondary-focus focus:outline-none focus:ring-2 focus:ring-secondary focus:ring-offset-2 focus:ring-offset-background'
+                }, 'Cancel'),
+                h('button', {
+                    onClick: onConfirm,
+                    disabled: !allChecksPassed,
+                    className: 'px-6 py-2 bg-accent-green text-white font-bold rounded-md hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 focus:ring-offset-background disabled:bg-secondary disabled:cursor-not-allowed flex items-center gap-2'
+                }, h(CheckCircle, { className: 'w-5 h-5' }), 'Confirm & Start Job')
+            )
+        )
+    );
+};
+
+export default PreflightChecklistModal;

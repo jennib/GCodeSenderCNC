@@ -1,5 +1,6 @@
 
 
+
 import React, { useState, useRef, useEffect } from 'react';
 import { ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Home, Pin, ChevronDown, RotateCw, RotateCcw, PowerOff, Probe } from './Icons.js';
 
@@ -32,6 +33,7 @@ const JogPanel = ({
     onUnitChange,
     isJobActive,
     isJogging,
+    isMacroRunning,
 }) => {
     const [spindleSpeed, setSpindleSpeed] = useState(1000);
     const [probeOffsetZ, setProbeOffsetZ] = useState(unit === 'mm' ? 15.0 : 0.59);
@@ -63,7 +65,7 @@ const JogPanel = ({
         setIsHomeMenuOpen(false);
     };
 
-    const isControlDisabled = !isConnected || isJobActive || isJogging || ['Alarm', 'Home', 'Jog'].includes(machineState?.status);
+    const isControlDisabled = !isConnected || isJobActive || isJogging || isMacroRunning || ['Alarm', 'Home', 'Jog'].includes(machineState?.status);
 
     const JogButton = ({ id, axis, direction, icon, label, hotkey }) => h('button', {
         id,

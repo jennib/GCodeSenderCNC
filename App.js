@@ -1,5 +1,6 @@
 
 
+
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { SerialManager } from './services/serialService.js';
 import { SimulatedSerialManager } from './services/simulatedSerialService.js';
@@ -8,6 +9,9 @@ import SerialConnector from './components/SerialConnector.js';
 import GCodePanel from './components/GCodePanel.js';
 import Console from './components/Console.js';
 import JogPanel from './components/JogPanel.js';
+import MacrosPanel from './components/MacrosPanel.js';
+import PreflightChecklistModal from './components/PreflightChecklistModal.js';
+import MacroEditorModal from './components/MacroEditorModal.js';
 import { NotificationContainer } from './components/Notification.js';
 import ThemeToggle from './components/ThemeToggle.js';
 import { AlertTriangle, OctagonAlert, Unlock, RotateCw, RotateCcw, PowerOff } from './components/Icons.js';
@@ -62,6 +66,16 @@ const GRBL_ERROR_CODES = {
     37: 'The G43.1 dynamic tool length offset command cannot apply an offset to an axis other than its configured axis.',
     38: 'Tool number greater than max supported value.',
 };
+
+const DEFAULT_MACROS = [
+    { name: 'Go to WCS Zero', commands: ['G90', 'G0 X0 Y0'] },
+    { name: 'Safe Z & WCS Zero', commands: ['G90', 'G0 Z10', 'G0 X0 Y0'] },
+    { name: 'Spindle On (1k RPM)', commands: ['M3 S1000'] },
+    { name: 'Spindle Off', commands: ['M5'] },
+    { name: 'Go to G54 Zero', commands: ['G54 G0 X0 Y0'] },
+    { name: 'Reset All Offsets', commands: ['G92.1'] },
+];
+
 
 const usePrevious = (value) => {
     const ref = useRef();
@@ -138,6 +152,16 @@ const App = () => {
     const [isAudioUnlocked, setIsAudioUnlocked] = useState(false);
     const [timeEstimate, setTimeEstimate] = useState({ totalSeconds: 0, cumulativeSeconds: [] });
 
+    const [isPreflightModalOpen, setIsPreflightModalOpen] = useState(false);
+    const [isHomedSinceConnect, setIsHomedSinceConnect] = useState(false);
+    const [isMacroRunning, setIsMacroRunning] = useState(false);
+
+    // Macro Editing State
+    const [isMacroEditorOpen, setIsMacroEditorOpen] = useState(false);
+    const [editingMacroIndex, setEditingMacroIndex] = useState(null);
+    const [isMacroEditMode, setIsMacroEditMode] = useState(false);
+
+
     // Persisted State
     const [jogStep, setJogStep] = useState(() => {
         try {
@@ -156,6 +180,14 @@ const App = () => {
             const saved = localStorage.getItem('cnc-app-theme');
             return saved !== null ? JSON.parse(saved) : false;
         } catch { return false; }
+    });
+    const [macros, setMacros] = useState(() => {
+        try {
+            const saved = localStorage.getItem('cnc-app-macros');
+            return saved ? JSON.parse(saved) : DEFAULT_MACROS;
+        } catch {
+            return DEFAULT_MACROS;
+        }
     });
 
     const serialManagerRef = useRef(null);
@@ -180,6 +212,15 @@ const App = () => {
     useEffect(() => {
         localStorage.setItem('cnc-app-jogstep', JSON.stringify(jogStep));
     }, [jogStep]);
+
+     useEffect(() => {
+        try {
+            localStorage.setItem('cnc-app-macros', JSON.stringify(macros));
+        } catch (error) {
+            console.error("Could not save macros to localStorage:", error);
+            addNotification('Could not save macros.', 'error');
+        }
+    }, [macros]);
     
     useEffect(() => {
         // We are no longer jogging if the machine reports back that it is idle or has an alarm.
@@ -313,6 +354,7 @@ const App = () => {
     useEffect(() => {
         if (prevState?.status === 'Home' && machineState?.status === 'Idle') {
             addNotification('Homing complete.', 'success');
+            setIsHomedSinceConnect(true);
         }
     }, [machineState, prevState, addNotification]);
     
@@ -347,6 +389,7 @@ const App = () => {
                 addLog({ type: 'status', message: `Connected to ${useSimulator ? 'simulator' : 'port'} at 115200 baud.` });
                 setError(null);
                 setIsSimulatedConnection(useSimulator);
+                setIsHomedSinceConnect(false); // Reset homing status on new connection
             },
             onDisconnect: () => {
                 setIsConnected(false);
@@ -357,6 +400,7 @@ const App = () => {
                 addLog({ type: 'status', message: 'Disconnected.' });
                 serialManagerRef.current = null;
                 setIsSimulatedConnection(false);
+                setIsHomedSinceConnect(false);
             },
             onLog: addLog,
             onProgress: (p) => {
@@ -435,6 +479,15 @@ const App = () => {
         addLog({ type: 'status', message: `G-code modified (${lines.length} lines).` });
     };
 
+    const handleStartJobConfirmed = useCallback(() => {
+        const manager = serialManagerRef.current;
+        if (!manager || !isConnected || gcodeLines.length === 0) return;
+
+        setIsPreflightModalOpen(false);
+        setJobStatus(JobStatus.Running);
+        manager.sendGCode(gcodeLines);
+    }, [isConnected, gcodeLines]);
+
     const handleJobControl = useCallback((action) => {
         const manager = serialManagerRef.current;
         if (!manager || !isConnected) return;
@@ -442,13 +495,7 @@ const App = () => {
         switch (action) {
             case 'start':
                 if (gcodeLines.length > 0) {
-                    setJobStatus(currentStatus => {
-                        if (currentStatus === JobStatus.Idle || currentStatus === JobStatus.Stopped || currentStatus === JobStatus.Complete) {
-                            manager.sendGCode(gcodeLines);
-                            return JobStatus.Running;
-                        }
-                        return currentStatus;
-                    });
+                    setIsPreflightModalOpen(true);
                 }
                 break;
             case 'pause':
@@ -736,6 +783,64 @@ const App = () => {
         addLog({type: 'status', message: `Work coordinate origin set for ${axes.toUpperCase()}.`});
     }, [addLog]);
 
+    const handleRunMacro = useCallback(async (commands) => {
+        const manager = serialManagerRef.current;
+        if (!manager) return;
+
+        // Replace placeholders in commands
+        const processedCommands = commands.map(cmd => 
+            cmd.replace(/{unit}/g, unit)
+               .replace(/{safe_z}/g, unit === 'mm' ? '10' : '0.4')
+        );
+
+        setIsMacroRunning(true);
+        addLog({ type: 'status', message: `Running macro: ${processedCommands.join('; ')}` });
+        try {
+            for (const command of processedCommands) {
+                await manager.sendLineAndWaitForOk(command);
+            }
+            addLog({ type: 'status', message: 'Macro finished.' });
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : "Unknown error";
+            addLog({ type: 'error', message: `Macro failed: ${errorMessage}` });
+            setError(`Macro failed: ${errorMessage}`);
+        } finally {
+            setIsMacroRunning(false);
+        }
+    }, [addLog, unit]);
+
+    // --- Macro Editor Handlers ---
+    const handleOpenMacroEditor = useCallback((index) => {
+        setEditingMacroIndex(index);
+        setIsMacroEditorOpen(true);
+    }, []);
+
+    const handleCloseMacroEditor = useCallback(() => {
+        setIsMacroEditorOpen(false);
+        setEditingMacroIndex(null);
+    }, []);
+
+    const handleSaveMacro = useCallback((macro, index) => {
+        setMacros(prevMacros => {
+            const newMacros = [...prevMacros];
+            if (index !== null && index >= 0) {
+                // Editing existing macro
+                newMacros[index] = macro;
+            } else {
+                // Adding new macro
+                newMacros.push(macro);
+            }
+            return newMacros;
+        });
+        addNotification('Macro saved!', 'success');
+    }, [addNotification]);
+    
+    const handleDeleteMacro = useCallback((index) => {
+        setMacros(prevMacros => prevMacros.filter((_, i) => i !== index));
+        addNotification('Macro deleted!', 'success');
+    }, [addNotification]);
+
+
     const alarmInfo = isAlarm ? (GRBL_ALARM_CODES[machineState.code] || GRBL_ALARM_CODES.default) : null;
     const isJobActive = jobStatus === JobStatus.Running || jobStatus === JobStatus.Paused;
 
@@ -756,6 +861,8 @@ const App = () => {
     }, [isJobActive]);
 
 
+    const isAnyControlLocked = !isConnected || isJobActive || isJogging || isMacroRunning || ['Alarm', 'Home'].includes(machineState?.status);
+
     return React.createElement('div', { className: "min-h-screen bg-background font-sans text-text-primary flex flex-col" },
         !isAudioUnlocked && React.createElement('div', { className: "bg-accent-yellow/20 text-accent-yellow text-center p-2 text-sm font-semibold animate-pulse" },
             "Click anywhere or press any key to enable sound notifications"
@@ -763,6 +870,21 @@ const App = () => {
         React.createElement(NotificationContainer, {
             notifications: notifications,
             onDismiss: removeNotification
+        }),
+        React.createElement(PreflightChecklistModal, {
+            isOpen: isPreflightModalOpen,
+            onCancel: () => setIsPreflightModalOpen(false),
+            onConfirm: handleStartJobConfirmed,
+            jobInfo: { fileName, gcodeLines, timeEstimate },
+            isHomed: isHomedSinceConnect
+        }),
+        React.createElement(MacroEditorModal, {
+            isOpen: isMacroEditorOpen,
+            onCancel: handleCloseMacroEditor,
+            onSave: handleSaveMacro,
+            onDelete: handleDeleteMacro,
+            macro: editingMacroIndex !== null ? macros[editingMacroIndex] : null,
+            index: editingMacroIndex
         }),
         React.createElement('header', { className: "bg-surface shadow-md p-4 flex justify-between items-center z-10 flex-shrink-0 gap-4" },
             React.createElement('div', { className: "flex items-center gap-4" },
@@ -857,13 +979,23 @@ const App = () => {
                     unit: unit,
                     onUnitChange: handleUnitChange,
                     isJobActive: isJobActive,
-                    isJogging: isJogging
+                    isJogging: isJogging,
+                    isMacroRunning: isMacroRunning,
+                }),
+                React.createElement(MacrosPanel, {
+                    macros: macros,
+                    onRunMacro: handleRunMacro,
+                    onOpenEditor: handleOpenMacroEditor,
+                    isEditMode: isMacroEditMode,
+                    onToggleEditMode: () => setIsMacroEditMode(prev => !prev),
+                    disabled: isAnyControlLocked
                 }),
                 React.createElement(Console, {
                     logs: consoleLogs,
                     onSendCommand: handleManualCommand,
                     isConnected: isConnected,
                     isJobActive: isJobActive,
+                    isMacroRunning: isMacroRunning,
                     isLightMode: isLightMode
                 })
             )
