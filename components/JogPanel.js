@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Home, Pin, ChevronDown, RotateCw, RotateCcw, PowerOff, Probe } from './Icons.js';
 
@@ -52,17 +53,28 @@ const JogPanel = ({
     };
 
     const isControlDisabled = !isConnected || isJobActive || isJogging || isMacroRunning || ['Alarm', 'Home', 'Jog'].includes(machineState?.status);
+    const isZJogDisabledForStep = (unit === 'mm' && jogStep > 10) || (unit === 'in' && jogStep > 1);
 
-    const JogButton = ({ id, axis, direction, icon, label, hotkey }) => h('button', {
-        id,
-        onMouseDown: () => {
-            onJog(axis, direction, jogStep);
-            onFlash(id);
-        },
-        disabled: isControlDisabled,
-        className: `flex items-center justify-center p-4 bg-secondary rounded-md hover:bg-secondary-focus focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-surface disabled:opacity-50 disabled:cursor-not-allowed ${flashingButton === id ? 'ring-4 ring-white ring-inset' : ''}`,
-        title: `${label} (${axis}${direction > 0 ? '+' : '-'}) (Hotkey: ${hotkey})`
-    }, icon);
+    const JogButton = ({ id, axis, direction, icon, label, hotkey }) => {
+        const isZButton = axis === 'Z';
+        const isDisabled = isControlDisabled || (isZButton && isZJogDisabledForStep);
+
+        let title = `${label} (${axis}${direction > 0 ? '+' : '-'}) (Hotkey: ${hotkey})`;
+        if (isZButton && isZJogDisabledForStep) {
+            title = `Z-Jog disabled for step size > ${unit === 'mm' ? '10mm' : '1in'}`;
+        }
+        
+        return h('button', {
+            id,
+            onMouseDown: () => {
+                onJog(axis, direction, jogStep);
+                onFlash(id);
+            },
+            disabled: isDisabled,
+            className: `flex items-center justify-center p-4 bg-secondary rounded-md hover:bg-secondary-focus focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-surface disabled:opacity-50 disabled:cursor-not-allowed ${flashingButton === id ? 'ring-4 ring-white ring-inset' : ''}`,
+            title: title
+        }, icon);
+    };
     
     const stepSizes = unit === 'mm' ? [0.01, 0.1, 1, 10, 50] : [0.001, 0.01, 0.1, 1, 2];
 

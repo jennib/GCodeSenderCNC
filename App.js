@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { SerialManager } from './services/serialService.js';
 import { SimulatedSerialManager } from './services/simulatedSerialService.js';
@@ -563,8 +564,8 @@ const App = () => {
             addLog({ type: 'error', message: 'Z-axis jog step cannot exceed 10mm.' });
             return;
         }
-        if (axis === 'Z' && unit === 'in' && step > 0.4) {
-            addLog({ type: 'error', message: 'Z-axis jog step cannot exceed 0.4in.' });
+        if (axis === 'Z' && unit === 'in' && step > 1) {
+            addLog({ type: 'error', message: 'Z-axis jog step cannot exceed 1in.' });
             return;
         }
 
