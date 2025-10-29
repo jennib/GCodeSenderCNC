@@ -1,21 +1,7 @@
-
-
-
 import React, { useState, useRef, useEffect } from 'react';
 import { ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Home, Pin, ChevronDown, RotateCw, RotateCcw, PowerOff, Probe } from './Icons.js';
 
 const h = React.createElement;
-
-const formatCoordinate = (val) => val?.toFixed(3) ?? '0.000';
-
-const PositionDisplay = ({ title, pos, unit }) => h('div', null,
-    h('h4', { className: "text-sm font-bold text-text-secondary mb-1" }, title),
-    h('div', { className: "grid grid-cols-3 gap-2 text-center font-mono bg-background p-2 rounded-md" },
-        h('div', null, h('span', { className: "font-bold text-red-400" }, "X "), `${formatCoordinate(pos?.x)}`, h('span', { className: 'text-xs text-text-secondary ml-1' }, unit)),
-        h('div', null, h('span', { className: "font-bold text-green-400" }, "Y "), `${formatCoordinate(pos?.y)}`, h('span', { className: 'text-xs text-text-secondary ml-1' }, unit)),
-        h('div', null, h('span', { className: "font-bold text-blue-400" }, "Z "), `${formatCoordinate(pos?.z)}`, h('span', { className: 'text-xs text-text-secondary ml-1' }, unit))
-    )
-);
 
 const JogPanel = ({
     isConnected,
@@ -81,12 +67,6 @@ const JogPanel = ({
     const stepSizes = unit === 'mm' ? [0.01, 0.1, 1, 10, 50] : [0.001, 0.01, 0.1, 1, 2];
 
     return h('div', { className: "bg-surface rounded-lg shadow-lg flex flex-col p-4 gap-4" },
-        // Position Displays
-        h('div', { className: "grid grid-cols-1 md:grid-cols-2 gap-4" },
-            h(PositionDisplay, { title: "Work Position (WPos)", pos: machineState?.wpos, unit: unit }),
-            h(PositionDisplay, { title: "Machine Position (MPos)", pos: machineState?.mpos, unit: unit })
-        ),
-        
         // Controls
         h('div', { className: "grid grid-cols-1 md:grid-cols-2 gap-4" },
             // Jog Controls

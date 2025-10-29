@@ -11,7 +11,8 @@ import PreflightChecklistModal from './components/PreflightChecklistModal.js';
 import MacroEditorModal from './components/MacroEditorModal.js';
 import { NotificationContainer } from './components/Notification.js';
 import ThemeToggle from './components/ThemeToggle.js';
-import { AlertTriangle, OctagonAlert, Unlock, RotateCw, RotateCcw, PowerOff } from './components/Icons.js';
+import StatusBar from './components/StatusBar.js';
+import { AlertTriangle, OctagonAlert, Unlock } from './components/Icons.js';
 import { estimateGCodeTime } from './services/gcodeTimeEstimator.js';
 
 const GRBL_ALARM_CODES = {
@@ -81,54 +82,6 @@ const usePrevious = (value) => {
     });
     return ref.current;
 };
-
-const StatusIndicator = ({ isConnected, machineState }) => {
-    const getStatusIndicatorClass = () => {
-        if (!isConnected) return 'bg-accent-yellow/20 text-accent-yellow';
-        if (machineState?.status === 'Alarm') return 'bg-accent-red/20 text-accent-red';
-        return 'bg-accent-green/20 text-accent-green';
-    };
-
-    const statusText = isConnected 
-        ? (machineState?.status === 'Home' ? 'Homing' : machineState?.status || 'Connected') 
-        : 'Disconnected';
-
-    return React.createElement('div', { className: "flex items-center gap-2" },
-        React.createElement('span', { className: "font-semibold text-sm text-text-secondary" }, "Status:"),
-        React.createElement('span', { className: `px-3 py-1 text-sm rounded-full font-bold ${getStatusIndicatorClass()}` },
-            statusText
-        )
-    );
-};
-
-const SpindleStatusIndicator = ({ machineState, isConnected }) => {
-    if (!isConnected) {
-        return null; // Don't show anything if not connected
-    }
-
-    const spindleState = machineState?.spindle?.state || 'off';
-    const spindleSpeed = machineState?.spindle?.speed || 0;
-
-    if (spindleState === 'off' || spindleSpeed === 0) {
-        return React.createElement('div', { className: "flex items-center gap-2 text-sm text-text-secondary" },
-            React.createElement(PowerOff, { className: "w-5 h-5" }),
-            React.createElement('span', null, "Spindle Off")
-        );
-    }
-    
-    const icon = spindleState === 'cw' 
-        ? React.createElement(RotateCw, { className: "w-5 h-5 text-accent-green animate-spin-slow" })
-        : React.createElement(RotateCcw, { className: "w-5 h-5 text-accent-green animate-spin-slow-reverse" });
-
-    return React.createElement('div', { className: "flex items-center gap-2 text-sm text-text-primary" },
-        icon,
-        React.createElement('div', { className: 'flex flex-col leading-tight' },
-            React.createElement('span', { className: 'font-bold' }, `${spindleSpeed.toLocaleString()} RPM`),
-            React.createElement('span', { className: 'text-xs text-text-secondary' }, spindleState === 'cw' ? 'Clockwise' : 'Counter-CW')
-        )
-    );
-};
-
 
 const App = () => {
     const [isConnected, setIsConnected] = useState(false);
@@ -345,7 +298,7 @@ const App = () => {
             }
             
             // For any other message, or the first 'ok' in a sequence.
-            return [...prev, processedLog].slice(-20); // Keep last 20 logs
+            return [...prev, processedLog].slice(-200); // Keep last 200 logs
         });
     }, []);
     
@@ -890,19 +843,9 @@ const App = () => {
         }),
         React.createElement('header', { className: "bg-surface shadow-md p-4 flex justify-between items-center z-10 flex-shrink-0 gap-4" },
             React.createElement('div', { className: "flex items-center gap-4" },
-                React.createElement('h1', { className: "text-xl font-bold hidden sm:block" }, "CNC G-Code Sender", React.createElement('span', { className: "ml-2 bg-primary/20 text-primary text-xs font-semibold px-2 py-0.5 rounded-full align-middle" }, "Milestone 2")),
-                React.createElement(StatusIndicator, { isConnected: isConnected, machineState: machineState }),
-                React.createElement(SpindleStatusIndicator, { isConnected: isConnected, machineState: machineState })
+                 React.createElement('h1', { className: "text-xl font-bold" }, "CNC Sender 3D")
             ),
             React.createElement('div', { className: "flex items-center gap-4" },
-                isConnected && React.createElement('button', {
-                    onClick: handleEmergencyStop,
-                    className: `flex items-center gap-2 px-3 py-2 bg-red-600 text-white font-bold rounded-md hover:bg-red-800 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-surface transition-all duration-100 animate-pulse ${flashingButton === 'estop' ? 'ring-4 ring-white ring-inset' : ''}`,
-                    title: "Emergency Stop (Soft Reset) (Hotkey: Esc)"
-                },
-                    React.createElement(OctagonAlert, { className: "w-5 h-5" }),
-                    React.createElement('span', { className: "hidden md:inline" }, "E-STOP")
-                ),
                 React.createElement(ThemeToggle, {
                     isLightMode: isLightMode,
                     onToggle: () => setIsLightMode(prev => !prev)
@@ -919,6 +862,13 @@ const App = () => {
                 })
             )
         ),
+        React.createElement(StatusBar, {
+            isConnected: isConnected,
+            machineState: machineState,
+            unit: unit,
+            onEmergencyStop: handleEmergencyStop,
+            flashingButton: flashingButton
+        }),
         isAlarm && React.createElement('div', { className: "bg-accent-red/20 border-b-4 border-accent-red text-accent-red p-4 m-4 flex items-start", role: "alert" },
              React.createElement(OctagonAlert, { className: "h-8 w-8 mr-4 flex-shrink-0" }),
              React.createElement('div', { className: "flex-grow" },

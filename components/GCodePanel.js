@@ -43,6 +43,7 @@ const GCodePanel = ({ onFileLoad, fileName, gcodeLines, onJobControl, jobStatus,
     const [isEditing, setIsEditing] = useState(false);
     const [editedGCode, setEditedGCode] = useState('');
     const [isDraggingOver, setIsDraggingOver] = useState(false);
+    const [hoveredLineIndex, setHoveredLineIndex] = useState(null);
 
     useEffect(() => {
         setEditedGCode(gcodeLines.join('\n'));
@@ -163,7 +164,8 @@ const GCodePanel = ({ onFileLoad, fileName, gcodeLines, onJobControl, jobStatus,
                     ref: visualizerRef, 
                     gcodeLines, 
                     currentLine, 
-                    unit: unit
+                    unit: unit,
+                    hoveredLineIndex: hoveredLineIndex
                 });
             }
             if (view === 'code') {
@@ -183,8 +185,11 @@ const GCodePanel = ({ onFileLoad, fileName, gcodeLines, onJobControl, jobStatus,
                             lineNumber: index + 1,
                             isExecuted: index < currentLine,
                             isCurrent: isJobActive && (index === currentLine),
+                            isHovered: index === hoveredLineIndex,
                             onRunFromHere: handleRunFromLine,
-                            isActionable: isReadyToStart
+                            isActionable: isReadyToStart,
+                            onMouseEnter: () => setHoveredLineIndex(index),
+                            onMouseLeave: () => setHoveredLineIndex(null)
                         })
                     )
                 );

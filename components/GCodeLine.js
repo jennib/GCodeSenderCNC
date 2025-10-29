@@ -52,7 +52,7 @@ const PARAMETER_DEFINITIONS = {
     'T': 'Tool Number (for M6)',
 };
 
-const GCodeLine = ({ line, lineNumber, isExecuted, isCurrent, onRunFromHere, isActionable }) => {
+const GCodeLine = ({ line, lineNumber, isExecuted, isCurrent, isHovered, onRunFromHere, isActionable, onMouseEnter, onMouseLeave }) => {
     const parts = [];
     let lastIndex = 0;
     // Regex to find G/M codes, parameters with values, and comments
@@ -105,10 +105,19 @@ const GCodeLine = ({ line, lineNumber, isExecuted, isCurrent, onRunFromHere, isA
         parts.push(line.substring(lastIndex));
     }
     
-    const lineClasses = `flex group rounded-sm hover:bg-white/5 transition-colors duration-100 ${isCurrent ? 'bg-primary/30' : isExecuted ? 'bg-primary/10' : ''}`;
+    const lineClasses = `flex group rounded-sm transition-colors duration-100 
+        ${isCurrent ? 'bg-primary/30' : 
+           isHovered ? 'bg-white/10' :
+           isExecuted ? 'bg-primary/10' : ''
+        }`;
+    
     const lineNumberClasses = `w-12 text-right pr-2 select-none flex-shrink-0 flex items-center justify-end ${isCurrent ? 'text-accent-red font-bold' : 'text-text-secondary'}`;
 
-    return h('div', { className: lineClasses },
+    return h('div', { 
+        className: lineClasses,
+        onMouseEnter: onMouseEnter,
+        onMouseLeave: onMouseLeave
+    },
         h('div', { className: lineNumberClasses },
             h('button', {
                 onClick: () => onRunFromHere(lineNumber),
