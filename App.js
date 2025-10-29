@@ -1,5 +1,4 @@
 
-
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { SerialManager } from './services/serialService.js';
 import { SimulatedSerialManager } from './services/simulatedSerialService.js';
@@ -78,7 +77,9 @@ const StatusIndicator = ({ isConnected, machineState }) => {
         return 'bg-accent-green/20 text-accent-green';
     };
 
-    const statusText = isConnected ? machineState?.status || 'Connected' : 'Disconnected';
+    const statusText = isConnected 
+        ? (machineState?.status === 'Home' ? 'Homing' : machineState?.status || 'Connected') 
+        : 'Disconnected';
 
     return React.createElement('div', { className: "flex items-center gap-2" },
         React.createElement('span', { className: "font-semibold text-sm text-text-secondary" }, "Status:"),
@@ -130,9 +131,9 @@ const App = () => {
     const [isSerialApiSupported, setIsSerialApiSupported] = useState(true);
     const [useSimulator, setUseSimulator] = useState(false);
     const [machineState, setMachineState] = useState(null);
+    const [isJogging, setIsJogging] = useState(false);
     const [flashingButton, setFlashingButton] = useState(null);
     const [notifications, setNotifications] = useState([]);
-    const [isJogging, setIsJogging] = useState(false);
     const [isAudioUnlocked, setIsAudioUnlocked] = useState(false);
     const [timeEstimate, setTimeEstimate] = useState({ totalSeconds: 0, cumulativeSeconds: [] });
 
@@ -178,6 +179,13 @@ const App = () => {
     useEffect(() => {
         localStorage.setItem('cnc-app-jogstep', JSON.stringify(jogStep));
     }, [jogStep]);
+    
+    useEffect(() => {
+        // We are no longer jogging if the machine reports back that it is idle or has an alarm.
+        if (machineState?.status === 'Idle' || machineState?.status === 'Alarm') {
+            setIsJogging(false);
+        }
+    }, [machineState?.status]);
 
     const removeNotification = useCallback((id) => {
         setNotifications(prev => {
@@ -477,21 +485,12 @@ const App = () => {
         serialManagerRef.current?.sendLine(command);
     }, []);
 
-    useEffect(() => {
-        // A jog command is finished when the machine state transitions from 'Jog' back to a non-jog state.
-        // This effect handles unlocking the controls once that transition is detected.
-        if (isJogging && prevState?.status === 'Jog' && machineState?.status !== 'Jog') {
-            setIsJogging(false);
-        }
-    }, [isJogging, machineState, prevState]);
-
-    const handleJog = useCallback((axis, direction, step) => {
-        // Use the `isJogging` state and current machine status to prevent sending new commands
-        // while a jog is in progress. Adding these to the dependency array ensures
-        // this callback always has the freshest state.
-        if (isJogging || machineState?.status === 'Jog' || !serialManagerRef.current) {
-            return;
-        }
+    // Removing useCallback from handleJog to ensure it's never stale.
+    // This is a key part of the fix, as a stale callback could ignore clicks
+    // if it closed over an old state. The hotkey system was likely getting a
+    // fresh function more reliably than the button component was.
+    const handleJog = (axis, direction, step) => {
+        if (!serialManagerRef.current) return;
 
         if (axis === 'Z' && unit === 'mm' && step > 10) {
             addLog({ type: 'error', message: 'Z-axis jog step cannot exceed 10mm.' });
@@ -502,17 +501,16 @@ const App = () => {
             return;
         }
 
-        setIsJogging(true);
-
         const feedRate = 1000;
         const command = `$J=G91 ${axis}${step * direction} F${feedRate}`;
         
+        setIsJogging(true); // Immediately disable jog buttons to prevent rapid clicks
         serialManagerRef.current.sendLine(command).catch((err) => {
-            setIsJogging(false); // Reset on error
             const errorMessage = err instanceof Error ? err.message : "An error occurred during jog.";
             addLog({ type: 'error', message: `Jog failed: ${errorMessage}` });
+            setIsJogging(false); // Re-enable on failure to send
         });
-    }, [addLog, unit, isJogging, machineState]);
+    };
 
     const flashControl = useCallback((buttonId) => {
         setFlashingButton(buttonId);
@@ -856,8 +854,8 @@ const App = () => {
                     flashingButton: flashingButton,
                     unit: unit,
                     onUnitChange: handleUnitChange,
-                    isJogging: isJogging,
-                    isJobActive: isJobActive
+                    isJobActive: isJobActive,
+                    isJogging: isJogging
                 }),
                 React.createElement(Console, {
                     logs: consoleLogs,

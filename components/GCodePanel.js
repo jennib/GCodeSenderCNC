@@ -105,8 +105,9 @@ const GCodePanel = ({ onFileLoad, fileName, gcodeLines, onJobControl, jobStatus,
         fileInputRef.current?.click();
     };
 
+    const isHoming = machineState?.status === 'Home';
     const isJobActive = jobStatus === JobStatus.Running || jobStatus === JobStatus.Paused;
-    const isReadyToStart = isConnected && gcodeLines.length > 0 && (jobStatus === JobStatus.Idle || jobStatus === JobStatus.Stopped || jobStatus === JobStatus.Complete);
+    const isReadyToStart = isConnected && gcodeLines.length > 0 && (jobStatus === JobStatus.Idle || jobStatus === JobStatus.Stopped || jobStatus === JobStatus.Complete) && !isHoming;
     const totalLines = gcodeLines.length;
     const currentLine = Math.floor((progress / 100) * totalLines);
 
@@ -207,11 +208,11 @@ const GCodePanel = ({ onFileLoad, fileName, gcodeLines, onJobControl, jobStatus,
 
         if (jobStatus === JobStatus.Running) {
             return [
-                React.createElement('button', { key: 'pause', onClick: () => onJobControl('pause'), className: "flex items-center justify-center gap-3 p-5 bg-accent-yellow text-white font-bold rounded-md hover:bg-yellow-600 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2 focus:ring-offset-surface transition-colors text-xl" },
+                React.createElement('button', { key: 'pause', onClick: () => onJobControl('pause'), disabled: isHoming, className: "flex items-center justify-center gap-3 p-5 bg-accent-yellow text-white font-bold rounded-md hover:bg-yellow-600 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2 focus:ring-offset-surface transition-colors text-xl disabled:bg-secondary disabled:cursor-not-allowed" },
                     React.createElement(Pause, { className: "w-8 h-8" }),
                     "Pause"
                 ),
-                React.createElement('button', { key: 'stop', onClick: () => onJobControl('stop'), className: "col-span-2 flex items-center justify-center gap-3 p-5 bg-accent-red text-white font-bold rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-surface transition-colors text-xl" },
+                React.createElement('button', { key: 'stop', onClick: () => onJobControl('stop'), disabled: isHoming, className: "col-span-2 flex items-center justify-center gap-3 p-5 bg-accent-red text-white font-bold rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-surface transition-colors text-xl disabled:bg-secondary disabled:cursor-not-allowed" },
                     React.createElement(Square, { className: "w-8 h-8" }),
                     "Stop Job"
                 )
@@ -220,11 +221,11 @@ const GCodePanel = ({ onFileLoad, fileName, gcodeLines, onJobControl, jobStatus,
 
         if (jobStatus === JobStatus.Paused) {
             return [
-                 React.createElement('button', { key: 'resume', onClick: () => onJobControl('resume'), className: "flex items-center justify-center gap-3 p-5 bg-accent-green text-white font-bold rounded-md hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 focus:ring-offset-surface transition-colors text-xl" },
+                 React.createElement('button', { key: 'resume', onClick: () => onJobControl('resume'), disabled: isHoming, className: "flex items-center justify-center gap-3 p-5 bg-accent-green text-white font-bold rounded-md hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 focus:ring-offset-surface transition-colors text-xl disabled:bg-secondary disabled:cursor-not-allowed" },
                     React.createElement(Play, { className: "w-8 h-8" }),
                     "Resume"
                 ),
-                React.createElement('button', { key: 'stop', onClick: () => onJobControl('stop'), className: "col-span-2 flex items-center justify-center gap-3 p-5 bg-accent-red text-white font-bold rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-surface transition-colors text-xl" },
+                React.createElement('button', { key: 'stop', onClick: () => onJobControl('stop'), disabled: isHoming, className: "col-span-2 flex items-center justify-center gap-3 p-5 bg-accent-red text-white font-bold rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-surface transition-colors text-xl disabled:bg-secondary disabled:cursor-not-allowed" },
                     React.createElement(Square, { className: "w-8 h-8" }),
                     "Stop Job"
                 )

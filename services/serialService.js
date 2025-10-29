@@ -1,4 +1,5 @@
 
+
 export class SerialManager {
     port = null;
     reader = null;
@@ -117,11 +118,29 @@ export class SerialManager {
             const statusPart = parts[0];
             const parsed = {};
 
-            // Extract the main state name, stripping any sub-state codes (e.g., 'Hold:0' -> 'Hold')
-            const status = statusPart.split(':')[0];
-            let code = null;
+            const rawStatus = statusPart.split(':')[0].toLowerCase();
+            let status;
+            // Normalize all possible states to a consistent format.
+            switch(rawStatus) {
+                case 'idle': status = 'Idle'; break;
+                case 'run': status = 'Run'; break;
+                case 'hold': status = 'Hold'; break;
+                case 'jog': status = 'Jog'; break;
+                case 'alarm': status = 'Alarm'; break;
+                case 'door': status = 'Door'; break;
+                case 'check': status = 'Check'; break;
+                case 'home':
+                case 'homing': // Also catch 'homing' and normalize to 'Home'
+                    status = 'Home'; 
+                    break;
+                case 'sleep': status = 'Sleep'; break;
+                default:
+                    // Try to capitalize unknown states as a fallback
+                    status = rawStatus.charAt(0).toUpperCase() + rawStatus.slice(1);
+                    break;
+            }
 
-            // Specifically for alarms, parse the alarm code number
+            let code = null;
             if (status === 'Alarm') {
                 const alarmMatch = statusPart.match(/Alarm:(\d+)/);
                 if (alarmMatch) {
@@ -129,13 +148,9 @@ export class SerialManager {
                 }
             }
             
+            // Always include status and code to ensure state is fully updated.
             parsed.status = status;
-            if (code !== null) {
-                parsed.code = code;
-            } else if (status !== 'Alarm') {
-                // Clear alarm code if status is no longer Alarm
-                parsed.code = null;
-            }
+            parsed.code = code;
 
             for (const part of parts) {
                 if (part.startsWith('WPos:')) {
@@ -182,21 +197,22 @@ export class SerialManager {
                         if (trimmedValue.startsWith('<') && trimmedValue.endsWith('>')) {
                             const statusUpdate = this.parseGrblStatus(trimmedValue);
                             if (statusUpdate) {
-                                // A more robust merge that handles nested state objects correctly.
-                                // Top-level properties are overwritten from the update.
-                                // Nested objects are merged to preserve existing state (like spindle state).
+                                // A more robust state update. Instead of merging with spread syntax,
+                                // we explicitly build the new state to prevent stale properties
+                                // (like an alarm 'code') from persisting incorrectly.
                                 this.lastStatus = {
-                                    ...this.lastStatus,
-                                    ...statusUpdate,
+                                    status: statusUpdate.status,
+                                    code: statusUpdate.code,
                                     wpos: statusUpdate.wpos || this.lastStatus.wpos,
                                     mpos: statusUpdate.mpos || this.lastStatus.mpos,
+                                    ov: statusUpdate.ov || this.lastStatus.ov,
                                     spindle: {
                                         ...this.lastStatus.spindle,
                                         ...(statusUpdate.spindle || {}),
                                     }
                                 };
                         
-                                // This logic must run *after* the merge to correctly set the spindle state.
+                                // This logic must run *after* the new state is built.
                                 if (this.lastStatus.spindle.speed === 0) {
                                     this.spindleDirection = 'off';
                                 }
