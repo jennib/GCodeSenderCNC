@@ -1,5 +1,7 @@
+
+
 import React, { useState, useRef, useEffect } from 'react';
-import { ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Home, Pin, ChevronDown } from './Icons.js';
+import { ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Home, Pin, ChevronDown, RotateCw, RotateCcw, PowerOff, Probe } from './Icons.js';
 
 const h = React.createElement;
 
@@ -14,146 +16,186 @@ const PositionDisplay = ({ title, pos, unit }) => h('div', null,
     )
 );
 
-
-const JogButton = ({ onClick, children, className = '', title, disabled = false, isFlashing = false }) => h('button', {
-    title: title,
-    onClick: onClick,
-    disabled: disabled,
-    className: `flex items-center justify-center p-4 bg-secondary text-white font-bold rounded-md hover:bg-secondary-focus focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-surface transition-all duration-100 disabled:bg-background disabled:text-text-secondary disabled:cursor-not-allowed ${isFlashing ? 'ring-2 ring-primary ring-inset' : ''} ${className}`
-}, children);
-
-const MenuItem = ({ onClick, children }) => h('button', {
-    onClick: onClick,
-    className: "w-full text-left px-4 py-2 text-sm text-text-primary hover:bg-primary transition-colors"
-}, children);
-
-const UnitToggle = ({ unit, onUnitChange, disabled }) => h('div', { className: "flex bg-background rounded-md p-1" },
-    h('button', {
-        onClick: () => onUnitChange('mm'),
-        disabled,
-        className: `px-4 py-1 text-sm font-semibold rounded ${unit === 'mm' ? 'bg-primary text-white' : 'hover:bg-secondary-focus'} transition-colors disabled:opacity-50`
-    }, "mm"),
-    h('button', {
-        onClick: () => onUnitChange('in'),
-        disabled,
-        className: `px-4 py-1 text-sm font-semibold rounded ${unit === 'in' ? 'bg-primary text-white' : 'hover:bg-secondary-focus'} transition-colors disabled:opacity-50`
-    }, "in")
-);
-
-const JogPanelControls = React.memo(({ isConnected, onJog, onHome, onSetZero, jogStep, onStepChange, flashingButton, unit, onUnitChange }) => {
-    const [isHomeMenuOpen, setIsHomeMenuOpen] = useState(false);
-    const [isZeroMenuOpen, setIsZeroMenuOpen] = useState(false);
-    const homeMenuRef = useRef(null);
-    const zeroMenuRef = useRef(null);
+const JogPanel = ({
+    isConnected,
+    machineState,
+    onJog,
+    onHome,
+    onSetZero,
+    onSpindleCommand,
+    onProbe,
+    jogStep,
+    onStepChange,
+    flashingButton,
+    unit,
+    onUnitChange,
+    isJogging,
+    isJobActive,
+}) => {
+    const [spindleSpeed, setSpindleSpeed] = useState(1000);
+    const [probeOffsetZ, setProbeOffsetZ] = useState(unit === 'mm' ? 15.0 : 0.59);
+    const [probeOffsetX, setProbeOffsetX] = useState(unit === 'mm' ? 3.0 : 0.12);
+    const [probeOffsetY, setProbeOffsetY] = useState(unit === 'mm' ? 3.0 : 0.12);
+    const [isHomeMenuOpen, setIsHomeMenuOpen] = React.useState(false);
+    const homeMenuRef = React.useRef(null);
     
-    const mmStepSizes = [0.01, 0.1, 1, 10, 50];
-    const inStepSizes = [0.001, 0.01, 0.1, 1, 2];
-    const stepSizes = unit === 'mm' ? mmStepSizes : inStepSizes;
-
-
     useEffect(() => {
+        setProbeOffsetZ(unit === 'mm' ? 15.0 : 0.59);
+        setProbeOffsetX(unit === 'mm' ? 3.0 : 0.12);
+        setProbeOffsetY(unit === 'mm' ? 3.0 : 0.12);
+    }, [unit]);
+
+    React.useEffect(() => {
         const handleClickOutside = (event) => {
             if (homeMenuRef.current && !homeMenuRef.current.contains(event.target)) {
                 setIsHomeMenuOpen(false);
             }
-            if (zeroMenuRef.current && !zeroMenuRef.current.contains(event.target)) {
-                setIsZeroMenuOpen(false);
-            }
         };
         document.addEventListener("mousedown", handleClickOutside);
-        return () => document.removeEventListener("mousedown", handleClickOutside);
-    }, []);
+        return () => {
+            document.removeEventListener("mousedown", handleClickOutside);
+        };
+    }, [homeMenuRef]);
 
-    const zStepLimit = unit === 'mm' ? 10 : 0.4;
-    const isZJogDisabled = jogStep > zStepLimit;
+    const handleHomeCommand = (axes) => {
+        onHome(axes);
+        setIsHomeMenuOpen(false);
+    };
 
-    return h(React.Fragment, null,
-        h('div', { className: "flex justify-between items-end"},
-            h('div', null,
-                h('h4', { className: "text-sm font-bold text-text-secondary mb-2" }, `Step Size (${unit})`),
-                h('div', { className: "grid grid-cols-5 gap-2" },
-                    stepSizes.map((size, index) => {
-                        const id = `step-${size}`;
-                        const isFlashing = flashingButton === id;
-                        return h('button', {
-                            key: size,
-                            title: `Set step size to ${size}${unit} (Hotkey: ${index + 1})`,
-                            onClick: () => onStepChange(size),
-                            disabled: !isConnected,
-                            className: `py-2 px-4 text-sm font-semibold rounded-md transition-all duration-100 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-surface disabled:cursor-not-allowed disabled:bg-background disabled:text-text-secondary ${jogStep === size ? 'bg-primary text-white' : 'bg-secondary text-white hover:bg-secondary-focus'} ${isFlashing ? 'ring-2 ring-primary ring-inset' : ''}`
-                        }, size)
-                    })
-                )
-            ),
-             h(UnitToggle, { unit: unit, onUnitChange: onUnitChange, disabled: !isConnected })
+    const isControlDisabled = !isConnected || isJobActive || isJogging || ['Alarm', 'Home'].includes(machineState?.status);
+
+    const JogButton = ({ id, axis, direction, icon, label, hotkey }) => h('button', {
+        id,
+        onClick: () => onJog(axis, direction, jogStep),
+        disabled: isControlDisabled,
+        className: `flex items-center justify-center p-4 bg-secondary rounded-md hover:bg-secondary-focus focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-surface disabled:opacity-50 disabled:cursor-not-allowed ${flashingButton === id ? 'ring-4 ring-white ring-inset' : ''}`,
+        title: `${label} (${axis}${direction > 0 ? '+' : '-'}) (Hotkey: ${hotkey})`
+    }, icon);
+    
+    const stepSizes = unit === 'mm' ? [0.01, 0.1, 1, 10, 50] : [0.001, 0.01, 0.1, 1, 2];
+
+    return h('div', { className: "bg-surface rounded-lg shadow-lg flex flex-col p-4 gap-4" },
+        // Position Displays
+        h('div', { className: "grid grid-cols-1 md:grid-cols-2 gap-4" },
+            h(PositionDisplay, { title: "Work Position (WPos)", pos: machineState?.wpos, unit: unit }),
+            h(PositionDisplay, { title: "Machine Position (MPos)", pos: machineState?.mpos, unit: unit })
         ),
-        h('div', { className: "grid grid-cols-3 gap-4 items-center" },
-            h('div', { className: "col-span-2 flex justify-center items-center" },
-                 h('div', { className: "grid grid-cols-3 grid-rows-3 gap-2 w-64" },
-                    h('div', { className: "col-start-2 row-start-1" },
-                        h(JogButton, { title: `Y+ ${jogStep}${unit} (ArrowUp)`, onClick: () => onJog('Y', 1, jogStep), disabled: !isConnected, isFlashing: flashingButton === 'jog-y-plus' }, h(ArrowUp, { className: "w-8 h-8" }))
+        
+        // Controls
+        h('div', { className: "grid grid-cols-1 md:grid-cols-2 gap-4" },
+            // Jog Controls
+            h('div', { className: 'bg-background p-3 rounded-md' },
+                h('h4', { className: 'text-sm font-bold text-text-secondary mb-2 text-center' }, 'Jog Control'),
+                h('div', { className: 'grid grid-cols-3 grid-rows-3 gap-2' },
+                    h('div', { className: 'col-start-1 row-start-1' }), // empty
+                    h(JogButton, { id: 'jog-y-plus', axis: 'Y', direction: 1, icon: h(ArrowUp, { className: "w-6 h-6" }), label: 'Jog Y+', hotkey: 'Up Arrow' }),
+                    h(JogButton, { id: 'jog-z-plus', axis: 'Z', direction: 1, icon: h(ArrowUp, { className: "w-6 h-6" }), label: 'Jog Z+', hotkey: 'Page Up' }),
+                    h(JogButton, { id: 'jog-x-minus', axis: 'X', direction: -1, icon: h(ArrowLeft, { className: "w-6 h-6" }), label: 'Jog X-', hotkey: 'Left Arrow' }),
+                    
+                    h('div', { className: 'relative', ref: homeMenuRef },
+                        h('button', {
+                            onClick: () => setIsHomeMenuOpen(prev => !prev),
+                            disabled: isControlDisabled,
+                            className: `flex items-center justify-center p-4 bg-secondary rounded-md hover:bg-secondary-focus disabled:opacity-50 disabled:cursor-not-allowed w-full h-full ${isHomeMenuOpen ? 'bg-secondary-focus' : ''}`,
+                            title: 'Homing Commands',
+                            'aria-haspopup': 'true',
+                            'aria-expanded': isHomeMenuOpen,
+                        }, 
+                            h(Home, { className: 'w-6 h-6' }), 
+                            h(ChevronDown, {className: `w-4 h-4 ml-1 transition-transform ${isHomeMenuOpen ? 'rotate-180' : ''}`})
+                        ),
+                        isHomeMenuOpen && h('div', { 
+                            className: 'absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 bg-background border border-secondary rounded-md shadow-lg z-20',
+                            role: 'menu'
+                        },
+                            h('ul', { className: 'py-1', role: 'none' },
+                                h('li', {role: 'menuitem'}, h('button', { onClick: () => handleHomeCommand('all'), className: 'w-full text-left px-4 py-2 text-sm text-text-primary hover:bg-secondary-focus disabled:opacity-50', disabled: isControlDisabled }, 'Home All Axes')),
+                                h('li', {role: 'menuitem'}, h('button', { onClick: () => handleHomeCommand('xy'), className: 'w-full text-left px-4 py-2 text-sm text-text-primary hover:bg-secondary-focus disabled:opacity-50', disabled: isControlDisabled }, 'Home XY')),
+                                h('li', {role: 'menuitem'}, h('button', { onClick: () => handleHomeCommand('x'), className: 'w-full text-left px-4 py-2 text-sm text-text-primary hover:bg-secondary-focus disabled:opacity-50', disabled: isControlDisabled }, 'Home X')),
+                                h('li', {role: 'menuitem'}, h('button', { onClick: () => handleHomeCommand('y'), className: 'w-full text-left px-4 py-2 text-sm text-text-primary hover:bg-secondary-focus disabled:opacity-50', disabled: isControlDisabled }, 'Home Y')),
+                                h('li', {role: 'menuitem'}, h('button', { onClick: () => handleHomeCommand('z'), className: 'w-full text-left px-4 py-2 text-sm text-text-primary hover:bg-secondary-focus disabled:opacity-50', disabled: isControlDisabled }, 'Home Z'))
+                            )
+                        )
                     ),
-                    h('div', { className: "col-start-1 row-start-2" },
-                        h(JogButton, { title: `X- ${jogStep}${unit} (ArrowLeft)`, onClick: () => onJog('X', -1, jogStep), disabled: !isConnected, isFlashing: flashingButton === 'jog-x-minus' }, h(ArrowLeft, { className: "w-8 h-8" }))
-                    ),
-                    h('div', { className: "col-start-3 row-start-2" },
-                        h(JogButton, { title: `X+ ${jogStep}${unit} (ArrowRight)`, onClick: () => onJog('X', 1, jogStep), disabled: !isConnected, isFlashing: flashingButton === 'jog-x-plus' }, h(ArrowRight, { className: "w-8 h-8" }))
-                    ),
-                    h('div', { className: "col-start-2 row-start-3" },
-                        h(JogButton, { title: `Y- ${jogStep}${unit} (ArrowDown)`, onClick: () => onJog('Y', -1, jogStep), disabled: !isConnected, isFlashing: flashingButton === 'jog-y-minus' }, h(ArrowDown, { className: "w-8 h-8" }))
+                    
+                    h(JogButton, { id: 'jog-x-plus', axis: 'X', direction: 1, icon: h(ArrowRight, { className: "w-6 h-6" }), label: 'Jog X+', hotkey: 'Right Arrow' }),
+                    h('div', { className: 'col-start-1 row-start-3' }), // empty
+                    h(JogButton, { id: 'jog-y-minus', axis: 'Y', direction: -1, icon: h(ArrowDown, { className: "w-6 h-6" }), label: 'Jog Y-', hotkey: 'Down Arrow' }),
+                    h(JogButton, { id: 'jog-z-minus', axis: 'Z', direction: -1, icon: h(ArrowDown, { className: "w-6 h-6" }), label: 'Jog Z-', hotkey: 'Page Down' })
+                ),
+                h('div', { className: 'flex justify-between items-center mt-3' },
+                    h('span', { className: 'text-sm text-text-secondary' }, 'Step:'),
+                    h('div', { className: 'flex gap-1' },
+                        stepSizes.map(step => h('button', {
+                            key: step,
+                            id: `step-${step}`,
+                            onClick: () => onStepChange(step),
+                            disabled: isControlDisabled,
+                            className: `px-2 py-1 text-xs rounded-md transition-colors ${jogStep === step ? 'bg-primary text-white font-bold' : 'bg-secondary hover:bg-secondary-focus'} ${flashingButton === `step-${step}` ? 'ring-2 ring-white ring-inset' : ''} disabled:opacity-50 disabled:cursor-not-allowed`
+                        }, step))
                     )
                 )
             ),
-            h('div', { className: "flex flex-col gap-2" },
-                h(JogButton, { title: isZJogDisabled ? `Z-axis step limited to ${zStepLimit}${unit}` : `Z+ ${jogStep}${unit} (PageUp)`, onClick: () => onJog('Z', 1, jogStep), disabled: !isConnected || isZJogDisabled, isFlashing: flashingButton === 'jog-z-plus' }, h(ArrowUp, { className: "w-8 h-8" })),
-                h('div', { className: "text-center font-bold text-lg" }, "Z"),
-                h(JogButton, { title: isZJogDisabled ? `Z-axis step limited to ${zStepLimit}${unit}` : `Z- ${jogStep}${unit} (PageDown)`, onClick: () => onJog('Z', -1, jogStep), disabled: !isConnected || isZJogDisabled, isFlashing: flashingButton === 'jog-z-minus' }, h(ArrowDown, { className: "w-8 h-8" }))
-            )
-        ),
-        h('div', { className: "grid grid-cols-2 gap-4" },
-            h('div', { className: "relative", ref: homeMenuRef },
-                h(JogButton, { title: "Home Axes", onClick: () => setIsHomeMenuOpen(p => !p), disabled: !isConnected, className: "gap-2 w-full justify-between" },
-                    h('div', { className: "flex items-center gap-2" },
-                        h(Home, { className: "w-5 h-5" }), " Home"
-                    ),
-                    h(ChevronDown, { className: `w-4 h-4 transition-transform ${isHomeMenuOpen ? 'rotate-180' : ''}` })
+            h('div', { className: 'flex flex-col gap-3' },
+                h('div', { className: 'bg-background p-3 rounded-md' },
+                    h('h4', { className: 'text-sm font-bold text-text-secondary mb-2' }, 'Machine Actions'),
+                    h('div', { className: 'grid grid-cols-3 gap-2 text-sm' },
+                        h('button', { onClick: () => onSetZero('all'), disabled: isControlDisabled, className: 'p-2 bg-secondary rounded hover:bg-secondary-focus disabled:opacity-50' }, 'Zero All'),
+                        h('button', { onClick: () => onSetZero('xy'), disabled: isControlDisabled, className: 'p-2 bg-secondary rounded hover:bg-secondary-focus disabled:opacity-50' }, 'Zero XY'),
+                        h('button', { onClick: () => onSetZero('z'), disabled: isControlDisabled, className: 'p-2 bg-secondary rounded hover:bg-secondary-focus disabled:opacity-50' }, 'Zero Z')
+                    )
                 ),
-                isHomeMenuOpen && h('div', { className: "absolute bottom-full mb-2 w-full bg-secondary rounded-md shadow-lg z-10 overflow-hidden" },
-                    h(MenuItem, { onClick: () => { onHome('all'); setIsHomeMenuOpen(false); } }, "Home All"),
-                    h(MenuItem, { onClick: () => { onHome('xy'); setIsHomeMenuOpen(false); } }, "Home XY"),
-                    h(MenuItem, { onClick: () => { onHome('x'); setIsHomeMenuOpen(false); } }, "Home X"),
-                    h(MenuItem, { onClick: () => { onHome('y'); setIsHomeMenuOpen(false); } }, "Home Y"),
-                    h(MenuItem, { onClick: () => { onHome('z'); setIsHomeMenuOpen(false); } }, "Home Z")
-                )
-            ),
-            h('div', { className: "relative", ref: zeroMenuRef },
-                h(JogButton, { title: "Set Work Zero", onClick: () => setIsZeroMenuOpen(p => !p), disabled: !isConnected, className: "gap-2 w-full justify-between" },
-                    h('div', { className: "flex items-center gap-2" },
-                        h(Pin, { className: "w-5 h-5" }), " Set Zero"
-                    ),
-                    h(ChevronDown, { className: `w-4 h-4 transition-transform ${isZeroMenuOpen ? 'rotate-180' : ''}` })
+                h('div', { className: 'bg-background p-3 rounded-md' },
+                    h('h4', { className: 'text-sm font-bold text-text-secondary mb-2' }, 'Units'),
+                    h('div', { className: 'flex bg-secondary rounded-md p-1' },
+                        h('button', { onClick: () => onUnitChange('mm'), disabled: isControlDisabled, className: `w-1/2 p-1 rounded-md text-sm font-semibold transition-colors ${unit === 'mm' ? 'bg-primary text-white' : 'hover:bg-secondary-focus'} disabled:opacity-50 disabled:cursor-not-allowed` }, 'mm'),
+                        h('button', { onClick: () => onUnitChange('in'), disabled: isControlDisabled, className: `w-1/2 p-1 rounded-md text-sm font-semibold transition-colors ${unit === 'in' ? 'bg-primary text-white' : 'hover:bg-secondary-focus'} disabled:opacity-50 disabled:cursor-not-allowed` }, 'in')
+                    )
                 ),
-                isZeroMenuOpen && h('div', { className: "absolute bottom-full mb-2 w-full bg-secondary rounded-md shadow-lg z-10 overflow-hidden" },
-                    h(MenuItem, { onClick: () => { onSetZero('all'); setIsZeroMenuOpen(false); } }, "Zero All"),
-                    h(MenuItem, { onClick: () => { onSetZero('xy'); setIsZeroMenuOpen(false); } }, "Zero XY"),
-                    h(MenuItem, { onClick: () => { onSetZero('x'); setIsZeroMenuOpen(false); } }, "Zero X"),
-                    h(MenuItem, { onClick: () => { onSetZero('y'); setIsZeroMenuOpen(false); } }, "Zero Y"),
-                    h(MenuItem, { onClick: () => { onSetZero('z'); setIsZeroMenuOpen(false); } }, "Zero Z")
+                h('div', { className: 'bg-background p-3 rounded-md' },
+                    h('h4', { className: 'text-sm font-bold text-text-secondary mb-2' }, 'Probe'),
+                    h('div', { className: 'grid grid-cols-2 gap-4' },
+                         h('div', { className: 'space-y-2' },
+                            h('div', { className: 'flex items-center gap-2' },
+                                h('label', { htmlFor: 'probe-offset-x', className: 'w-4 text-sm font-bold text-red-400' }, 'X'),
+                                h('input', { id: 'probe-offset-x', type: 'number', step: unit === 'mm' ? '0.01' : '0.001', value: probeOffsetX, onChange: e => setProbeOffsetX(parseFloat(e.target.value)), disabled: isControlDisabled, className: 'w-full bg-secondary border-secondary rounded-md py-1 px-2 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary disabled:opacity-50', 'aria-label': 'Probe X Offset' })
+                            ),
+                             h('div', { className: 'flex items-center gap-2' },
+                                h('label', { htmlFor: 'probe-offset-y', className: 'w-4 text-sm font-bold text-green-400' }, 'Y'),
+                                h('input', { id: 'probe-offset-y', type: 'number', step: unit === 'mm' ? '0.01' : '0.001', value: probeOffsetY, onChange: e => setProbeOffsetY(parseFloat(e.target.value)), disabled: isControlDisabled, className: 'w-full bg-secondary border-secondary rounded-md py-1 px-2 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary disabled:opacity-50', 'aria-label': 'Probe Y Offset' })
+                            ),
+                             h('div', { className: 'flex items-center gap-2' },
+                                h('label', { htmlFor: 'probe-offset-z', className: 'w-4 text-sm font-bold text-blue-400' }, 'Z'),
+                                h('input', { id: 'probe-offset-z', type: 'number', step: unit === 'mm' ? '0.01' : '0.001', value: probeOffsetZ, onChange: e => setProbeOffsetZ(parseFloat(e.target.value)), disabled: isControlDisabled, className: 'w-full bg-secondary border-secondary rounded-md py-1 px-2 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary disabled:opacity-50', 'aria-label': 'Probe Z Offset (Plate Thickness)' })
+                            )
+                        ),
+                        h('div', { className: 'grid grid-cols-2 gap-2 text-sm' },
+                            h('button', { onClick: () => onProbe('X', { x: probeOffsetX }), disabled: isControlDisabled, className: 'p-2 bg-primary text-white font-semibold rounded hover:bg-primary-focus disabled:opacity-50' }, 'Probe X'),
+                            h('button', { onClick: () => onProbe('Y', { y: probeOffsetY }), disabled: isControlDisabled, className: 'p-2 bg-primary text-white font-semibold rounded hover:bg-primary-focus disabled:opacity-50' }, 'Probe Y'),
+                            h('button', { onClick: () => onProbe('Z', { z: probeOffsetZ }), disabled: isControlDisabled, className: 'p-2 bg-primary text-white font-semibold rounded hover:bg-primary-focus disabled:opacity-50 flex items-center justify-center gap-1' }, h(Probe, { className: 'w-4 h-4' }), 'Probe Z'),
+                            h('button', { onClick: () => onProbe('XY', { x: probeOffsetX, y: probeOffsetY }), disabled: isControlDisabled, className: 'p-2 bg-primary text-white font-semibold rounded hover:bg-primary-focus disabled:opacity-50' }, 'Probe XY')
+                        )
+                    )
+                ),
+                h('div', { className: 'bg-background p-3 rounded-md' },
+                    h('h4', { className: 'text-sm font-bold text-text-secondary mb-2' }, 'Spindle Control'),
+                    h('div', { className: 'flex items-center gap-2' },
+                        h('input', {
+                            type: 'number', value: spindleSpeed,
+                            onChange: e => setSpindleSpeed(parseInt(e.target.value, 10)),
+                            disabled: isControlDisabled,
+                            className: 'w-full bg-secondary border border-secondary rounded-md py-1.5 px-2 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary disabled:opacity-50',
+                            'aria-label': 'Spindle Speed in RPM'
+                        }),
+                        h('span', { className: 'text-sm text-text-secondary' }, 'RPM')
+                    ),
+                    h('div', { className: 'grid grid-cols-3 gap-2 mt-2' },
+                        h('button', { title: 'Spindle On (CW)', onClick: () => onSpindleCommand('cw', spindleSpeed), disabled: isControlDisabled, className: 'p-2 bg-secondary rounded hover:bg-secondary-focus disabled:opacity-50 flex justify-center' }, h(RotateCw, { className: 'w-5 h-5' })),
+                        h('button', { title: 'Spindle On (CCW)', onClick: () => onSpindleCommand('ccw', spindleSpeed), disabled: isControlDisabled, className: 'p-2 bg-secondary rounded hover:bg-secondary-focus disabled:opacity-50 flex justify-center' }, h(RotateCcw, { className: 'w-5 h-5' })),
+                        h('button', { title: 'Spindle Off', onClick: () => onSpindleCommand('off'), disabled: isControlDisabled, className: 'p-2 bg-secondary rounded hover:bg-secondary-focus disabled:opacity-50 flex justify-center' }, h(PowerOff, { className: 'w-5 h-5' }))
+                    )
                 )
             )
-        )
-    );
-});
-
-
-const JogPanel = ({ isConnected, machineState, onJog, onHome, onSetZero, jogStep, onStepChange, flashingButton, unit, onUnitChange }) => {
-    
-    return h('div', { className: "bg-surface rounded-lg shadow-lg p-4 flex-shrink-0" },
-        h('h2', { className: "text-lg font-bold mb-4 pb-4 border-b border-secondary" }, "Jog Control"),
-        h('div', { className: "space-y-4" },
-            h(PositionDisplay, { title: "Work Position (WPos)", pos: machineState?.wpos ?? null, unit: unit }),
-            h(PositionDisplay, { title: "Machine Position (MPos)", pos: machineState?.mpos ?? null, unit: unit }),
-            h(JogPanelControls, { isConnected, onJog, onHome, onSetZero, jogStep, onStepChange, flashingButton, unit, onUnitChange })
         )
     );
 };

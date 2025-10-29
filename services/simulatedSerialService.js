@@ -1,7 +1,7 @@
 
-
 const getParam = (gcode, param) => {
-    const regex = new RegExp(`${param}([-+]?[0-9]*\\.?[0-9]*)`, 'i');
+    // Allows for optional whitespace between parameter and value
+    const regex = new RegExp(`${param}\\s*([-+]?[0-9]*\\.?[0-9]*)`, 'i');
     const match = gcode.match(regex);
     return match ? parseFloat(match[1]) : null;
 };
@@ -14,6 +14,8 @@ export class SimulatedSerialManager {
         code: null,
         wpos: { x: 0, y: 0, z: 0 },
         mpos: { x: 0, y: 0, z: 0 },
+        spindle: { state: 'off', speed: 0 },
+        ov: [100, 100, 100],
     };
 
     isJobRunning = false;
@@ -22,6 +24,7 @@ export class SimulatedSerialManager {
     currentLineIndex = 0;
     totalLines = 0;
     gcode = [];
+    positioningMode = 'absolute'; // 'absolute' (G90) or 'incremental' (G91)
     
     constructor(callbacks) {
         this.callbacks = callbacks;
@@ -54,12 +57,84 @@ export class SimulatedSerialManager {
         });
     }
 
+    async sendLineAndWaitForOk(line, log = true) {
+        // The existing sendLine already simulates waiting for 'ok'.
+        return this.sendLine(line, log);
+    }
+
     async sendLine(line, log = true) {
         if (log) {
             this.callbacks.onLog({ type: 'sent', message: line });
         }
 
         const upperLine = line.toUpperCase().trim();
+
+        if (upperLine.startsWith('G38.2')) {
+            this.callbacks.onLog({ type: 'status', message: 'Probing Z... (simulated)' });
+            // Simulate probe touching 5mm below current Z
+            const touchPoint = this.position.wpos.z - 5;
+            this.position.wpos.z = touchPoint;
+            this.position.mpos.z = touchPoint;
+            this.callbacks.onLog({ type: 'received', message: `[PRB:0.000,0.000,${touchPoint.toFixed(3)}:1]` });
+            await this.sendOk();
+            return;
+        }
+
+        if (upperLine === 'G90') {
+            this.positioningMode = 'absolute';
+            await this.sendOk();
+            return;
+        }
+        
+        if (upperLine === 'G91') {
+            this.positioningMode = 'incremental';
+            await this.sendOk();
+            return;
+        }
+
+        if (upperLine.startsWith('G0') || upperLine.startsWith('G1')) {
+            const x = getParam(upperLine, 'X');
+            const y = getParam(upperLine, 'Y');
+            const z = getParam(upperLine, 'Z');
+            
+            if (this.positioningMode === 'incremental') {
+                if(x !== null) { this.position.wpos.x += x; this.position.mpos.x += x; }
+                if(y !== null) { this.position.wpos.y += y; this.position.mpos.y += y; }
+                if(z !== null) { this.position.wpos.z += z; this.position.mpos.z += z; }
+            } else { // absolute
+                if(x !== null) { this.position.wpos.x = x; this.position.mpos.x = x; }
+                if(y !== null) { this.position.wpos.y = y; this.position.mpos.y = y; }
+                if(z !== null) { this.position.wpos.z = z; this.position.mpos.z = z; }
+            }
+            await this.sendOk();
+            return;
+        }
+
+        if (upperLine.startsWith('M3')) {
+            const speed = getParam(upperLine, 'S') ?? this.position.spindle.speed ?? 1000;
+            this.position.spindle.state = 'cw';
+            this.position.spindle.speed = speed;
+            this.callbacks.onLog({ type: 'status', message: `Spindle ON (CW) at ${speed} RPM.` });
+            await this.sendOk();
+            return;
+        }
+
+        if (upperLine.startsWith('M4')) {
+            const speed = getParam(upperLine, 'S') ?? this.position.spindle.speed ?? 1000;
+            this.position.spindle.state = 'ccw';
+            this.position.spindle.speed = speed;
+            this.callbacks.onLog({ type: 'status', message: `Spindle ON (CCW) at ${speed} RPM.` });
+            await this.sendOk();
+            return;
+        }
+
+        if (upperLine.startsWith('M5')) {
+            this.position.spindle.state = 'off';
+            this.position.spindle.speed = 0;
+            this.callbacks.onLog({ type: 'status', message: `Spindle OFF.` });
+            await this.sendOk();
+            return;
+        }
 
         if (upperLine === '$X') {
             if (this.position.status === 'Alarm') {
@@ -75,15 +150,21 @@ export class SimulatedSerialManager {
             const x = getParam(upperLine, 'X') || 0;
             const y = getParam(upperLine, 'Y') || 0;
             const z = getParam(upperLine, 'Z') || 0;
-            this.position.wpos.x += x;
-            this.position.wpos.y += y;
-            this.position.wpos.z += z;
-            this.position.mpos.x += x;
-            this.position.mpos.y += y;
-            this.position.mpos.z += z;
+            
             this.position.status = 'Jog';
-            await this.sendOk();
-            this.position.status = 'Idle';
+            
+            // Simulate that the jog move takes some time to complete
+            setTimeout(() => {
+                this.position.wpos.x += x;
+                this.position.wpos.y += y;
+                this.position.wpos.z += z;
+                this.position.mpos.x += x;
+                this.position.mpos.y += y;
+                this.position.mpos.z += z;
+                this.position.status = 'Idle';
+            }, 300);
+
+            await this.sendOk(10); // Send 'ok' quickly, as real GRBL does
             return;
         }
 
@@ -94,15 +175,9 @@ export class SimulatedSerialManager {
             
             // This command sets the origin of the current work coordinate system.
             // It modifies the WCS offset, which changes WPos but not MPos.
-            if (xParam === 0) {
-                this.position.wpos.x = 0;
-            }
-            if (yParam === 0) {
-                this.position.wpos.y = 0;
-            }
-            if (zParam === 0) {
-                this.position.wpos.z = 0;
-            }
+            if (xParam !== null) { this.position.wpos.x = xParam; }
+            if (yParam !== null) { this.position.wpos.y = yParam; }
+            if (zParam !== null) { this.position.wpos.z = zParam; }
             await this.sendOk();
             return;
         }
@@ -123,6 +198,19 @@ export class SimulatedSerialManager {
         }
         
         await this.sendOk();
+    }
+
+    async sendRealtimeCommand(command) {
+        let newFeed = this.position.ov[0];
+        switch (command) {
+            case '\x90': newFeed = 100; break; // 100%
+            case '\x91': newFeed += 10; break; // +10%
+            case '\x92': newFeed -= 10; break; // -10%
+            case '\x93': newFeed += 1; break; // +1%
+            case '\x94': newFeed -= 1; break; // -1%
+        }
+        // Clamp to user-requested range for simulation
+        this.position.ov[0] = Math.max(25, Math.min(300, newFeed));
     }
 
     sendGCode(gcodeLines) {
@@ -162,18 +250,8 @@ export class SimulatedSerialManager {
         }
 
         const line = this.gcode[this.currentLineIndex];
-        // Simulate line processing
-        const upperLine = line.toUpperCase();
-        if (upperLine.startsWith('G0') || upperLine.startsWith('G1')) {
-            const x = getParam(upperLine, 'X');
-            const y = getParam(upperLine, 'Y');
-            const z = getParam(upperLine, 'Z');
-            if(x !== null) this.position.wpos.x = this.position.mpos.x = x;
-            if(y !== null) this.position.wpos.y = this.position.mpos.y = y;
-            if(z !== null) this.position.wpos.z = this.position.mpos.z = z;
-        }
         
-        await this.sendLine(line, false);
+        await this.sendLine(line, false); // Rely on sendLine to update machine state
         this.currentLineIndex++;
         
         this.callbacks.onProgress({

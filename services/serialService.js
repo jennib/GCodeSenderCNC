@@ -1,5 +1,4 @@
 
-
 export class SerialManager {
     port = null;
     reader = null;
@@ -13,6 +12,17 @@ export class SerialManager {
     totalLines = 0;
     gcode = [];
     statusInterval = null;
+    
+    // State is now managed within the service to handle partial updates correctly.
+    spindleDirection = 'off';
+    lastStatus = {
+        status: 'Idle',
+        code: null,
+        wpos: { x: 0, y: 0, z: 0 },
+        mpos: { x: 0, y: 0, z: 0 },
+        spindle: { state: 'off', speed: 0 },
+        ov: [100, 100, 100],
+    };
 
     linePromiseResolve = null;
     linePromiseReject = null;
@@ -33,6 +43,17 @@ export class SerialManager {
             this.port = await navigator.serial.requestPort();
             await this.port.open({ baudRate });
             
+            // Reset state for new connection
+            this.lastStatus = {
+                status: 'Idle',
+                code: null,
+                wpos: { x: 0, y: 0, z: 0 },
+                mpos: { x: 0, y: 0, z: 0 },
+                spindle: { state: 'off', speed: 0 },
+                ov: [100, 100, 100],
+            };
+            this.spindleDirection = 'off';
+
             const portInfo = this.port.getInfo();
             this.callbacks.onConnect(portInfo);
             
@@ -50,7 +71,7 @@ export class SerialManager {
 
             this.readLoop();
             
-            this.statusInterval = window.setInterval(() => this.requestStatusUpdate(), 250);
+            this.statusInterval = window.setInterval(() => this.requestStatusUpdate(), 100);
 
         } catch (error) {
             if (error instanceof Error) {
@@ -94,6 +115,7 @@ export class SerialManager {
             const content = statusStr.slice(1, -1);
             const parts = content.split('|');
             const statusPart = parts[0];
+            const parsed = {};
 
             let status = statusPart;
             let code = null;
@@ -106,20 +128,37 @@ export class SerialManager {
                 }
             }
             
-            let wpos = { x: 0, y: 0, z: 0 };
-            let mpos = { x: 0, y: 0, z: 0 };
+            parsed.status = status;
+            if (code !== null) {
+                parsed.code = code;
+            } else if (status !== 'Alarm') {
+                // Clear alarm code if status is no longer Alarm
+                parsed.code = null;
+            }
 
             for (const part of parts) {
                 if (part.startsWith('WPos:')) {
                     const coords = part.substring(5).split(',');
-                    wpos = { x: parseFloat(coords[0]), y: parseFloat(coords[1]), z: parseFloat(coords[2]) };
+                    parsed.wpos = { x: parseFloat(coords[0]), y: parseFloat(coords[1]), z: parseFloat(coords[2]) };
                 } else if (part.startsWith('MPos:')) {
                     const coords = part.substring(5).split(',');
-                    mpos = { x: parseFloat(coords[0]), y: parseFloat(coords[1]), z: parseFloat(coords[2]) };
+                    parsed.mpos = { x: parseFloat(coords[0]), y: parseFloat(coords[1]), z: parseFloat(coords[2]) };
+                } else if (part.startsWith('FS:')) {
+                    const speeds = part.substring(3).split(',');
+                    if (!parsed.spindle) parsed.spindle = {};
+                    if (speeds.length > 1) {
+                         parsed.spindle.speed = parseFloat(speeds[1]);
+                    }
+                } else if (part.startsWith('Ov:')) {
+                    const ovParts = part.substring(3).split(',');
+                    if (ovParts.length === 3) {
+                        parsed.ov = ovParts.map(p => parseInt(p, 10));
+                    }
                 }
             }
-            return { status, code, wpos, mpos };
+            return parsed;
         } catch (e) {
+            console.error("Failed to parse GRBL status:", statusStr, e);
             return null; // Failed to parse
         }
     }
@@ -140,9 +179,21 @@ export class SerialManager {
                     lines.forEach(line => {
                         const trimmedValue = line.trim();
                         if (trimmedValue.startsWith('<') && trimmedValue.endsWith('>')) {
-                            const parsedStatus = this.parseGrblStatus(trimmedValue);
-                            if(parsedStatus) {
-                                this.callbacks.onStatus(parsedStatus);
+                            const statusUpdate = this.parseGrblStatus(trimmedValue);
+                            if(statusUpdate) {
+                                // Merge partial update into our persistent status object.
+                                // This handles cases where WPos isn't sent in every update.
+                                Object.assign(this.lastStatus, statusUpdate);
+
+                                // If the update included spindle info, it's now in lastStatus.
+                                // We combine it with our tracked spindle direction.
+                                if (this.lastStatus.spindle.speed === 0) {
+                                    this.spindleDirection = 'off';
+                                }
+                                this.lastStatus.spindle.state = this.spindleDirection;
+
+                                // Send a deep clone to React to ensure re-render
+                                this.callbacks.onStatus(JSON.parse(JSON.stringify(this.lastStatus)));
                             }
                         } else if(trimmedValue){
                             this.callbacks.onLog({ type: 'received', message: trimmedValue });
@@ -200,6 +251,15 @@ export class SerialManager {
     }
 
     async sendLine(line, log = true) {
+        const upperLine = line.trim().toUpperCase();
+        if (upperLine.startsWith('M3')) {
+            this.spindleDirection = 'cw';
+        } else if (upperLine.startsWith('M4')) {
+            this.spindleDirection = 'ccw';
+        } else if (upperLine.startsWith('M5')) {
+            this.spindleDirection = 'off';
+        }
+
         if (!this.writer) {
             return;
         }
@@ -209,6 +269,27 @@ export class SerialManager {
             if (log) {
                 this.callbacks.onLog({ type: 'sent', message: line });
             }
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : "Unknown error";
+            if (this.isDisconnecting) {
+                // Expected error during disconnect.
+            } else if (errorMessage.includes("device has been lost") || errorMessage.includes("The port is closed.")) {
+                this.callbacks.onError("Device disconnected unexpectedly. Please reconnect.");
+                this.disconnect();
+            } else {
+                this.callbacks.onError("Error writing to serial port.");
+            }
+            throw error;
+        }
+    }
+
+    async sendRealtimeCommand(command) {
+        if (!this.writer) {
+            return;
+        }
+        try {
+            await this.writer.write(command);
+            // Real-time commands are not logged to the console to avoid clutter.
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : "Unknown error";
             if (this.isDisconnecting) {
@@ -295,7 +376,7 @@ export class SerialManager {
     pause() {
         if (this.isJobRunning && !this.isPaused) {
             this.isPaused = true;
-            this.sendLine('!', false); // GRBL Feed Hold
+            this.sendRealtimeCommand('!'); // Feed Hold
             this.callbacks.onLog({ type: 'status', message: 'Job paused.' });
         }
     }
@@ -303,7 +384,7 @@ export class SerialManager {
     resume() {
         if (this.isJobRunning && this.isPaused) {
             this.isPaused = false;
-            this.sendLine('~', false); // GRBL Cycle Start/Resume
+            this.sendRealtimeCommand('~'); // Cycle Resume
             this.callbacks.onLog({ type: 'status', message: 'Job resumed.' });
             this.sendNextLine();
         }
@@ -312,25 +393,23 @@ export class SerialManager {
     stopJob() {
         if (this.isJobRunning) {
             this.isStopped = true;
-            this.isJobRunning = false; // Prevent new lines from being sent
+            this.sendRealtimeCommand('\x18'); // Soft-reset
             if (this.linePromiseReject) {
                 this.linePromiseReject(new Error('Job stopped by user.'));
                 this.linePromiseResolve = null;
                 this.linePromiseReject = null;
             }
-            this.sendLine('\x18', false); // CTRL+X for soft-reset. This stops motion & spindle.
-            this.callbacks.onLog({ type: 'status', message: 'Job stopped. Soft-reset sent to clear buffer and stop spindle.' });
         }
     }
-
+    
     emergencyStop() {
         this.isStopped = true;
         this.isJobRunning = false;
         if (this.linePromiseReject) {
-            this.linePromiseReject(new Error('Emergency stop.'));
+            this.linePromiseReject(new Error('Emergency Stop'));
             this.linePromiseResolve = null;
             this.linePromiseReject = null;
         }
-        this.sendLine('\x18', false); // CTRL-X for soft-reset
+        this.sendRealtimeCommand('\x18'); // Soft Reset
     }
 }

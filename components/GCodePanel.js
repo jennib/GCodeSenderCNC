@@ -1,12 +1,31 @@
+
 import React, { useRef, useState, useEffect } from 'react';
 import { JobStatus } from '../types.js';
-import { Play, Pause, Square, Upload, FileText, Code, Eye, Maximize, Pencil, CheckCircle, X, Save } from './Icons.js';
+import { Play, Pause, Square, Upload, FileText, Code, Eye, Maximize, Pencil, CheckCircle, X, Save, Plus, Minus, RefreshCw, Percent } from './Icons.js';
 import GCodeVisualizer from './GCodeVisualizer.js';
 import GCodeLine from './GCodeLine.js';
 
-const GCodePanel = ({ onFileLoad, fileName, gcodeLines, onJobControl, jobStatus, progress, isConnected, unit, onGCodeChange, machineState }) => {
+const FeedrateOverrideControl = ({ onFeedOverride, currentFeedrate }) => {
+    return React.createElement('div', { className: 'bg-background p-3 rounded-md' },
+        React.createElement('h4', { className: 'text-sm font-bold text-text-secondary mb-2 text-center' }, 'Feed Rate Override'),
+        React.createElement('div', { className: 'flex items-center justify-center gap-4 mb-3' },
+            React.createElement(Percent, { className: 'w-8 h-8 text-primary' }),
+            React.createElement('span', { className: 'text-4xl font-mono font-bold' }, currentFeedrate),
+        ),
+        React.createElement('div', { className: 'grid grid-cols-5 gap-2 text-sm' },
+            React.createElement('button', { title: 'Decrease Feed Rate by 10%', onClick: () => onFeedOverride('dec10'), className: 'p-2 bg-secondary rounded hover:bg-secondary-focus flex items-center justify-center font-bold' }, React.createElement(Minus, { className: 'w-4 h-4 mr-1' }), '10%'),
+            React.createElement('button', { title: 'Decrease Feed Rate by 1%', onClick: () => onFeedOverride('dec1'), className: 'p-2 bg-secondary rounded hover:bg-secondary-focus flex items-center justify-center font-bold' }, React.createElement(Minus, { className: 'w-4 h-4 mr-1' }), '1%'),
+            React.createElement('button', { title: 'Reset Feed Rate to 100%', onClick: () => onFeedOverride('reset'), className: 'p-2 bg-primary rounded hover:bg-primary-focus flex items-center justify-center' }, React.createElement(RefreshCw, { className: 'w-5 h-5' })),
+            React.createElement('button', { title: 'Increase Feed Rate by 1%', onClick: () => onFeedOverride('inc1'), className: 'p-2 bg-secondary rounded hover:bg-secondary-focus flex items-center justify-center font-bold' }, React.createElement(Plus, { className: 'w-4 h-4 mr-1' }), '1%'),
+            React.createElement('button', { title: 'Increase Feed Rate by 10%', onClick: () => onFeedOverride('inc10'), className: 'p-2 bg-secondary rounded hover:bg-secondary-focus flex items-center justify-center font-bold' }, React.createElement(Plus, { className: 'w-4 h-4 mr-1' }), '10%'),
+        )
+    );
+};
+
+const GCodePanel = ({ onFileLoad, fileName, gcodeLines, onJobControl, jobStatus, progress, isConnected, unit, onGCodeChange, machineState, onFeedOverride }) => {
     const fileInputRef = useRef(null);
     const visualizerRef = useRef(null);
+    const codeContainerRef = useRef(null);
     const [view, setView] = useState('visualizer');
     const [isEditing, setIsEditing] = useState(false);
     const [editedGCode, setEditedGCode] = useState('');
@@ -73,6 +92,32 @@ const GCodePanel = ({ onFileLoad, fileName, gcodeLines, onJobControl, jobStatus,
     const totalLines = gcodeLines.length;
     const currentLine = Math.floor((progress / 100) * totalLines);
 
+    useEffect(() => {
+        if ((jobStatus === JobStatus.Running || jobStatus === JobStatus.Paused) && view === 'code' && codeContainerRef.current) {
+            const lineIndexToScroll = currentLine;
+
+            if (lineIndexToScroll >= gcodeLines.length) return;
+            
+            const container = codeContainerRef.current;
+            const lineElement = container.children[lineIndexToScroll];
+
+            if (lineElement) {
+                // Manually calculate the scroll position to center the element
+                // within the scrollable container.
+                const containerHeight = container.clientHeight;
+                const lineElementOffsetTop = lineElement.offsetTop;
+                const lineElementHeight = lineElement.offsetHeight;
+
+                const scrollTop = lineElementOffsetTop - (containerHeight / 2) + (lineElementHeight / 2);
+
+                container.scrollTo({
+                    top: scrollTop,
+                    behavior: 'smooth',
+                });
+            }
+        }
+    }, [currentLine, jobStatus, view, gcodeLines.length]);
+
     const renderContent = () => {
         if (gcodeLines.length > 0) {
             if (view === 'visualizer') {
@@ -80,8 +125,7 @@ const GCodePanel = ({ onFileLoad, fileName, gcodeLines, onJobControl, jobStatus,
                     ref: visualizerRef, 
                     gcodeLines, 
                     currentLine, 
-                    unit: unit, 
-                    spindlePosition: isJobActive ? machineState?.wpos : null 
+                    unit: unit
                 });
             }
             if (view === 'code') {
@@ -93,13 +137,14 @@ const GCodePanel = ({ onFileLoad, fileName, gcodeLines, onJobControl, jobStatus,
                         spellCheck: "false"
                     });
                 }
-                return React.createElement('div', { className: "absolute inset-0 bg-background rounded p-2 overflow-y-auto font-mono text-sm" },
+                return React.createElement('div', { ref: codeContainerRef, className: "absolute inset-0 bg-background rounded p-2 overflow-y-auto font-mono text-sm" },
                     gcodeLines.map((line, index) =>
                         React.createElement(GCodeLine, {
                             key: index,
                             line: line,
                             lineNumber: index + 1,
-                            isExecuted: index < currentLine
+                            isExecuted: index < currentLine,
+                            isCurrent: isJobActive && (index === currentLine)
                         })
                     )
                 );
@@ -225,7 +270,11 @@ const GCodePanel = ({ onFileLoad, fileName, gcodeLines, onJobControl, jobStatus,
                     (isJobActive && totalLines > 0) && React.createElement('span', { className: 'ml-2 font-mono text-text-secondary bg-background px-2 py-0.5 rounded-md' }, `${currentLine} / ${totalLines}`)
                 ),
                 React.createElement('p', { className: "font-bold" }, `${progress.toFixed(1)}%`)
-            )
+            ),
+            isJobActive && React.createElement(FeedrateOverrideControl, {
+                onFeedOverride: onFeedOverride,
+                currentFeedrate: machineState?.ov?.[0] ?? 100
+            })
         ),
         
         React.createElement('div', { className: "flex-grow relative min-h-0" },

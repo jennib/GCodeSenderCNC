@@ -1,7 +1,8 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, ChevronRight, ChevronsLeft, ChevronsRight, Info, AlertTriangle, Maximize, Minimize } from './Icons.js';
 
-const Console = ({ logs, onSendCommand, isConnected, isJobActive, isHighContrast }) => {
+const Console = ({ logs, onSendCommand, isConnected, isJobActive, isLightMode }) => {
     const [command, setCommand] = useState('');
     const [isFullscreen, setIsFullscreen] = useState(false);
     const logContainerRef = useRef(null);
@@ -21,7 +22,7 @@ const Console = ({ logs, onSendCommand, isConnected, isJobActive, isHighContrast
     };
 
     const getLogColor = (type) => {
-        if (isHighContrast) {
+        if (isLightMode) {
             switch (type) {
                 case 'sent': return 'text-blue-700';
                 case 'received': return 'text-green-700';
@@ -68,7 +69,7 @@ const Console = ({ logs, onSendCommand, isConnected, isJobActive, isHighContrast
                     : React.createElement(Maximize, { className: "w-5 h-5" })
             )
         ),
-        React.createElement('div', { ref: logContainerRef, className: "flex-grow bg-background rounded p-2 overflow-y-auto mb-4 font-mono text-sm" },
+        React.createElement('div', { ref: logContainerRef, className: "h-80 bg-background rounded p-2 overflow-y-auto mb-4 font-mono text-sm" },
             logs.map((log, index) =>
                 React.createElement('div', { key: index, className: `flex items-start ${getLogColor(log.type)}` },
                     getLogIcon(log.type),
@@ -76,7 +77,7 @@ const Console = ({ logs, onSendCommand, isConnected, isJobActive, isHighContrast
                 )
             )
         ),
-        React.createElement('form', { onSubmit: handleSend, className: "flex gap-2 flex-shrink-0" },
+        React.createElement('form', { onSubmit: handleSend, className: "flex gap-2 flex-shrink-0 mt-auto" },
             React.createElement('div', { className: "relative flex-grow" },
                 React.createElement(ChevronRight, { className: "w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary" }),
                 React.createElement('input', {

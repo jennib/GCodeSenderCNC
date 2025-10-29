@@ -1,3 +1,5 @@
+
+
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { SerialManager } from './services/serialService.js';
 import { SimulatedSerialManager } from './services/simulatedSerialService.js';
@@ -8,7 +10,7 @@ import Console from './components/Console.js';
 import JogPanel from './components/JogPanel.js';
 import { NotificationContainer } from './components/Notification.js';
 import ThemeToggle from './components/ThemeToggle.js';
-import { AlertTriangle, OctagonAlert, Unlock } from './components/Icons.js';
+import { AlertTriangle, OctagonAlert, Unlock, RotateCw, RotateCcw, PowerOff } from './components/Icons.js';
 
 const GRBL_ALARM_CODES = {
     1: { name: 'Hard limit', desc: 'A limit switch was triggered. Usually due to machine travel limits.', resolution: 'Check for obstructions. The machine may need to be moved off the switch manually. Use the "$X" command to unlock after clearing the issue, then perform a homing cycle ($H).' },
@@ -46,6 +48,35 @@ const StatusIndicator = ({ isConnected, machineState }) => {
     );
 };
 
+const SpindleStatusIndicator = ({ machineState, isConnected }) => {
+    if (!isConnected) {
+        return null; // Don't show anything if not connected
+    }
+
+    const spindleState = machineState?.spindle?.state || 'off';
+    const spindleSpeed = machineState?.spindle?.speed || 0;
+
+    if (spindleState === 'off' || spindleSpeed === 0) {
+        return React.createElement('div', { className: "flex items-center gap-2 text-sm text-text-secondary" },
+            React.createElement(PowerOff, { className: "w-5 h-5" }),
+            React.createElement('span', null, "Spindle Off")
+        );
+    }
+    
+    const icon = spindleState === 'cw' 
+        ? React.createElement(RotateCw, { className: "w-5 h-5 text-accent-green animate-spin-slow" })
+        : React.createElement(RotateCcw, { className: "w-5 h-5 text-accent-green animate-spin-slow-reverse" });
+
+    return React.createElement('div', { className: "flex items-center gap-2 text-sm text-text-primary" },
+        icon,
+        React.createElement('div', { className: 'flex flex-col leading-tight' },
+            React.createElement('span', { className: 'font-bold' }, `${spindleSpeed.toLocaleString()} RPM`),
+            React.createElement('span', { className: 'text-xs text-text-secondary' }, spindleState === 'cw' ? 'Clockwise' : 'Counter-CW')
+        )
+    );
+};
+
+
 const App = () => {
     const [isConnected, setIsConnected] = useState(false);
     const [isSimulatedConnection, setIsSimulatedConnection] = useState(false);
@@ -63,14 +94,15 @@ const App = () => {
     const [flashingButton, setFlashingButton] = useState(null);
     const [notifications, setNotifications] = useState([]);
     const [unit, setUnit] = useState('mm');
-    const [isHighContrast, setIsHighContrast] = useState(false);
+    const [isLightMode, setIsLightMode] = useState(false);
+    const [isJogging, setIsJogging] = useState(false);
 
     const serialManagerRef = useRef(null);
     const prevState = usePrevious(machineState);
 
     useEffect(() => {
-        document.documentElement.classList.toggle('high-contrast', isHighContrast);
-    }, [isHighContrast]);
+        document.documentElement.classList.toggle('light-mode', isLightMode);
+    }, [isLightMode]);
 
     const removeNotification = useCallback((id) => {
         setNotifications(prev => {
@@ -91,7 +123,28 @@ const App = () => {
     }, [removeNotification]);
 
     const addLog = useCallback((log) => {
-        setConsoleLogs(prev => [...prev, log].slice(-200)); // Keep last 200 logs
+        setConsoleLogs(prev => {
+            const trimmedMessage = log.message.trim().toLowerCase();
+
+            if (log.type === 'received' && trimmedMessage === 'ok') {
+                const lastLog = prev.length > 0 ? prev[prev.length - 1] : null;
+
+                if (lastLog && lastLog.type === 'received') {
+                    const lastMessageTrimmed = lastLog.message.trim().toLowerCase();
+                    // Check if last message was 'ok' or 'ok' followed only by dots.
+                    if (/^ok\.*$/.test(lastMessageTrimmed)) {
+                        const newLogs = [...prev];
+                        const updatedLastLog = { ...newLogs[newLogs.length - 1] };
+                        updatedLastLog.message += '.';
+                        newLogs[newLogs.length - 1] = updatedLastLog;
+                        return newLogs;
+                    }
+                }
+            }
+            
+            // Not a subsequent 'ok', or a different type of log. Just add it normally.
+            return [...prev, log].slice(-20); // Keep last 20 logs
+        });
     }, []);
     
     useEffect(() => {
@@ -174,8 +227,13 @@ const App = () => {
     }, [addLog, isSerialApiSupported, useSimulator]);
 
     const handleDisconnect = useCallback(async () => {
+        if (jobStatus === JobStatus.Running || jobStatus === JobStatus.Paused) {
+            if (!window.confirm("A job is currently running or paused. Are you sure you want to disconnect? This will stop the job.")) {
+                return; // User cancelled the disconnect
+            }
+        }
         await serialManagerRef.current?.disconnect();
-    }, []);
+    }, [jobStatus]);
 
     const handleFileLoad = (content, name) => {
         // More robustly clean and filter g-code lines
@@ -217,22 +275,42 @@ const App = () => {
         switch (action) {
             case 'start':
                 if (gcodeLines.length > 0) {
-                    setJobStatus(JobStatus.Running);
-                    manager.sendGCode(gcodeLines);
+                    setJobStatus(currentStatus => {
+                        if (currentStatus === JobStatus.Idle || currentStatus === JobStatus.Stopped || currentStatus === JobStatus.Complete) {
+                            manager.sendGCode(gcodeLines);
+                            return JobStatus.Running;
+                        }
+                        return currentStatus;
+                    });
                 }
                 break;
             case 'pause':
-                setJobStatus(JobStatus.Paused);
-                manager.pause();
+                setJobStatus(currentStatus => {
+                    if (currentStatus === JobStatus.Running) {
+                        manager.pause();
+                        return JobStatus.Paused;
+                    }
+                    return currentStatus;
+                });
                 break;
             case 'resume':
-                setJobStatus(JobStatus.Running);
-                manager.resume();
+                setJobStatus(currentStatus => {
+                    if (currentStatus === JobStatus.Paused) {
+                        manager.resume();
+                        return JobStatus.Running;
+                    }
+                    return currentStatus;
+                });
                 break;
             case 'stop':
-                setJobStatus(JobStatus.Stopped);
-                manager.stopJob();
-                setProgress(0);
+                setJobStatus(currentStatus => {
+                    if (currentStatus === JobStatus.Running || currentStatus === JobStatus.Paused) {
+                        manager.stopJob();
+                        setProgress(0);
+                        return JobStatus.Stopped;
+                    }
+                    return currentStatus;
+                });
                 break;
         }
     }, [isConnected, gcodeLines]);
@@ -241,7 +319,22 @@ const App = () => {
         serialManagerRef.current?.sendLine(command);
     }, []);
 
+    useEffect(() => {
+        // A jog command is finished when the machine state transitions from 'Jog' back to a non-jog state.
+        // This effect handles unlocking the controls once that transition is detected.
+        if (isJogging && prevState?.status === 'Jog' && machineState?.status !== 'Jog') {
+            setIsJogging(false);
+        }
+    }, [isJogging, machineState, prevState]);
+
     const handleJog = useCallback((axis, direction, step) => {
+        // Use the `isJogging` state and current machine status to prevent sending new commands
+        // while a jog is in progress. Adding these to the dependency array ensures
+        // this callback always has the freshest state.
+        if (isJogging || machineState?.status === 'Jog' || !serialManagerRef.current) {
+            return;
+        }
+
         if (axis === 'Z' && unit === 'mm' && step > 10) {
             addLog({ type: 'error', message: 'Z-axis jog step cannot exceed 10mm.' });
             return;
@@ -251,10 +344,17 @@ const App = () => {
             return;
         }
 
-        const feedRate = 1000; // A reasonable default feed rate for jogging
+        setIsJogging(true);
+
+        const feedRate = 1000;
         const command = `$J=G91 ${axis}${step * direction} F${feedRate}`;
-        serialManagerRef.current?.sendLine(command);
-    }, [addLog, unit]);
+        
+        serialManagerRef.current.sendLine(command).catch((err) => {
+            setIsJogging(false); // Reset on error
+            const errorMessage = err instanceof Error ? err.message : "An error occurred during jog.";
+            addLog({ type: 'error', message: `Jog failed: ${errorMessage}` });
+        });
+    }, [addLog, unit, isJogging, machineState]);
 
     const flashControl = useCallback((buttonId) => {
         setFlashingButton(buttonId);
@@ -269,7 +369,46 @@ const App = () => {
         setProgress(0);
         addLog({type: 'error', message: 'EMERGENCY STOP TRIGGERED (Soft Reset)'});
     }, [addLog]);
+
+    const handleSpindleCommand = useCallback((command, speed) => {
+        const manager = serialManagerRef.current;
+        if (!manager || !isConnected) return;
+
+        let gcode = '';
+        switch (command) {
+            case 'cw':
+                gcode = `M3 S${speed}`;
+                break;
+            case 'ccw':
+                gcode = `M4 S${speed}`;
+                break;
+            case 'off':
+                gcode = 'M5';
+                break;
+            default:
+                return;
+        }
+
+        manager.sendLine(gcode);
+    }, [isConnected]);
     
+    const handleFeedOverride = useCallback((command) => {
+        const manager = serialManagerRef.current;
+        if (!manager) return;
+
+        const commandMap = {
+            'reset': '\x90', // Set to 100%
+            'inc10': '\x91', // Increase 10%
+            'dec10': '\x92', // Decrease 10%
+            'inc1': '\x93',  // Increase 1%
+            'dec1': '\x94',  // Decrease 1%
+        };
+
+        if (commandMap[command]) {
+            manager.sendRealtimeCommand(commandMap[command]);
+        }
+    }, []);
+
     const isAlarm = machineState?.status === 'Alarm';
 
     const handleUnitChange = useCallback((newUnit) => {
@@ -284,6 +423,54 @@ const App = () => {
         setJogStep(newUnit === 'mm' ? 1 : 0.1);
 
     }, [unit, addLog]);
+
+    const handleProbe = useCallback(async (axes, offsets) => {
+        const manager = serialManagerRef.current;
+        if (!manager || !isConnected) {
+            addLog({ type: 'error', message: 'Cannot probe while disconnected.' });
+            return;
+        }
+    
+        const probeTravel = unit === 'mm' ? -20 : -0.8;
+        const probeFeed = unit === 'mm' ? 25 : 1;
+        const retractDist = unit === 'mm' ? 5 : 0.2;
+    
+        addLog({ type: 'status', message: `Starting ${axes.toUpperCase()}-Probe cycle...` });
+    
+        try {
+            const probeAxis = async (axis, offset, travelDir = -1) => {
+                const travel = probeTravel * travelDir;
+                await manager.sendLineAndWaitForOk(`G38.2 ${axis}${travel} F${probeFeed}`);
+                addLog({ type: 'status', message: `Probe contact detected on ${axis}.` });
+                await manager.sendLineAndWaitForOk(`G10 L20 P1 ${axis}${offset}`);
+                addLog({ type: 'status', message: `${axis}-axis zero set to ${offset}${unit}.` });
+                await manager.sendLineAndWaitForOk('G91');
+                await manager.sendLineAndWaitForOk(`G0 ${axis}${retractDist * -travelDir}`);
+                await manager.sendLineAndWaitForOk('G90');
+            };
+
+            if (axes.includes('X')) {
+                await probeAxis('X', offsets.x);
+            }
+            if (axes.includes('Y')) {
+                await probeAxis('Y', offsets.y);
+            }
+            if (axes.includes('Z')) {
+                await probeAxis('Z', offsets.z);
+            }
+    
+            addLog({ type: 'status', message: 'Probe cycle complete.' });
+            addNotification(`${axes.toUpperCase()}-Probe cycle complete.`, 'success');
+    
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : "Unknown error";
+            addLog({ type: 'error', message: `Probe cycle failed: ${errorMessage}` });
+            setError(`Probe cycle failed: ${errorMessage}`);
+            // It's good practice to send a soft-reset to clear any alarm state from a failed probe
+            manager.sendLine('\x18', false);
+        }
+    
+    }, [isConnected, addLog, addNotification, unit, setError]);
 
     useEffect(() => {
         const handleKeyDown = (e) => {
@@ -395,6 +582,22 @@ const App = () => {
     const alarmInfo = isAlarm ? (GRBL_ALARM_CODES[machineState.code] || GRBL_ALARM_CODES.default) : null;
     const isJobActive = jobStatus === JobStatus.Running || jobStatus === JobStatus.Paused;
 
+    useEffect(() => {
+        const handleBeforeUnload = (event) => {
+            if (isJobActive) {
+                event.preventDefault();
+                event.returnValue = ''; // Required for Chrome
+                return ''; // For other browsers
+            }
+        };
+
+        window.addEventListener('beforeunload', handleBeforeUnload);
+
+        return () => {
+            window.removeEventListener('beforeunload', handleBeforeUnload);
+        };
+    }, [isJobActive]);
+
 
     return React.createElement('div', { className: "min-h-screen bg-background font-sans text-text-primary flex flex-col" },
         React.createElement(NotificationContainer, {
@@ -404,7 +607,8 @@ const App = () => {
         React.createElement('header', { className: "bg-surface shadow-md p-4 flex justify-between items-center z-10 flex-shrink-0 gap-4" },
             React.createElement('div', { className: "flex items-center gap-4" },
                 React.createElement('h1', { className: "text-xl font-bold hidden sm:block" }, "CNC G-Code Sender", React.createElement('span', { className: "ml-2 bg-primary/20 text-primary text-xs font-semibold px-2 py-0.5 rounded-full align-middle" }, "Milestone 2")),
-                React.createElement(StatusIndicator, { isConnected: isConnected, machineState: machineState })
+                React.createElement(StatusIndicator, { isConnected: isConnected, machineState: machineState }),
+                React.createElement(SpindleStatusIndicator, { isConnected: isConnected, machineState: machineState })
             ),
             React.createElement('div', { className: "flex items-center gap-4" },
                 isConnected && React.createElement('button', {
@@ -416,8 +620,8 @@ const App = () => {
                     React.createElement('span', { className: "hidden md:inline" }, "E-STOP")
                 ),
                 React.createElement(ThemeToggle, {
-                    isHighContrast: isHighContrast,
-                    onToggle: () => setIsHighContrast(prev => !prev)
+                    isLightMode: isLightMode,
+                    onToggle: () => setIsLightMode(prev => !prev)
                 }),
                 React.createElement(SerialConnector, {
                     isConnected: isConnected,
@@ -460,7 +664,7 @@ const App = () => {
             React.createElement('p', null, error),
             React.createElement('button', { onClick: () => setError(null), className: "ml-auto font-bold" }, "X")
         ),
-        React.createElement('main', { className: "flex-grow p-4 grid grid-cols-1 lg:grid-cols-2 gap-4" },
+        React.createElement('main', { className: "flex-grow p-4 grid grid-cols-1 lg:grid-cols-2 gap-4 min-h-0" },
             React.createElement('div', { className: "min-h-[60vh] lg:min-h-0" },
                 React.createElement(GCodePanel, {
                     onFileLoad: handleFileLoad,
@@ -472,28 +676,33 @@ const App = () => {
                     isConnected: isConnected,
                     unit: unit,
                     onGCodeChange: handleGCodeChange,
-                    machineState: machineState
+                    machineState: machineState,
+                    onFeedOverride: handleFeedOverride
                 })
             ),
-            React.createElement('div', { className: "flex flex-col gap-4 overflow-hidden" },
+            React.createElement('div', { className: "flex flex-col gap-4 overflow-hidden min-h-0" },
                 React.createElement(JogPanel, {
                     isConnected: isConnected,
                     machineState: machineState,
                     onJog: handleJog,
                     onHome: handleHome,
                     onSetZero: handleSetZero,
+                    onSpindleCommand: handleSpindleCommand,
+                    onProbe: handleProbe,
                     jogStep: jogStep,
                     onStepChange: setJogStep,
                     flashingButton: flashingButton,
                     unit: unit,
                     onUnitChange: handleUnitChange,
+                    isJogging: isJogging,
+                    isJobActive: isJobActive
                 }),
                 React.createElement(Console, {
                     logs: consoleLogs,
                     onSendCommand: handleManualCommand,
                     isConnected: isConnected,
                     isJobActive: isJobActive,
-                    isHighContrast: isHighContrast
+                    isLightMode: isLightMode
                 })
             )
         )

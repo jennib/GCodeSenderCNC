@@ -1,3 +1,4 @@
+
 const getParam = (gcode, param) => {
     // Allows for optional whitespace between parameter and value
     const regex = new RegExp(`${param}\\s*([-+]?[0-9]*\\.?[0-9]*)`, 'i');

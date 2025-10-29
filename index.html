@@ -20,7 +20,7 @@
         --color-accent-yellow: #F59E0B;
         --color-accent-red: #EF4444;
       }
-      .high-contrast {
+      .light-mode {
         --color-primary: #0000FF;
         --color-primary-focus: #0000DD;
         --color-secondary: #666666;
@@ -32,6 +32,9 @@
         --color-accent-green: #006400;
         --color-accent-yellow: #FF8C00;
         --color-accent-red: #C80000;
+      }
+      .light-mode .bg-secondary {
+        color: #FFFFFF;
       }
     </style>
     <script>
@@ -50,6 +53,17 @@
               'accent-green': 'var(--color-accent-green)',
               'accent-yellow': 'var(--color-accent-yellow)',
               'accent-red': 'var(--color-accent-red)',
+            },
+            animation: {
+              'spin-slow': 'spin 3s linear infinite',
+              'spin-slow-reverse': 'spin-reverse 3s linear infinite',
+            },
+            keyframes: {
+              'spin-reverse': {
+                'to': {
+                  transform: 'rotate(-360deg)',
+                },
+              },
             },
           },
         },

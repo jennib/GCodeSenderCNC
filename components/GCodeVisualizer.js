@@ -1,3 +1,4 @@
+
 import React, { useRef, useEffect, useState, useCallback, useImperativeHandle } from 'react';
 import { parseGCode } from '../services/gcodeParser.js';
 
@@ -32,13 +33,14 @@ const drawSpindle = (ctx, scale, position) => {
 };
 
 
-const GCodeVisualizer = React.forwardRef(({ gcodeLines, currentLine, unit, spindlePosition }, ref) => {
+const GCodeVisualizer = React.forwardRef(({ gcodeLines, currentLine, unit }, ref) => {
     const canvasRef = useRef(null);
     const containerRef = useRef(null);
     const [parsedGCode, setParsedGCode] = useState(null);
     const [viewTransform, setViewTransform] = useState({ scale: 1, offsetX: 0, offsetY: 0 });
     const [isPanning, setIsPanning] = useState(false);
     const [panStart, setPanStart] = useState({ x: 0, y: 0 });
+    const [visualizerSpindlePosition, setVisualizerSpindlePosition] = useState({ x: 0, y: 0 });
 
     const fitToView = useCallback((bounds, canvasWidth, canvasHeight) => {
         if (!bounds || bounds.minX === Infinity) {
@@ -213,7 +215,7 @@ const GCodeVisualizer = React.forwardRef(({ gcodeLines, currentLine, unit, spind
         });
 
         // Draw spindle on top of the path
-        drawSpindle(ctx, scale, spindlePosition);
+        drawSpindle(ctx, scale, visualizerSpindlePosition);
 
         ctx.restore();
 
@@ -221,16 +223,28 @@ const GCodeVisualizer = React.forwardRef(({ gcodeLines, currentLine, unit, spind
         drawOrigin(ctx, canvas.width, canvas.height);
         drawScaleBar(ctx, canvas.width, canvas.height, viewTransform.scale, unit);
 
-    }, [parsedGCode, currentLine, viewTransform, unit, spindlePosition]);
+    }, [parsedGCode, currentLine, viewTransform, unit, visualizerSpindlePosition]);
     
     useEffect(() => {
         const parsed = parseGCode(gcodeLines);
         setParsedGCode(parsed);
+        setVisualizerSpindlePosition({ x: 0, y: 0 }); // Reset position on new file
         if (canvasRef.current && containerRef.current) {
             const { width, height } = containerRef.current.getBoundingClientRect();
             fitToView(parsed.bounds, width, height);
         }
     }, [gcodeLines, fitToView]);
+
+    useEffect(() => {
+        if (!parsedGCode || currentLine <= 0 || currentLine > parsedGCode.segments.length) {
+            setVisualizerSpindlePosition({ x: 0, y: 0 });
+            return;
+        }
+        const lastSegment = parsedGCode.segments[currentLine - 1];
+        if (lastSegment) {
+            setVisualizerSpindlePosition(lastSegment.end);
+        }
+    }, [currentLine, parsedGCode]);
 
 
     useEffect(() => {
@@ -251,8 +265,6 @@ const GCodeVisualizer = React.forwardRef(({ gcodeLines, currentLine, unit, spind
         return () => resizeObserver.disconnect();
 
     }, [draw]);
-    
-    useEffect(draw, [draw, viewTransform, currentLine]);
 
     const handleMouseDown = (e) => {
         setIsPanning(true);

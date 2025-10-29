@@ -1,3 +1,5 @@
+
+
 import React from 'react';
 
 const h = React.createElement;
@@ -169,4 +171,40 @@ export const Minimize = (props) => h('svg', { xmlns: "http://www.w3.org/2000/svg
 export const Contrast = (props) => h('svg', { xmlns: "http://www.w3.org/2000/svg", width: "24", height: "24", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round", ...props },
     h('circle', { cx: "12", cy: "12", r: "10" }),
     h('path', { d: "M12 18a6 6 0 0 0 0-12v12z" })
+);
+
+export const RotateCw = (props) => h('svg', { xmlns: "http://www.w3.org/2000/svg", width: "24", height: "24", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round", ...props },
+    h('path', { d: "M20 12a8 8 0 1 1-8-8" }),
+    h('path', { d: "M20 4v4h-4" })
+);
+
+export const RotateCcw = (props) => h('svg', { xmlns: "http://www.w3.org/2000/svg", width: "24", height: "24", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round", ...props },
+    h('path', { d: "M4 12a8 8 0 1 0 8-8" }),
+    h('path', { d: "M4 4v4h4" })
+);
+
+export const Plus = (props) => h('svg', { xmlns: "http://www.w3.org/2000/svg", width: "24", height: "24", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round", ...props },
+    h('line', { x1: "12", y1: "5", x2: "12", y2: "19" }),
+    h('line', { x1: "5", y1: "12", x2: "19", y2: "12" })
+);
+
+export const Minus = (props) => h('svg', { xmlns: "http://www.w3.org/2000/svg", width: "24", height: "24", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round", ...props },
+    h('line', { x1: "5", y1: "12", x2: "19", y2: "12" })
+);
+
+export const RefreshCw = (props) => h('svg', { xmlns: "http://www.w3.org/2000/svg", width: "24", height: "24", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round", ...props },
+    h('polyline', { points: "23 4 23 10 17 10" }),
+    h('path', { d: "M20.49 15a9 9 0 1 1-2.12-9.36L23 10" })
+);
+
+export const Percent = (props) => h('svg', { xmlns: "http://www.w3.org/2000/svg", width: "24", height: "24", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round", ...props },
+    h('line', { x1: "19", y1: "5", x2: "5", y2: "19" }),
+    h('circle', { cx: "6.5", cy: "6.5", r: "2.5" }),
+    h('circle', { cx: "17.5", cy: "17.5", r: "2.5" })
+);
+
+export const Probe = (props) => h('svg', { xmlns: "http://www.w3.org/2000/svg", width: "24", height: "24", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round", ...props },
+    h('path', { d: "M12 2v14" }),
+    h('path', { d: "m7 9 5 5 5-5" }),
+    h('path', { d: "M3 20h18" })
 );
