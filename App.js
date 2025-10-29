@@ -7,12 +7,15 @@ import GCodePanel from './components/GCodePanel.js';
 import Console from './components/Console.js';
 import JogPanel from './components/JogPanel.js';
 import MacrosPanel from './components/MacrosPanel.js';
+import WebcamPanel from './components/WebcamPanel.js';
 import PreflightChecklistModal from './components/PreflightChecklistModal.js';
 import MacroEditorModal from './components/MacroEditorModal.js';
+import SettingsModal from './components/SettingsModal.js';
+import ToolLibraryModal from './components/ToolLibraryModal.js';
 import { NotificationContainer } from './components/Notification.js';
 import ThemeToggle from './components/ThemeToggle.js';
 import StatusBar from './components/StatusBar.js';
-import { AlertTriangle, OctagonAlert, Unlock } from './components/Icons.js';
+import { AlertTriangle, OctagonAlert, Unlock, Settings } from './components/Icons.js';
 import { estimateGCodeTime } from './services/gcodeTimeEstimator.js';
 
 const GRBL_ALARM_CODES = {
@@ -74,6 +77,15 @@ const DEFAULT_MACROS = [
     { name: 'Reset All Offsets', commands: ['G92.1'] },
 ];
 
+const DEFAULT_SETTINGS = {
+    workArea: { x: 300, y: 300, z: 80 },
+    spindle: { min: 0, max: 12000 },
+    scripts: {
+        startup: ['G21', 'G90'].join('\n'), // Set units to mm, absolute positioning
+        toolChange: ['M5', 'G0 Z10'].join('\n'), // Stop spindle, raise Z
+        shutdown: ['M5', 'G0 X0 Y0'].join('\n') // Stop spindle, go to WCS zero
+    }
+};
 
 const usePrevious = (value) => {
     const ref = useRef();
@@ -112,6 +124,10 @@ const App = () => {
     const [editingMacroIndex, setEditingMacroIndex] = useState(null);
     const [isMacroEditMode, setIsMacroEditMode] = useState(false);
 
+    // Advanced Features State
+    const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+    const [isToolLibraryModalOpen, setIsToolLibraryModalOpen] = useState(false);
+
 
     // Persisted State
     const [jogStep, setJogStep] = useState(() => {
@@ -138,6 +154,22 @@ const App = () => {
             return saved ? JSON.parse(saved) : DEFAULT_MACROS;
         } catch {
             return DEFAULT_MACROS;
+        }
+    });
+    const [machineSettings, setMachineSettings] = useState(() => {
+        try {
+            const saved = localStorage.getItem('cnc-app-settings');
+            return saved ? JSON.parse(saved) : DEFAULT_SETTINGS;
+        } catch {
+            return DEFAULT_SETTINGS;
+        }
+    });
+    const [toolLibrary, setToolLibrary] = useState(() => {
+        try {
+            const saved = localStorage.getItem('cnc-app-tool-library');
+            return saved ? JSON.parse(saved) : [];
+        } catch {
+            return [];
         }
     });
 
@@ -172,6 +204,22 @@ const App = () => {
             addNotification('Could not save macros.', 'error');
         }
     }, [macros]);
+
+    useEffect(() => {
+        try {
+            localStorage.setItem('cnc-app-settings', JSON.stringify(machineSettings));
+        } catch (error) {
+            console.error("Could not save settings:", error);
+        }
+    }, [machineSettings]);
+
+    useEffect(() => {
+        try {
+            localStorage.setItem('cnc-app-tool-library', JSON.stringify(toolLibrary));
+        } catch (error) {
+            console.error("Could not save tool library:", error);
+        }
+    }, [toolLibrary]);
     
     useEffect(() => {
         // We are no longer jogging if the machine reports back that it is idle or has an alarm.
@@ -334,13 +382,22 @@ const App = () => {
         if (!isSerialApiSupported && !useSimulator) return;
 
         const commonCallbacks = {
-            onConnect: (info) => {
+            onConnect: async (info) => {
                 setIsConnected(true);
                 setPortInfo(info);
                 addLog({ type: 'status', message: `Connected to ${useSimulator ? 'simulator' : 'port'} at 115200 baud.` });
                 setError(null);
                 setIsSimulatedConnection(useSimulator);
                 setIsHomedSinceConnect(false); // Reset homing status on new connection
+                
+                // Run startup script
+                if (machineSettings.scripts.startup && serialManagerRef.current) {
+                    addLog({ type: 'status', message: 'Running startup script...' });
+                    const startupCommands = machineSettings.scripts.startup.split('\n').filter(cmd => cmd.trim() !== '');
+                    for (const command of startupCommands) {
+                        await serialManagerRef.current.sendLineAndWaitForOk(command);
+                    }
+                }
             },
             onDisconnect: () => {
                 setIsConnected(false);
@@ -377,14 +434,15 @@ const App = () => {
                 ? new SimulatedSerialManager(commonCallbacks)
                 : new SerialManager(commonCallbacks);
             
+            serialManagerRef.current = manager; // Set ref before connect to use in onConnect
             await manager.connect(115200);
-            serialManagerRef.current = manager;
+            
         } catch (err) {
             const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred.';
             setError(`Failed to connect: ${errorMessage}`);
             addLog({ type: 'error', message: `Failed to connect: ${errorMessage}` });
         }
-    }, [addLog, isSerialApiSupported, useSimulator, addNotification, playCompletionSound]);
+    }, [addLog, isSerialApiSupported, useSimulator, addNotification, playCompletionSound, machineSettings.scripts.startup]);
 
     const handleDisconnect = useCallback(async () => {
         if (jobStatus === JobStatus.Running || jobStatus === JobStatus.Paused) {
@@ -392,8 +450,18 @@ const App = () => {
                 return; // User cancelled the disconnect
             }
         }
+        
+        // Run shutdown script before disconnecting
+        if (isConnected && machineSettings.scripts.shutdown && serialManagerRef.current) {
+            addLog({ type: 'status', message: 'Running shutdown script...' });
+            const shutdownCommands = machineSettings.scripts.shutdown.split('\n').filter(cmd => cmd.trim() !== '');
+            for (const command of shutdownCommands) {
+                await serialManagerRef.current.sendLineAndWaitForOk(command);
+            }
+        }
+
         await serialManagerRef.current?.disconnect();
-    }, [jobStatus]);
+    }, [jobStatus, isConnected, machineSettings.scripts.shutdown, addLog]);
 
     const handleFileLoad = (content, name) => {
         // More robustly clean and filter g-code lines
@@ -488,10 +556,6 @@ const App = () => {
         serialManagerRef.current?.sendLine(command);
     }, []);
 
-    // Removing useCallback from handleJog to ensure it's never stale.
-    // This is a key part of the fix, as a stale callback could ignore clicks
-    // if it closed over an old state. The hotkey system was likely getting a
-    // fresh function more reliably than the button component was.
     const handleJog = (axis, direction, step) => {
         if (!serialManagerRef.current) return;
 
@@ -507,11 +571,11 @@ const App = () => {
         const feedRate = 1000;
         const command = `$J=G91 ${axis}${step * direction} F${feedRate}`;
         
-        setIsJogging(true); // Immediately disable jog buttons to prevent rapid clicks
+        setIsJogging(true); 
         serialManagerRef.current.sendLine(command).catch((err) => {
             const errorMessage = err instanceof Error ? err.message : "An error occurred during jog.";
             addLog({ type: 'error', message: `Jog failed: ${errorMessage}` });
-            setIsJogging(false); // Re-enable on failure to send
+            setIsJogging(false);
         });
     };
 
@@ -795,7 +859,6 @@ const App = () => {
         addNotification('Macro deleted!', 'success');
     }, [addNotification]);
 
-
     const alarmInfo = isAlarm ? (GRBL_ALARM_CODES[machineState.code] || GRBL_ALARM_CODES.default) : null;
     const isJobActive = jobStatus === JobStatus.Running || jobStatus === JobStatus.Paused;
 
@@ -841,11 +904,29 @@ const App = () => {
             macro: editingMacroIndex !== null ? macros[editingMacroIndex] : null,
             index: editingMacroIndex
         }),
+        React.createElement(SettingsModal, {
+            isOpen: isSettingsModalOpen,
+            onCancel: () => setIsSettingsModalOpen(false),
+            onSave: setMachineSettings,
+            settings: machineSettings,
+            onOpenToolLibrary: () => setIsToolLibraryModalOpen(true)
+        }),
+        React.createElement(ToolLibraryModal, {
+            isOpen: isToolLibraryModalOpen,
+            onCancel: () => setIsToolLibraryModalOpen(false),
+            onSave: setToolLibrary,
+            library: toolLibrary
+        }),
         React.createElement('header', { className: "bg-surface shadow-md p-4 flex justify-between items-center z-10 flex-shrink-0 gap-4" },
             React.createElement('div', { className: "flex items-center gap-4" },
                  React.createElement('h1', { className: "text-xl font-bold" }, "CNC Sender 3D")
             ),
             React.createElement('div', { className: "flex items-center gap-4" },
+                React.createElement('button', {
+                    onClick: () => setIsSettingsModalOpen(true),
+                    title: "Machine Settings",
+                    className: "p-2 rounded-md bg-secondary text-text-primary hover:bg-secondary-focus focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-surface"
+                }, React.createElement(Settings, { className: 'w-5 h-5' })),
                 React.createElement(ThemeToggle, {
                     isLightMode: isLightMode,
                     onToggle: () => setIsLightMode(prev => !prev)
@@ -934,6 +1015,7 @@ const App = () => {
                     isJogging: isJogging,
                     isMacroRunning: isMacroRunning,
                 }),
+                 React.createElement(WebcamPanel, {}),
                 React.createElement(MacrosPanel, {
                     macros: macros,
                     onRunMacro: handleRunMacro,
