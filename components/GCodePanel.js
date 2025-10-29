@@ -2,7 +2,7 @@
 
 import React, { useRef, useState, useEffect } from 'react';
 import { JobStatus } from '../types.js';
-import { Play, Pause, Square, Upload, FileText, Code, Eye, Maximize, Pencil, CheckCircle, X, Save, Plus, Minus, RefreshCw, Percent } from './Icons.js';
+import { Play, Pause, Square, Upload, FileText, Code, Eye, Maximize, Pencil, CheckCircle, X, Save, Plus, Minus, RefreshCw, Percent, ZoomIn, ZoomOut } from './Icons.js';
 import GCodeVisualizer from './GCodeVisualizer.js';
 import GCodeLine from './GCodeLine.js';
 
@@ -211,12 +211,28 @@ const GCodePanel = ({ onFileLoad, fileName, gcodeLines, onJobControl, jobStatus,
                     React.createElement('button', { onClick: () => setView('code'), title: "Code View", className: `p-1 rounded transition-colors ${view === 'code' ? 'bg-primary text-white' : 'hover:bg-secondary'}` },
                         React.createElement(Code, { className: "w-5 h-5" })
                     ),
-                    view === 'visualizer' && gcodeLines.length > 0 && React.createElement('button', {
-                        onClick: () => visualizerRef.current?.fitView(),
-                        title: "Fit to View",
-                        className: "p-1 rounded transition-colors hover:bg-secondary"
-                    },
-                        React.createElement(Maximize, { className: "w-5 h-5" })
+                    view === 'visualizer' && gcodeLines.length > 0 && React.createElement(React.Fragment, null,
+                        React.createElement('button', {
+                            onClick: () => visualizerRef.current?.fitView(),
+                            title: "Fit to View",
+                            className: "p-1 rounded transition-colors hover:bg-secondary"
+                        },
+                            React.createElement(Maximize, { className: "w-5 h-5" })
+                        ),
+                        React.createElement('button', {
+                            onClick: () => visualizerRef.current?.zoomIn(),
+                            title: "Zoom In",
+                            className: "p-1 rounded transition-colors hover:bg-secondary"
+                        },
+                            React.createElement(ZoomIn, { className: "w-5 h-5" })
+                        ),
+                        React.createElement('button', {
+                            onClick: () => visualizerRef.current?.zoomOut(),
+                            title: "Zoom Out",
+                            className: "p-1 rounded transition-colors hover:bg-secondary"
+                        },
+                            React.createElement(ZoomOut, { className: "w-5 h-5" })
+                        )
                     )
                 ),
                 view === 'code' && gcodeLines.length > 0 && (

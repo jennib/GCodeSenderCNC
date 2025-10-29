@@ -1,4 +1,5 @@
 
+
 import React, { useRef, useEffect, useState, useCallback, useImperativeHandle } from 'react';
 import { parseGCode } from '../services/gcodeParser.js';
 
@@ -67,13 +68,32 @@ const GCodeVisualizer = React.forwardRef(({ gcodeLines, currentLine, unit }, ref
         setViewTransform({ scale, offsetX, offsetY });
     }, []);
     
+    const handleZoom = useCallback((direction) => {
+        const scaleAmount = 1.2;
+        const newScale = direction === 'in' ? viewTransform.scale * scaleAmount : viewTransform.scale / scaleAmount;
+
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        
+        const rect = canvas.getBoundingClientRect();
+        const centerX = rect.width / 2;
+        const centerY = rect.height / 2;
+
+        const newOffsetX = centerX - (centerX - viewTransform.offsetX) * (newScale / viewTransform.scale);
+        const newOffsetY = centerY - (centerY - viewTransform.offsetY) * (newScale / viewTransform.scale);
+
+        setViewTransform({ scale: newScale, offsetX: newOffsetX, offsetY: newOffsetY });
+    }, [viewTransform]);
+
     useImperativeHandle(ref, () => ({
         fitView: () => {
             if (containerRef.current && parsedGCode) {
                 const { width, height } = containerRef.current.getBoundingClientRect();
                 fitToView(parsedGCode.bounds, width, height);
             }
-        }
+        },
+        zoomIn: () => handleZoom('in'),
+        zoomOut: () => handleZoom('out'),
     }));
 
     const drawOrigin = (ctx, width, height) => {
