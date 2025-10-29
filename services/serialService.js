@@ -195,20 +195,22 @@ export class SerialManager {
                                 // Send a deep clone to React to ensure re-render
                                 this.callbacks.onStatus(JSON.parse(JSON.stringify(this.lastStatus)));
                             }
-                        } else if(trimmedValue){
-                            this.callbacks.onLog({ type: 'received', message: trimmedValue });
-                            if (trimmedValue.startsWith('ok')) {
-                                if (this.linePromiseResolve) {
-                                    this.linePromiseResolve();
-                                    this.linePromiseResolve = null;
-                                    this.linePromiseReject = null;
-                                }
-                            } else if (trimmedValue.startsWith('error:')) {
+                        } else if (trimmedValue) {
+                            if (trimmedValue.startsWith('error:')) {
                                 this.callbacks.onError(`GRBL Error: ${trimmedValue}`);
                                 if (this.linePromiseReject) {
                                     this.linePromiseReject(new Error(trimmedValue));
                                     this.linePromiseResolve = null;
                                     this.linePromiseReject = null;
+                                }
+                            } else {
+                                this.callbacks.onLog({ type: 'received', message: trimmedValue });
+                                if (trimmedValue.startsWith('ok')) {
+                                    if (this.linePromiseResolve) {
+                                        this.linePromiseResolve();
+                                        this.linePromiseResolve = null;
+                                        this.linePromiseReject = null;
+                                    }
                                 }
                             }
                         }

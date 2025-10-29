@@ -24,6 +24,45 @@ const GRBL_ALARM_CODES = {
     'default': { name: 'Unknown Alarm', desc: 'An unspecified alarm has occurred.', resolution: 'Try unlocking with "$X". If that fails, a soft-reset (E-STOP button) may be required.' }
 };
 
+const GRBL_ERROR_CODES = {
+    1: 'G-code words consist of a letter and a value. Letter was not found.',
+    2: 'Numeric value format is not valid or missing an expected value.',
+    3: "Grbl '$' system command was not recognized or supported.",
+    4: 'Negative value received for an expected positive value.',
+    5: 'Homing cycle is not enabled via settings.',
+    6: 'Minimum step pulse time must be greater than 3usec.',
+    7: 'EEPROM read failed. Reset and restore factory settings.',
+    8: 'Grbl not in idle state. Commands cannot be executed.',
+    9: 'G-code locked out during alarm or jog state.',
+    10: 'Soft limits cannot be enabled without homing being enabled.',
+    11: 'Max characters per line exceeded. Line was not processed.',
+    12: 'Grbl setting value exceeds the maximum step rate.',
+    13: 'Safety door was detected as opened and door state initiated.',
+    14: 'Build info or startup line exceeded EEPROM line length limit.',
+    15: 'Jog target exceeds machine travel. Command ignored.',
+    16: "Jog command with no '=' or contains prohibited g-code.",
+    17: 'Laser mode requires PWM output.',
+    20: 'Unsupported or invalid g-code command found in block.',
+    21: 'More than one g-code command from same modal group found in block.',
+    22: 'Feed rate has not been set or is undefined.',
+    23: 'G-code command in block requires an integer value.',
+    24: 'Two g-code commands that both require the use of the XYZ axis words were detected in the block.',
+    25: 'A G-code word was repeated in the block.',
+    26: 'A G-code command implicitly or explicitly requires XYZ axis words in the block, but none were detected.',
+    27: 'N-line number value is not within the valid range of 1 - 9,999,999.',
+    28: 'A G-code command was sent, but is missing some required P or L value words in the line.',
+    29: 'Grbl supports six work coordinate systems G54-G59. G59.1, G59.2, and G59.3 are not supported.',
+    30: 'The G53 G-code command requires either a G0 or G1 motion mode to be active. A different motion was active.',
+    31: 'There are unused axis words in the block and G80 motion mode cancel is active.',
+    32: 'A G2 or G3 arc was commanded but there is no XYZ axis word in the selected plane to trace the arc.',
+    33: 'The motion command has an invalid target. G2, G3, and G38.2 generates this error.',
+    34: 'A G2 or G3 arc, traced with the radius definition, had a mathematical error when computing the arc geometry. Try either breaking up the arc into multiple smaller arcs or turning on calculated arcs.',
+    35: 'A G2 or G3 arc, traced with the offset definition, is missing the I or J router words in the selected plane to trace the arc.',
+    36: 'There are unused axis words in the block and G80 motion mode cancel is active.',
+    37: 'The G43.1 dynamic tool length offset command cannot apply an offset to an axis other than its configured axis.',
+    38: 'Tool number greater than max supported value.',
+};
+
 const usePrevious = (value) => {
     const ref = useRef();
     useEffect(() => {
@@ -224,11 +263,30 @@ const App = () => {
     }, []);
 
     const addLog = useCallback((log) => {
+        let processedLog = { ...log };
+
+        // Add explanation for GRBL errors
+        if (processedLog.type === 'error' && processedLog.message.includes('error:')) {
+            const codeMatch = processedLog.message.match(/error:(\d+)/);
+            if (codeMatch && codeMatch[1]) {
+                const code = parseInt(codeMatch[1], 10);
+                const explanation = GRBL_ERROR_CODES[code];
+                const originalError = `error:${code}`;
+
+                if (explanation) {
+                    // The message from onError can be long, but for the console, we want it concise.
+                    processedLog.message = `${originalError} (${explanation})`;
+                } else {
+                    processedLog.message = originalError; // Fallback to just the error code
+                }
+            }
+        }
+
         setConsoleLogs(prev => {
-            const trimmedMessage = log.message.trim().toLowerCase();
+            const trimmedMessage = processedLog.message.trim().toLowerCase();
 
             // Consolidate repeated 'ok' messages to prevent console spam.
-            if (log.type === 'received' && trimmedMessage === 'ok') {
+            if (processedLog.type === 'received' && trimmedMessage === 'ok') {
                 const lastLog = prev.length > 0 ? prev[prev.length - 1] : null;
 
                 // Check if the last log was also an 'ok' message that we can append to.
@@ -244,7 +302,7 @@ const App = () => {
             }
             
             // For any other message, or the first 'ok' in a sequence.
-            return [...prev, log].slice(-20); // Keep last 20 logs
+            return [...prev, processedLog].slice(-20); // Keep last 20 logs
         });
     }, []);
     
