@@ -1,5 +1,7 @@
 
 
+
+
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { SerialManager } from './services/serialService.js';
 import { SimulatedSerialManager } from './services/simulatedSerialService.js';
@@ -96,9 +98,17 @@ const App = () => {
     const [unit, setUnit] = useState('mm');
     const [isLightMode, setIsLightMode] = useState(false);
     const [isJogging, setIsJogging] = useState(false);
+    const [isAudioUnlocked, setIsAudioUnlocked] = useState(false);
 
     const serialManagerRef = useRef(null);
     const prevState = usePrevious(machineState);
+    const jobStatusRef = useRef(jobStatus);
+    const audioContextRef = useRef(null);
+    const audioBufferRef = useRef(null);
+    
+    useEffect(() => {
+        jobStatusRef.current = jobStatus;
+    }, [jobStatus]);
 
     useEffect(() => {
         document.documentElement.classList.toggle('light-mode', isLightMode);
@@ -122,30 +132,92 @@ const App = () => {
         setNotifications(prev => [...prev, { id, message, type, timerId }]);
     }, [removeNotification]);
 
+    useEffect(() => {
+        // This effect runs once on mount to initialize the audio system.
+        const context = new (window.AudioContext || window.webkitAudioContext)();
+        audioContextRef.current = context;
+
+        // Pre-load the audio file to be ready for playback.
+        fetch('/assets/completion-sound.mp3')
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.arrayBuffer();
+            })
+            .then(arrayBuffer => context.decodeAudioData(arrayBuffer))
+            .then(decodedData => {
+                audioBufferRef.current = decodedData;
+            })
+            .catch(error => {
+                console.error("Failed to load or decode completion sound:", error);
+                addNotification('Could not load notification sound.', 'error');
+            });
+
+        const unlockAudio = () => {
+            if (context.state === 'suspended') {
+                context.resume().then(() => {
+                    setIsAudioUnlocked(true);
+                    // Clean up listeners once the context is unlocked.
+                    document.removeEventListener('click', unlockAudio);
+                    document.removeEventListener('keydown', unlockAudio);
+                });
+            } else {
+                // If it's already running, we can just clean up.
+                setIsAudioUnlocked(true);
+                document.removeEventListener('click', unlockAudio);
+                document.removeEventListener('keydown', unlockAudio);
+            }
+        };
+
+        // Browsers require a user gesture to start AudioContext.
+        // We listen for the first click or keydown anywhere.
+        document.addEventListener('click', unlockAudio);
+        document.addEventListener('keydown', unlockAudio);
+
+        return () => {
+            // Cleanup on unmount
+            document.removeEventListener('click', unlockAudio);
+            document.removeEventListener('keydown', unlockAudio);
+            context.close();
+        };
+    }, [addNotification]);
+
+    const playCompletionSound = useCallback(() => {
+        const audioContext = audioContextRef.current;
+        const audioBuffer = audioBufferRef.current;
+
+        if (audioBuffer && audioContext && audioContext.state === 'running') {
+            const source = audioContext.createBufferSource();
+            source.buffer = audioBuffer;
+            source.connect(audioContext.destination);
+            source.start(0);
+        } else {
+            console.warn("Could not play sound: AudioContext not running or sound buffer not loaded.");
+        }
+    }, []);
+
     const addLog = useCallback((log) => {
         setConsoleLogs(prev => {
             const trimmedMessage = log.message.trim().toLowerCase();
 
+            // Consolidate repeated 'ok' messages to prevent console spam.
             if (log.type === 'received' && trimmedMessage === 'ok') {
                 const lastLog = prev.length > 0 ? prev[prev.length - 1] : null;
 
-                if (lastLog && lastLog.type === 'received') {
-                    const lastMessageTrimmed = lastLog.message.trim().toLowerCase();
-                    // Check if last message was 'ok' or 'ok' followed only by dots.
-                    if (/^ok\.*$/.test(lastMessageTrimmed)) {
-                        // Limit the line length to avoid horizontal scroll
-                        if (lastLog.message.length < 60) {
-                            const newLogs = [...prev];
-                            const updatedLastLog = { ...newLogs[newLogs.length - 1] };
-                            updatedLastLog.message += '.';
-                            newLogs[newLogs.length - 1] = updatedLastLog;
-                            return newLogs;
-                        }
-                    }
+                // Check if the last log was also an 'ok' message that we can append to.
+                if (lastLog && lastLog.type === 'received' && /^ok\.*$/.test(lastLog.message)) {
+                    // If the line has space, append a dot.
+                    if (lastLog.message.length < 60) {
+                        const newLogs = [...prev];
+                        newLogs[newLogs.length - 1] = { ...lastLog, message: lastLog.message + '.' };
+                        return newLogs;
+                    } 
+                    // If the line is full, we fall through to add a new 'ok' log on a new line.
                 }
             }
             
-            // Not a subsequent 'ok', or a different type of log. Just add it normally.
+            // For any other message, or the first 'ok' in a sequence.
             return [...prev, log].slice(-20); // Keep last 20 logs
         });
     }, []);
@@ -201,9 +273,11 @@ const App = () => {
             onLog: addLog,
             onProgress: (p) => {
                 setProgress(p.percentage);
-                if (p.percentage >= 100) {
+                if (p.percentage >= 100 && jobStatusRef.current !== JobStatus.Complete) {
                     setJobStatus(JobStatus.Complete);
                     addLog({type: 'status', message: 'Job complete!'});
+                    addNotification('Job complete!', 'success');
+                    playCompletionSound();
                 }
             },
             onError: (message) => {
@@ -227,7 +301,7 @@ const App = () => {
             setError(`Failed to connect: ${errorMessage}`);
             addLog({ type: 'error', message: `Failed to connect: ${errorMessage}` });
         }
-    }, [addLog, isSerialApiSupported, useSimulator]);
+    }, [addLog, isSerialApiSupported, useSimulator, addNotification, playCompletionSound]);
 
     const handleDisconnect = useCallback(async () => {
         if (jobStatus === JobStatus.Running || jobStatus === JobStatus.Paused) {
@@ -603,6 +677,9 @@ const App = () => {
 
 
     return React.createElement('div', { className: "min-h-screen bg-background font-sans text-text-primary flex flex-col" },
+        !isAudioUnlocked && React.createElement('div', { className: "bg-accent-yellow/20 text-accent-yellow text-center p-2 text-sm font-semibold animate-pulse" },
+            "Click anywhere or press any key to enable sound notifications"
+        ),
         React.createElement(NotificationContainer, {
             notifications: notifications,
             onDismiss: removeNotification

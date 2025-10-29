@@ -341,7 +341,6 @@ export class SerialManager {
         
         if (this.currentLineIndex >= this.totalLines) {
             this.isJobRunning = false;
-            this.callbacks.onProgress({ percentage: 100, linesSent: this.currentLineIndex, totalLines: this.totalLines });
             return;
         }
 

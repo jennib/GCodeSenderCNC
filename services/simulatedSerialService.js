@@ -245,7 +245,6 @@ export class SimulatedSerialManager {
         if (this.currentLineIndex >= this.totalLines) {
             this.isJobRunning = false;
             this.position.status = 'Idle';
-            this.callbacks.onProgress({ percentage: 100, linesSent: this.currentLineIndex, totalLines: this.totalLines });
             return;
         }
 
