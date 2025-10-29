@@ -778,9 +778,11 @@ const App = () => {
         return () => document.removeEventListener('keydown', handleKeyDown);
     }, [isConnected, jogStep, handleJog, flashControl, handleEmergencyStop, isAlarm, handleManualCommand, unit]);
 
-    const handleHome = useCallback((axes) => {
+    const handleHome = useCallback(async (axes) => {
         const manager = serialManagerRef.current;
         if (!manager) return;
+
+        addLog({ type: 'status', message: `Starting homing for: ${axes.toUpperCase()}...` });
 
         const commandMap = {
             all: ['$H'],
@@ -791,10 +793,21 @@ const App = () => {
         };
 
         const commands = commandMap[axes];
-        commands.forEach(cmd => manager.sendLine(cmd));
+        if (!commands) {
+            addLog({ type: 'error', message: `Unknown homing command: ${axes}` });
+            return;
+        }
 
-        addLog({ type: 'status', message: `Homing command sent for: ${axes.toUpperCase()}` });
-    }, [addLog]);
+        try {
+            for (const cmd of commands) {
+                await manager.sendLineAndWaitForOk(cmd);
+            }
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : "Unknown error";
+            addLog({ type: 'error', message: `Homing failed: ${errorMessage}` });
+            setError(`Homing failed: ${errorMessage}`);
+        }
+    }, [addLog, setError]);
 
     const handleSetZero = useCallback((axes) => {
         let command = 'G10 L20 P1';
@@ -833,7 +846,7 @@ const App = () => {
         } finally {
             setIsMacroRunning(false);
         }
-    }, [addLog, unit]);
+    }, [addLog, unit, setError]);
 
     // --- Macro Editor Handlers ---
     const handleOpenMacroEditor = useCallback((index) => {

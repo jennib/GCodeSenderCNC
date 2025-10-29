@@ -1,6 +1,6 @@
 
-import React, { useState, useRef, useEffect } from 'react';
-import { ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Home, Pin, ChevronDown, RotateCw, RotateCcw, PowerOff, Probe } from './Icons.js';
+import React, { useState, useEffect } from 'react';
+import { ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Pin, RotateCw, RotateCcw, PowerOff, Probe } from './Icons.js';
 
 const h = React.createElement;
 
@@ -26,31 +26,12 @@ const JogPanel = ({
     const [probeOffsetZ, setProbeOffsetZ] = useState(unit === 'mm' ? 15.0 : 0.59);
     const [probeOffsetX, setProbeOffsetX] = useState(unit === 'mm' ? 3.0 : 0.12);
     const [probeOffsetY, setProbeOffsetY] = useState(unit === 'mm' ? 3.0 : 0.12);
-    const [isHomeMenuOpen, setIsHomeMenuOpen] = React.useState(false);
-    const homeMenuRef = React.useRef(null);
     
     useEffect(() => {
         setProbeOffsetZ(unit === 'mm' ? 15.0 : 0.59);
         setProbeOffsetX(unit === 'mm' ? 3.0 : 0.12);
         setProbeOffsetY(unit === 'mm' ? 3.0 : 0.12);
     }, [unit]);
-
-    React.useEffect(() => {
-        const handleClickOutside = (event) => {
-            if (homeMenuRef.current && !homeMenuRef.current.contains(event.target)) {
-                setIsHomeMenuOpen(false);
-            }
-        };
-        document.addEventListener("mousedown", handleClickOutside);
-        return () => {
-            document.removeEventListener("mousedown", handleClickOutside);
-        };
-    }, [homeMenuRef]);
-
-    const handleHomeCommand = (axes) => {
-        onHome(axes);
-        setIsHomeMenuOpen(false);
-    };
 
     const isControlDisabled = !isConnected || isJobActive || isJogging || isMacroRunning || ['Alarm', 'Home', 'Jog'].includes(machineState?.status);
     const isZJogDisabledForStep = (unit === 'mm' && jogStep > 10) || (unit === 'in' && jogStep > 1);
@@ -90,30 +71,8 @@ const JogPanel = ({
                     h(JogButton, { id: 'jog-z-plus', axis: 'Z', direction: 1, icon: h(ArrowUp, { className: "w-6 h-6" }), label: 'Jog Z+', hotkey: 'Page Up' }),
                     h(JogButton, { id: 'jog-x-minus', axis: 'X', direction: -1, icon: h(ArrowLeft, { className: "w-6 h-6" }), label: 'Jog X-', hotkey: 'Left Arrow' }),
                     
-                    h('div', { className: 'relative', ref: homeMenuRef },
-                        h('button', {
-                            onClick: () => setIsHomeMenuOpen(prev => !prev),
-                            disabled: isControlDisabled,
-                            className: `flex items-center justify-center p-4 bg-secondary rounded-md hover:bg-secondary-focus disabled:opacity-50 disabled:cursor-not-allowed w-full h-full ${isHomeMenuOpen ? 'bg-secondary-focus' : ''}`,
-                            title: 'Homing Commands',
-                            'aria-haspopup': 'true',
-                            'aria-expanded': isHomeMenuOpen,
-                        }, 
-                            h(Home, { className: 'w-6 h-6' }), 
-                            h(ChevronDown, {className: `w-4 h-4 ml-1 transition-transform ${isHomeMenuOpen ? 'rotate-180' : ''}`})
-                        ),
-                        isHomeMenuOpen && h('div', { 
-                            className: 'absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 bg-background border border-secondary rounded-md shadow-lg z-20',
-                            role: 'menu'
-                        },
-                            h('ul', { className: 'py-1', role: 'none' },
-                                h('li', {role: 'menuitem'}, h('button', { onClick: () => handleHomeCommand('all'), className: 'w-full text-left px-4 py-2 text-sm text-text-primary hover:bg-secondary-focus disabled:opacity-50', disabled: isControlDisabled }, 'Home All Axes')),
-                                h('li', {role: 'menuitem'}, h('button', { onClick: () => handleHomeCommand('xy'), className: 'w-full text-left px-4 py-2 text-sm text-text-primary hover:bg-secondary-focus disabled:opacity-50', disabled: isControlDisabled }, 'Home XY')),
-                                h('li', {role: 'menuitem'}, h('button', { onClick: () => handleHomeCommand('x'), className: 'w-full text-left px-4 py-2 text-sm text-text-primary hover:bg-secondary-focus disabled:opacity-50', disabled: isControlDisabled }, 'Home X')),
-                                h('li', {role: 'menuitem'}, h('button', { onClick: () => handleHomeCommand('y'), className: 'w-full text-left px-4 py-2 text-sm text-text-primary hover:bg-secondary-focus disabled:opacity-50', disabled: isControlDisabled }, 'Home Y')),
-                                h('li', {role: 'menuitem'}, h('button', { onClick: () => handleHomeCommand('z'), className: 'w-full text-left px-4 py-2 text-sm text-text-primary hover:bg-secondary-focus disabled:opacity-50', disabled: isControlDisabled }, 'Home Z'))
-                            )
-                        )
+                    h('div', { className: 'col-start-2 row-start-2 flex items-center justify-center' },
+                        h(Pin, { className: "w-8 h-8 text-text-secondary" })
                     ),
                     
                     h(JogButton, { id: 'jog-x-plus', axis: 'X', direction: 1, icon: h(ArrowRight, { className: "w-6 h-6" }), label: 'Jog X+', hotkey: 'Right Arrow' }),
@@ -137,10 +96,17 @@ const JogPanel = ({
             h('div', { className: 'flex flex-col gap-3' },
                 h('div', { className: 'bg-background p-3 rounded-md' },
                     h('h4', { className: 'text-sm font-bold text-text-secondary mb-2' }, 'Machine Actions'),
-                    h('div', { className: 'grid grid-cols-3 gap-2 text-sm' },
-                        h('button', { onClick: () => onSetZero('all'), disabled: isControlDisabled, className: 'p-2 bg-secondary rounded hover:bg-secondary-focus disabled:opacity-50' }, 'Zero All'),
-                        h('button', { onClick: () => onSetZero('xy'), disabled: isControlDisabled, className: 'p-2 bg-secondary rounded hover:bg-secondary-focus disabled:opacity-50' }, 'Zero XY'),
-                        h('button', { onClick: () => onSetZero('z'), disabled: isControlDisabled, className: 'p-2 bg-secondary rounded hover:bg-secondary-focus disabled:opacity-50' }, 'Zero Z')
+                     h('div', { className: 'space-y-2 text-sm' },
+                        h('div', { className: 'grid grid-cols-3 gap-2' },
+                            h('button', { onClick: () => onHome('all'), disabled: isControlDisabled, className: 'p-2 bg-secondary rounded hover:bg-secondary-focus disabled:opacity-50' }, 'Home All'),
+                            h('button', { onClick: () => onHome('xy'), disabled: isControlDisabled, className: 'p-2 bg-secondary rounded hover:bg-secondary-focus disabled:opacity-50' }, 'Home XY'),
+                            h('button', { onClick: () => onHome('z'), disabled: isControlDisabled, className: 'p-2 bg-secondary rounded hover:bg-secondary-focus disabled:opacity-50' }, 'Home Z')
+                        ),
+                        h('div', { className: 'grid grid-cols-3 gap-2' },
+                            h('button', { onClick: () => onSetZero('all'), disabled: isControlDisabled, className: 'p-2 bg-secondary rounded hover:bg-secondary-focus disabled:opacity-50' }, 'Zero All'),
+                            h('button', { onClick: () => onSetZero('xy'), disabled: isControlDisabled, className: 'p-2 bg-secondary rounded hover:bg-secondary-focus disabled:opacity-50' }, 'Zero XY'),
+                            h('button', { onClick: () => onSetZero('z'), disabled: isControlDisabled, className: 'p-2 bg-secondary rounded hover:bg-secondary-focus disabled:opacity-50' }, 'Zero Z')
+                        )
                     )
                 ),
                 h('div', { className: 'bg-background p-3 rounded-md' },
