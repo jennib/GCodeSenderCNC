@@ -180,18 +180,27 @@ export class SerialManager {
                         const trimmedValue = line.trim();
                         if (trimmedValue.startsWith('<') && trimmedValue.endsWith('>')) {
                             const statusUpdate = this.parseGrblStatus(trimmedValue);
-                            if(statusUpdate) {
-                                // Merge partial update into our persistent status object.
-                                // This handles cases where WPos isn't sent in every update.
-                                Object.assign(this.lastStatus, statusUpdate);
-
-                                // If the update included spindle info, it's now in lastStatus.
-                                // We combine it with our tracked spindle direction.
+                            if (statusUpdate) {
+                                // A more robust merge that handles nested state objects correctly.
+                                // Top-level properties are overwritten from the update.
+                                // Nested objects are merged to preserve existing state (like spindle state).
+                                this.lastStatus = {
+                                    ...this.lastStatus,
+                                    ...statusUpdate,
+                                    wpos: statusUpdate.wpos || this.lastStatus.wpos,
+                                    mpos: statusUpdate.mpos || this.lastStatus.mpos,
+                                    spindle: {
+                                        ...this.lastStatus.spindle,
+                                        ...(statusUpdate.spindle || {}),
+                                    }
+                                };
+                        
+                                // This logic must run *after* the merge to correctly set the spindle state.
                                 if (this.lastStatus.spindle.speed === 0) {
                                     this.spindleDirection = 'off';
                                 }
                                 this.lastStatus.spindle.state = this.spindleDirection;
-
+                        
                                 // Send a deep clone to React to ensure re-render
                                 this.callbacks.onStatus(JSON.parse(JSON.stringify(this.lastStatus)));
                             }
