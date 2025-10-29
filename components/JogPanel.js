@@ -91,17 +91,22 @@ const JogPanel = ({
                             className: `px-2 py-1 text-xs rounded-md transition-colors ${jogStep === step ? 'bg-primary text-white font-bold' : 'bg-secondary hover:bg-secondary-focus'} ${flashingButton === `step-${step}` ? 'ring-2 ring-white ring-inset' : ''} disabled:opacity-50 disabled:cursor-not-allowed`
                         }, step))
                     )
+                ),
+                h('div', { className: 'mt-3 border-t border-secondary pt-3' },
+                    h('h4', { className: 'text-sm font-bold text-text-secondary mb-2 text-center' }, 'Homing'),
+                    h('div', { className: 'grid grid-cols-3 gap-2 text-sm' },
+                        h('button', { onClick: () => onHome('all'), disabled: isControlDisabled, className: 'col-span-3 p-2 bg-secondary rounded hover:bg-secondary-focus disabled:opacity-50 font-bold' }, 'Home All'),
+                        h('button', { onClick: () => onHome('xy'), disabled: isControlDisabled, className: 'col-span-3 p-2 bg-secondary rounded hover:bg-secondary-focus disabled:opacity-50' }, 'Home XY'),
+                        h('button', { onClick: () => onHome('x'), disabled: isControlDisabled, className: 'p-2 bg-secondary rounded hover:bg-secondary-focus disabled:opacity-50' }, 'Home X'),
+                        h('button', { onClick: () => onHome('y'), disabled: isControlDisabled, className: 'p-2 bg-secondary rounded hover:bg-secondary-focus disabled:opacity-50' }, 'Home Y'),
+                        h('button', { onClick: () => onHome('z'), disabled: isControlDisabled, className: 'p-2 bg-secondary rounded hover:bg-secondary-focus disabled:opacity-50' }, 'Home Z')
+                    )
                 )
             ),
             h('div', { className: 'flex flex-col gap-3' },
                 h('div', { className: 'bg-background p-3 rounded-md' },
-                    h('h4', { className: 'text-sm font-bold text-text-secondary mb-2' }, 'Machine Actions'),
+                    h('h4', { className: 'text-sm font-bold text-text-secondary mb-2' }, 'Set Zero'),
                      h('div', { className: 'space-y-2 text-sm' },
-                        h('div', { className: 'grid grid-cols-3 gap-2' },
-                            h('button', { onClick: () => onHome('all'), disabled: isControlDisabled, className: 'p-2 bg-secondary rounded hover:bg-secondary-focus disabled:opacity-50' }, 'Home All'),
-                            h('button', { onClick: () => onHome('xy'), disabled: isControlDisabled, className: 'p-2 bg-secondary rounded hover:bg-secondary-focus disabled:opacity-50' }, 'Home XY'),
-                            h('button', { onClick: () => onHome('z'), disabled: isControlDisabled, className: 'p-2 bg-secondary rounded hover:bg-secondary-focus disabled:opacity-50' }, 'Home Z')
-                        ),
                         h('div', { className: 'grid grid-cols-3 gap-2' },
                             h('button', { onClick: () => onSetZero('all'), disabled: isControlDisabled, className: 'p-2 bg-secondary rounded hover:bg-secondary-focus disabled:opacity-50' }, 'Zero All'),
                             h('button', { onClick: () => onSetZero('xy'), disabled: isControlDisabled, className: 'p-2 bg-secondary rounded hover:bg-secondary-focus disabled:opacity-50' }, 'Zero XY'),
