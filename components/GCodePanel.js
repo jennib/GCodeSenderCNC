@@ -8,8 +8,8 @@ import { Play, Pause, Square, Upload, FileText, Code, Eye, Maximize, Pencil, Che
 import GCodeVisualizer from './GCodeVisualizer.js';
 import GCodeLine from './GCodeLine.js';
 
-const FeedrateOverrideControl = ({ onFeedOverride, currentFeedrate }) => {
-    return React.createElement('div', { className: 'bg-background p-3 rounded-md' },
+const FeedrateOverrideControl = ({ onFeedOverride, currentFeedrate, className = '' }) => {
+    return React.createElement('div', { className: `bg-background p-3 rounded-md ${className}` },
         React.createElement('h4', { className: 'text-sm font-bold text-text-secondary mb-2 text-center' }, 'Feed Rate Override'),
         React.createElement('div', { className: 'flex items-center justify-center gap-4 mb-3' },
             React.createElement(Percent, { className: 'w-8 h-8 text-primary' }),
@@ -361,11 +361,7 @@ const GCodePanel = ({ onFileLoad, fileName, gcodeLines, onJobControl, jobStatus,
                     ),
                     React.createElement('p', { className: "font-bold" }, `${progress.toFixed(1)}%`)
                 )
-            ),
-            isJobActive && React.createElement(FeedrateOverrideControl, {
-                onFeedOverride: onFeedOverride,
-                currentFeedrate: machineState?.ov?.[0] ?? 100
-            })
+            )
         ),
         
         React.createElement('div', { className: "flex-grow relative min-h-0" },
@@ -376,7 +372,13 @@ const GCodePanel = ({ onFileLoad, fileName, gcodeLines, onJobControl, jobStatus,
                 React.createElement(Upload, { className: "w-24 h-24 text-white" }),
                 React.createElement('p', { className: "text-2xl font-bold text-white mt-4" }, "Drop G-code file here")
             )
-        )
+        ),
+
+        isJobActive && React.createElement(FeedrateOverrideControl, {
+            onFeedOverride: onFeedOverride,
+            currentFeedrate: machineState?.ov?.[0] ?? 100,
+            className: 'mt-4 flex-shrink-0'
+        })
     );
 };
 
