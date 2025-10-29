@@ -1,5 +1,3 @@
-
-
 export class SerialManager {
     port = null;
     reader = null;
@@ -9,6 +7,7 @@ export class SerialManager {
     isJobRunning = false;
     isPaused = false;
     isStopped = false;
+    isDryRun = false;
     currentLineIndex = 0;
     totalLines = 0;
     gcode = [];
@@ -343,20 +342,35 @@ export class SerialManager {
         }
     }
 
-    sendGCode(gcodeLines) {
+    sendGCode(gcodeLines, options = {}) {
         if (this.isJobRunning) {
             this.callbacks.onError("A job is already running.");
             return;
         }
 
+        const { startLine = 0, isDryRun = false } = options;
+
         this.gcode = gcodeLines;
         this.totalLines = gcodeLines.length;
-        this.currentLineIndex = 0;
+        this.currentLineIndex = startLine;
+        this.isDryRun = isDryRun;
         this.isJobRunning = true;
         this.isPaused = false;
         this.isStopped = false;
 
-        this.callbacks.onLog({ type: 'status', message: `Starting G-code job: ${this.totalLines} lines.` });
+        let logMessage = `Starting G-code job from line ${startLine + 1}: ${this.totalLines} total lines.`;
+        if (isDryRun) {
+            logMessage += ' (Dry Run enabled)';
+        }
+        this.callbacks.onLog({ type: 'status', message: logMessage });
+        
+        // Fire initial progress update
+        this.callbacks.onProgress({
+            percentage: (this.currentLineIndex / this.totalLines) * 100,
+            linesSent: this.currentLineIndex,
+            totalLines: this.totalLines
+        });
+
         this.sendNextLine();
     }
 
@@ -377,6 +391,20 @@ export class SerialManager {
         }
 
         const line = this.gcode[this.currentLineIndex];
+        const upperLine = line.toUpperCase().trim();
+
+        if (this.isDryRun && (upperLine.startsWith('M3') || upperLine.startsWith('M4') || upperLine.startsWith('M5'))) {
+            this.callbacks.onLog({ type: 'status', message: `Skipped (Dry Run): ${line}` });
+            this.currentLineIndex++;
+            this.callbacks.onProgress({
+                percentage: (this.currentLineIndex / this.totalLines) * 100,
+                linesSent: this.currentLineIndex,
+                totalLines: this.totalLines
+            });
+            setTimeout(() => this.sendNextLine(), 0);
+            return;
+        }
+
         try {
             await this.sendLineAndWaitForOk(line);
             

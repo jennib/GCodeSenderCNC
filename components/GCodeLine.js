@@ -1,6 +1,6 @@
-
 import React from 'react';
 import Tooltip from './Tooltip.js';
+import { Play } from './Icons.js';
 
 const h = React.createElement;
 
@@ -52,7 +52,7 @@ const PARAMETER_DEFINITIONS = {
     'T': 'Tool Number (for M6)',
 };
 
-const GCodeLine = ({ line, lineNumber, isExecuted, isCurrent }) => {
+const GCodeLine = ({ line, lineNumber, isExecuted, isCurrent, onRunFromHere, isActionable }) => {
     const parts = [];
     let lastIndex = 0;
     // Regex to find G/M codes, parameters with values, and comments
@@ -105,11 +105,19 @@ const GCodeLine = ({ line, lineNumber, isExecuted, isCurrent }) => {
         parts.push(line.substring(lastIndex));
     }
     
-    const lineClasses = `flex rounded-sm hover:bg-white/5 transition-colors duration-100 ${isCurrent ? 'bg-primary/30' : isExecuted ? 'bg-primary/10' : ''}`;
-    const lineNumberClasses = `w-12 text-right pr-4 select-none flex-shrink-0 ${isCurrent ? 'text-accent-red font-bold' : 'text-text-secondary'}`;
+    const lineClasses = `flex group rounded-sm hover:bg-white/5 transition-colors duration-100 ${isCurrent ? 'bg-primary/30' : isExecuted ? 'bg-primary/10' : ''}`;
+    const lineNumberClasses = `w-12 text-right pr-2 select-none flex-shrink-0 flex items-center justify-end ${isCurrent ? 'text-accent-red font-bold' : 'text-text-secondary'}`;
 
     return h('div', { className: lineClasses },
-        h('span', { className: lineNumberClasses }, lineNumber),
+        h('div', { className: lineNumberClasses },
+            h('button', {
+                onClick: () => onRunFromHere(lineNumber),
+                disabled: !isActionable,
+                className: 'mr-1 p-0.5 rounded opacity-0 group-hover:opacity-100 focus:opacity-100 disabled:opacity-0 transition-opacity text-primary hover:bg-primary/20',
+                title: `Run from line ${lineNumber}`
+            }, h(Play, { className: 'w-3 h-3'})),
+            lineNumber
+        ),
         h('code', { className: 'whitespace-pre' }, parts)
     );
 };

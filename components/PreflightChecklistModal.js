@@ -19,12 +19,14 @@ const ChecklistItem = ({ isMet, text, children }) => {
 const PreflightChecklistModal = ({ isOpen, onCancel, onConfirm, jobInfo, isHomed }) => {
     const [isWorkZeroSet, setIsWorkZeroSet] = useState(false);
     const [isToolpathChecked, setIsToolpathChecked] = useState(false);
+    const [isDryRun, setIsDryRun] = useState(false);
 
     // Reset checkboxes when modal is opened
     useEffect(() => {
         if (isOpen) {
             setIsWorkZeroSet(false);
             setIsToolpathChecked(false);
+            setIsDryRun(false);
         }
     }, [isOpen]);
 
@@ -33,6 +35,7 @@ const PreflightChecklistModal = ({ isOpen, onCancel, onConfirm, jobInfo, isHomed
     }
     
     const allChecksPassed = isHomed && isWorkZeroSet && isToolpathChecked;
+    const { startLine = 0 } = jobInfo;
 
     const formatTime = (totalSeconds) => {
         if (totalSeconds < 1) return '< 1 minute';
@@ -59,8 +62,11 @@ const PreflightChecklistModal = ({ isOpen, onCancel, onConfirm, jobInfo, isHomed
                 h('div', { className: 'bg-background p-4 rounded-md' },
                     h('h3', { className: 'font-bold text-text-primary mb-2' }, 'Job Summary'),
                     h('p', { className: 'text-sm text-text-secondary truncate' }, h('strong', null, 'File: '), jobInfo.fileName),
-                    h('p', { className: 'text-sm text-text-secondary' }, h('strong', null, 'Lines: '), jobInfo.gcodeLines.length.toLocaleString()),
-                    h('p', { className: 'text-sm text-text-secondary' }, h('strong', null, 'Est. Time: '), formatTime(jobInfo.timeEstimate.totalSeconds))
+                    h('div', { className: 'grid grid-cols-2' },
+                        h('p', { className: 'text-sm text-text-secondary' }, h('strong', null, 'Lines: '), `${jobInfo.gcodeLines.length.toLocaleString()}`),
+                        h('p', { className: 'text-sm text-text-secondary' }, h('strong', null, 'Est. Time: '), formatTime(jobInfo.timeEstimate.totalSeconds))
+                    ),
+                    (startLine > 0) && h('p', { className: 'text-sm text-accent-yellow font-semibold mt-1' }, `Starting from line ${startLine + 1}`)
                 ),
 
                 h('ul', { className: 'space-y-2' },
@@ -91,16 +97,30 @@ const PreflightChecklistModal = ({ isOpen, onCancel, onConfirm, jobInfo, isHomed
                     )
                 )
             ),
-            h('div', { className: 'bg-background px-6 py-4 flex justify-end items-center gap-4 rounded-b-lg' },
-                h('button', {
-                    onClick: onCancel,
-                    className: 'px-4 py-2 bg-secondary text-white font-semibold rounded-md hover:bg-secondary-focus focus:outline-none focus:ring-2 focus:ring-secondary focus:ring-offset-2 focus:ring-offset-background'
-                }, 'Cancel'),
-                h('button', {
-                    onClick: onConfirm,
-                    disabled: !allChecksPassed,
-                    className: 'px-6 py-2 bg-accent-green text-white font-bold rounded-md hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 focus:ring-offset-background disabled:bg-secondary disabled:cursor-not-allowed flex items-center gap-2'
-                }, h(CheckCircle, { className: 'w-5 h-5' }), 'Confirm & Start Job')
+            h('div', { className: 'bg-background px-6 py-4 flex justify-between items-center rounded-b-lg' },
+                h('label', { className: 'flex items-center gap-2 cursor-pointer text-sm font-semibold' },
+                    h('input', {
+                        type: 'checkbox',
+                        checked: isDryRun,
+                        onChange: e => setIsDryRun(e.target.checked),
+                        className: 'h-5 w-5 rounded border-secondary text-primary focus:ring-primary'
+                    }),
+                    h('div', { className: 'flex flex-col' },
+                        "Dry Run",
+                        h('span', { className: 'text-xs font-normal text-text-secondary' }, '(ignore spindle commands)')
+                    )
+                ),
+                h('div', { className: 'flex items-center gap-4' },
+                    h('button', {
+                        onClick: onCancel,
+                        className: 'px-4 py-2 bg-secondary text-white font-semibold rounded-md hover:bg-secondary-focus focus:outline-none focus:ring-2 focus:ring-secondary focus:ring-offset-2 focus:ring-offset-background'
+                    }, 'Cancel'),
+                    h('button', {
+                        onClick: () => onConfirm({ isDryRun }),
+                        disabled: !allChecksPassed,
+                        className: 'px-6 py-2 bg-accent-green text-white font-bold rounded-md hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 focus:ring-offset-background disabled:bg-secondary disabled:cursor-not-allowed flex items-center gap-2'
+                    }, h(CheckCircle, { className: 'w-5 h-5' }), 'Confirm & Start Job')
+                )
             )
         )
     );

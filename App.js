@@ -1,6 +1,3 @@
-
-
-
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { SerialManager } from './services/serialService.js';
 import { SimulatedSerialManager } from './services/simulatedSerialService.js';
@@ -153,6 +150,7 @@ const App = () => {
     const [timeEstimate, setTimeEstimate] = useState({ totalSeconds: 0, cumulativeSeconds: [] });
 
     const [isPreflightModalOpen, setIsPreflightModalOpen] = useState(false);
+    const [jobStartOptions, setJobStartOptions] = useState({ startLine: 0, isDryRun: false });
     const [isHomedSinceConnect, setIsHomedSinceConnect] = useState(false);
     const [isMacroRunning, setIsMacroRunning] = useState(false);
 
@@ -479,22 +477,26 @@ const App = () => {
         addLog({ type: 'status', message: `G-code modified (${lines.length} lines).` });
     };
 
-    const handleStartJobConfirmed = useCallback(() => {
+    const handleStartJobConfirmed = useCallback((options) => {
         const manager = serialManagerRef.current;
         if (!manager || !isConnected || gcodeLines.length === 0) return;
 
         setIsPreflightModalOpen(false);
         setJobStatus(JobStatus.Running);
-        manager.sendGCode(gcodeLines);
-    }, [isConnected, gcodeLines]);
+        manager.sendGCode(gcodeLines, {
+            startLine: jobStartOptions.startLine,
+            isDryRun: options.isDryRun
+        });
+    }, [isConnected, gcodeLines, jobStartOptions]);
 
-    const handleJobControl = useCallback((action) => {
+    const handleJobControl = useCallback((action, options) => {
         const manager = serialManagerRef.current;
         if (!manager || !isConnected) return;
 
         switch (action) {
             case 'start':
                 if (gcodeLines.length > 0) {
+                    setJobStartOptions({ startLine: options?.startLine ?? 0, isDryRun: false });
                     setIsPreflightModalOpen(true);
                 }
                 break;
@@ -875,7 +877,7 @@ const App = () => {
             isOpen: isPreflightModalOpen,
             onCancel: () => setIsPreflightModalOpen(false),
             onConfirm: handleStartJobConfirmed,
-            jobInfo: { fileName, gcodeLines, timeEstimate },
+            jobInfo: { fileName, gcodeLines, timeEstimate, startLine: jobStartOptions.startLine },
             isHomed: isHomedSinceConnect
         }),
         React.createElement(MacroEditorModal, {

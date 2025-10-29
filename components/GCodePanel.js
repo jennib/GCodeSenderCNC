@@ -1,7 +1,3 @@
-
-
-
-
 import React, { useRef, useState, useEffect } from 'react';
 import { JobStatus } from '../types.js';
 import { Play, Pause, Square, Upload, FileText, Code, Eye, Maximize, Pencil, CheckCircle, X, Save, Plus, Minus, RefreshCw, Percent, ZoomIn, ZoomOut, Clock } from './Icons.js';
@@ -105,6 +101,11 @@ const GCodePanel = ({ onFileLoad, fileName, gcodeLines, onJobControl, jobStatus,
         fileInputRef.current?.click();
     };
 
+    const handleRunFromLine = (lineNumber) => {
+        // Line numbers are 1-based, array indices are 0-based
+        onJobControl('start', { startLine: lineNumber - 1 });
+    };
+
     const isHoming = machineState?.status === 'Home';
     const isJobActive = jobStatus === JobStatus.Running || jobStatus === JobStatus.Paused;
     const isReadyToStart = isConnected && gcodeLines.length > 0 && (jobStatus === JobStatus.Idle || jobStatus === JobStatus.Stopped || jobStatus === JobStatus.Complete) && !isHoming;
@@ -181,7 +182,9 @@ const GCodePanel = ({ onFileLoad, fileName, gcodeLines, onJobControl, jobStatus,
                             line: line,
                             lineNumber: index + 1,
                             isExecuted: index < currentLine,
-                            isCurrent: isJobActive && (index === currentLine)
+                            isCurrent: isJobActive && (index === currentLine),
+                            onRunFromHere: handleRunFromLine,
+                            isActionable: isReadyToStart
                         })
                     )
                 );
@@ -197,7 +200,7 @@ const GCodePanel = ({ onFileLoad, fileName, gcodeLines, onJobControl, jobStatus,
     const renderJobControls = () => {
         if (isReadyToStart) {
             return React.createElement('button', {
-                onClick: () => onJobControl('start'),
+                onClick: () => onJobControl('start', { startLine: 0 }),
                 disabled: !isReadyToStart,
                 className: "col-span-3 flex items-center justify-center gap-3 p-5 bg-accent-green text-white font-bold rounded-md hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 focus:ring-offset-surface transition-colors disabled:bg-secondary disabled:cursor-not-allowed text-xl"
             },

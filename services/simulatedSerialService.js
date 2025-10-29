@@ -1,4 +1,3 @@
-
 const getParam = (gcode, param) => {
     // Allows for optional whitespace between parameter and value
     const regex = new RegExp(`${param}\\s*([-+]?[0-9]*\\.?[0-9]*)`, 'i');
@@ -21,6 +20,7 @@ export class SimulatedSerialManager {
     isJobRunning = false;
     isPaused = false;
     isStopped = false;
+    isDryRun = false;
     currentLineIndex = 0;
     totalLines = 0;
     gcode = [];
@@ -213,20 +213,35 @@ export class SimulatedSerialManager {
         this.position.ov[0] = Math.max(25, Math.min(300, newFeed));
     }
 
-    sendGCode(gcodeLines) {
+    sendGCode(gcodeLines, options = {}) {
         if (this.isJobRunning) {
             this.callbacks.onError("A job is already running.");
             return;
         }
+        
+        const { startLine = 0, isDryRun = false } = options;
+
         this.gcode = gcodeLines;
         this.totalLines = gcodeLines.length;
-        this.currentLineIndex = 0;
+        this.currentLineIndex = startLine;
+        this.isDryRun = isDryRun;
         this.isJobRunning = true;
         this.isPaused = false;
         this.isStopped = false;
         this.position.status = 'Run';
 
-        this.callbacks.onLog({ type: 'status', message: `Starting G-code job: ${this.totalLines} lines.` });
+        let logMessage = `Starting G-code job from line ${startLine + 1}: ${this.totalLines} total lines.`;
+        if (isDryRun) {
+            logMessage += ' (Dry Run enabled)';
+        }
+        this.callbacks.onLog({ type: 'status', message: logMessage });
+
+        this.callbacks.onProgress({
+            percentage: (this.currentLineIndex / this.totalLines) * 100,
+            linesSent: this.currentLineIndex,
+            totalLines: this.totalLines
+        });
+
         this.sendNextLine();
     }
 
@@ -249,6 +264,19 @@ export class SimulatedSerialManager {
         }
 
         const line = this.gcode[this.currentLineIndex];
+        const upperLine = line.toUpperCase().trim();
+
+        if (this.isDryRun && (upperLine.startsWith('M3') || upperLine.startsWith('M4') || upperLine.startsWith('M5'))) {
+            this.callbacks.onLog({ type: 'status', message: `Skipped (Dry Run): ${line}` });
+            this.currentLineIndex++;
+            this.callbacks.onProgress({
+                percentage: (this.currentLineIndex / this.totalLines) * 100,
+                linesSent: this.currentLineIndex,
+                totalLines: this.totalLines
+            });
+            setTimeout(() => this.sendNextLine(), 50); // Maintain job speed
+            return;
+        }
         
         await this.sendLine(line, false); // Rely on sendLine to update machine state
         this.currentLineIndex++;
