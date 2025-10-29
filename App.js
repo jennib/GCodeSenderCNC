@@ -1,4 +1,5 @@
 
+
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { SerialManager } from './services/serialService.js';
 import { SimulatedSerialManager } from './services/simulatedSerialService.js';
@@ -10,6 +11,7 @@ import JogPanel from './components/JogPanel.js';
 import { NotificationContainer } from './components/Notification.js';
 import ThemeToggle from './components/ThemeToggle.js';
 import { AlertTriangle, OctagonAlert, Unlock, RotateCw, RotateCcw, PowerOff } from './components/Icons.js';
+import { estimateGCodeTime } from './services/gcodeTimeEstimator.js';
 
 const GRBL_ALARM_CODES = {
     1: { name: 'Hard limit', desc: 'A limit switch was triggered. Usually due to machine travel limits.', resolution: 'Check for obstructions. The machine may need to be moved off the switch manually. Use the "$X" command to unlock after clearing the issue, then perform a homing cycle ($H).' },
@@ -89,13 +91,31 @@ const App = () => {
     const [isSerialApiSupported, setIsSerialApiSupported] = useState(true);
     const [useSimulator, setUseSimulator] = useState(false);
     const [machineState, setMachineState] = useState(null);
-    const [jogStep, setJogStep] = useState(1);
     const [flashingButton, setFlashingButton] = useState(null);
     const [notifications, setNotifications] = useState([]);
-    const [unit, setUnit] = useState('mm');
-    const [isLightMode, setIsLightMode] = useState(false);
     const [isJogging, setIsJogging] = useState(false);
     const [isAudioUnlocked, setIsAudioUnlocked] = useState(false);
+    const [timeEstimate, setTimeEstimate] = useState({ totalSeconds: 0, cumulativeSeconds: [] });
+
+    // Persisted State
+    const [jogStep, setJogStep] = useState(() => {
+        try {
+            const saved = localStorage.getItem('cnc-app-jogstep');
+            return saved !== null ? JSON.parse(saved) : 1;
+        } catch { return 1; }
+    });
+    const [unit, setUnit] = useState(() => {
+        try {
+            const saved = localStorage.getItem('cnc-app-unit');
+            return saved !== null ? JSON.parse(saved) : 'mm';
+        } catch { return 'mm'; }
+    });
+    const [isLightMode, setIsLightMode] = useState(() => {
+        try {
+            const saved = localStorage.getItem('cnc-app-theme');
+            return saved !== null ? JSON.parse(saved) : false;
+        } catch { return false; }
+    });
 
     const serialManagerRef = useRef(null);
     const prevState = usePrevious(machineState);
@@ -108,8 +128,17 @@ const App = () => {
     }, [jobStatus]);
 
     useEffect(() => {
+        localStorage.setItem('cnc-app-theme', JSON.stringify(isLightMode));
         document.documentElement.classList.toggle('light-mode', isLightMode);
     }, [isLightMode]);
+
+    useEffect(() => {
+        localStorage.setItem('cnc-app-unit', JSON.stringify(unit));
+    }, [unit]);
+
+    useEffect(() => {
+        localStorage.setItem('cnc-app-jogstep', JSON.stringify(jogStep));
+    }, [jogStep]);
 
     const removeNotification = useCallback((id) => {
         setNotifications(prev => {
@@ -321,6 +350,7 @@ const App = () => {
         setFileName(name);
         setProgress(0);
         setJobStatus(JobStatus.Idle);
+        setTimeEstimate(estimateGCodeTime(lines));
         addLog({ type: 'status', message: `Loaded ${name} (${lines.length} lines).` });
     };
 
@@ -339,6 +369,7 @@ const App = () => {
         }
         setProgress(0);
         setJobStatus(JobStatus.Idle);
+        setTimeEstimate(estimateGCodeTime(lines));
         addLog({ type: 'status', message: `G-code modified (${lines.length} lines).` });
     };
 
@@ -754,7 +785,8 @@ const App = () => {
                     unit: unit,
                     onGCodeChange: handleGCodeChange,
                     machineState: machineState,
-                    onFeedOverride: handleFeedOverride
+                    onFeedOverride: handleFeedOverride,
+                    timeEstimate: timeEstimate
                 })
             ),
             React.createElement('div', { className: "flex flex-col gap-4 overflow-hidden min-h-0" },

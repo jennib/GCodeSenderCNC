@@ -1,8 +1,10 @@
 
 
+
+
 import React, { useRef, useState, useEffect } from 'react';
 import { JobStatus } from '../types.js';
-import { Play, Pause, Square, Upload, FileText, Code, Eye, Maximize, Pencil, CheckCircle, X, Save, Plus, Minus, RefreshCw, Percent, ZoomIn, ZoomOut } from './Icons.js';
+import { Play, Pause, Square, Upload, FileText, Code, Eye, Maximize, Pencil, CheckCircle, X, Save, Plus, Minus, RefreshCw, Percent, ZoomIn, ZoomOut, Clock } from './Icons.js';
 import GCodeVisualizer from './GCodeVisualizer.js';
 import GCodeLine from './GCodeLine.js';
 
@@ -23,13 +25,28 @@ const FeedrateOverrideControl = ({ onFeedOverride, currentFeedrate }) => {
     );
 };
 
-const GCodePanel = ({ onFileLoad, fileName, gcodeLines, onJobControl, jobStatus, progress, isConnected, unit, onGCodeChange, machineState, onFeedOverride }) => {
+const formatTime = (totalSeconds) => {
+    if (totalSeconds === Infinity) return '∞';
+    if (totalSeconds < 1) return '...';
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = Math.floor(totalSeconds % 60);
+
+    const hh = String(hours).padStart(2, '0');
+    const mm = String(minutes).padStart(2, '0');
+    const ss = String(seconds).padStart(2, '0');
+
+    return `${hh}:${mm}:${ss}`;
+};
+
+const GCodePanel = ({ onFileLoad, fileName, gcodeLines, onJobControl, jobStatus, progress, isConnected, unit, onGCodeChange, machineState, onFeedOverride, timeEstimate }) => {
     const fileInputRef = useRef(null);
     const visualizerRef = useRef(null);
     const codeContainerRef = useRef(null);
     const [view, setView] = useState('visualizer');
     const [isEditing, setIsEditing] = useState(false);
     const [editedGCode, setEditedGCode] = useState('');
+    const [isDraggingOver, setIsDraggingOver] = useState(false);
 
     useEffect(() => {
         setEditedGCode(gcodeLines.join('\n'));
@@ -118,6 +135,24 @@ const GCodePanel = ({ onFileLoad, fileName, gcodeLines, onJobControl, jobStatus,
             }
         }
     }, [currentLine, jobStatus, view, gcodeLines.length]);
+    
+    const handleDragOver = (e) => { e.preventDefault(); };
+    const handleDragEnter = (e) => { e.preventDefault(); setIsDraggingOver(true); };
+    const handleDragLeave = (e) => { e.preventDefault(); setIsDraggingOver(false); };
+    const handleDrop = (e) => {
+        e.preventDefault();
+        setIsDraggingOver(false);
+        const file = e.dataTransfer.files?.[0];
+        if (file && (file.name.endsWith('.gcode') || file.name.endsWith('.nc') || file.name.endsWith('.txt'))) {
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                onFileLoad(ev.target?.result, file.name);
+            };
+            reader.readAsText(file);
+            setView('visualizer');
+        }
+    };
+
 
     const renderContent = () => {
         if (gcodeLines.length > 0) {
@@ -154,7 +189,7 @@ const GCodePanel = ({ onFileLoad, fileName, gcodeLines, onJobControl, jobStatus,
         return React.createElement('div', { className: "flex flex-col items-center justify-center h-full text-text-secondary" },
             React.createElement(FileText, { className: "w-16 h-16 mb-4" }),
             React.createElement('p', null, "No G-code file loaded."),
-            React.createElement('p', null, "Click \"Load File\" to begin.")
+            React.createElement('p', null, "Click \"Load File\" or drag and drop here to begin.")
         );
     };
 
@@ -199,8 +234,36 @@ const GCodePanel = ({ onFileLoad, fileName, gcodeLines, onJobControl, jobStatus,
         return null;
     };
 
+    // --- Dynamic Time Estimation Logic ---
+    const { totalSeconds, cumulativeSeconds } = timeEstimate || { totalSeconds: 0, cumulativeSeconds: [] };
+    let displayTime = totalSeconds;
+    let timeLabel = "Est. Time";
+    let timeTitle = "Estimated Job Time";
 
-    return React.createElement('div', { className: "bg-surface rounded-lg shadow-lg flex flex-col p-4 h-full" },
+    if (isJobActive && totalSeconds > 0 && cumulativeSeconds) {
+        const feedMultiplier = (machineState?.ov?.[0] ?? 100) / 100;
+        
+        timeLabel = "Time Rem.";
+        timeTitle = "Estimated Time Remaining";
+        
+        if (feedMultiplier > 0) {
+            const timeElapsedAt100 = (currentLine > 0 && cumulativeSeconds[currentLine - 1]) ? cumulativeSeconds[currentLine - 1] : 0;
+            const timeRemainingAt100 = totalSeconds - timeElapsedAt100;
+            const adjustedRemainingTime = timeRemainingAt100 / feedMultiplier;
+            displayTime = adjustedRemainingTime;
+        } else {
+            displayTime = Infinity;
+        }
+    }
+    // --- End of Logic ---
+
+    return React.createElement('div', { 
+        className: "bg-surface rounded-lg shadow-lg flex flex-col p-4 h-full relative",
+        onDragEnter: handleDragEnter,
+        onDragOver: handleDragOver,
+        onDragLeave: handleDragLeave,
+        onDrop: handleDrop
+     },
         React.createElement('div', { className: "flex justify-between items-center mb-2 pb-4 border-b border-secondary" },
             React.createElement('div', { className: "flex items-center gap-4" },
                 React.createElement('h2', { className: "text-lg font-bold" }, "G-Code"),
@@ -290,7 +353,14 @@ const GCodePanel = ({ onFileLoad, fileName, gcodeLines, onJobControl, jobStatus,
                     React.createElement('span', { className: "font-bold capitalize" }, jobStatus),
                     (isJobActive && totalLines > 0) && React.createElement('span', { className: 'ml-2 font-mono text-text-secondary bg-background px-2 py-0.5 rounded-md' }, `${currentLine} / ${totalLines}`)
                 ),
-                React.createElement('p', { className: "font-bold" }, `${progress.toFixed(1)}%`)
+                React.createElement('div', { className: "flex items-center gap-4" },
+                    (gcodeLines.length > 0 && totalSeconds > 0) && React.createElement('div', { title: timeTitle, className: 'flex items-center gap-1.5 text-text-secondary' },
+                        React.createElement(Clock, { className: 'w-4 h-4' }),
+                        React.createElement('span', null, `${timeLabel}:`),
+                        React.createElement('span', { className: 'font-mono ml-1' }, formatTime(displayTime))
+                    ),
+                    React.createElement('p', { className: "font-bold" }, `${progress.toFixed(1)}%`)
+                )
             ),
             isJobActive && React.createElement(FeedrateOverrideControl, {
                 onFeedOverride: onFeedOverride,
@@ -299,7 +369,13 @@ const GCodePanel = ({ onFileLoad, fileName, gcodeLines, onJobControl, jobStatus,
         ),
         
         React.createElement('div', { className: "flex-grow relative min-h-0" },
-            renderContent()
+            renderContent(),
+            isDraggingOver && React.createElement('div', {
+                className: "absolute inset-0 bg-primary/70 border-4 border-dashed border-primary-focus rounded-lg flex flex-col items-center justify-center pointer-events-none"
+            },
+                React.createElement(Upload, { className: "w-24 h-24 text-white" }),
+                React.createElement('p', { className: "text-2xl font-bold text-white mt-4" }, "Drop G-code file here")
+            )
         )
     );
 };

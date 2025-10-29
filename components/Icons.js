@@ -221,3 +221,8 @@ export const ZoomOut = (props) => h('svg', { xmlns: "http://www.w3.org/2000/svg"
     h('line', { x1: "21", y1: "21", x2: "16.65", y2: "16.65" }),
     h('line', { x1: "8", y1: "11", x2: "14", y2: "11" })
 );
+
+export const Clock = (props) => h('svg', { xmlns: "http://www.w3.org/2000/svg", width: "24", height: "24", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round", ...props },
+    h('circle', { cx: "12", cy: "12", r: "10" }),
+    h('polyline', { points: "12 6 12 12 16 14" })
+);
