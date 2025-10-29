@@ -117,11 +117,12 @@ export class SerialManager {
             const statusPart = parts[0];
             const parsed = {};
 
-            let status = statusPart;
+            // Extract the main state name, stripping any sub-state codes (e.g., 'Hold:0' -> 'Hold')
+            const status = statusPart.split(':')[0];
             let code = null;
 
-            if (statusPart.startsWith('Alarm')) {
-                status = 'Alarm';
+            // Specifically for alarms, parse the alarm code number
+            if (status === 'Alarm') {
                 const alarmMatch = statusPart.match(/Alarm:(\d+)/);
                 if (alarmMatch) {
                     code = parseInt(alarmMatch[1], 10);
