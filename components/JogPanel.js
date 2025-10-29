@@ -27,6 +27,7 @@ const JogPanel = ({
     jogStep,
     onStepChange,
     flashingButton,
+    onFlash,
     unit,
     onUnitChange,
     isJobActive,
@@ -66,7 +67,10 @@ const JogPanel = ({
 
     const JogButton = ({ id, axis, direction, icon, label, hotkey }) => h('button', {
         id,
-        onClick: () => onJog(axis, direction, jogStep),
+        onMouseDown: () => {
+            onJog(axis, direction, jogStep);
+            onFlash(id);
+        },
         disabled: isControlDisabled,
         className: `flex items-center justify-center p-4 bg-secondary rounded-md hover:bg-secondary-focus focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-surface disabled:opacity-50 disabled:cursor-not-allowed ${flashingButton === id ? 'ring-4 ring-white ring-inset' : ''}`,
         title: `${label} (${axis}${direction > 0 ? '+' : '-'}) (Hotkey: ${hotkey})`

@@ -1,4 +1,5 @@
 
+
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { SerialManager } from './services/serialService.js';
 import { SimulatedSerialManager } from './services/simulatedSerialService.js';
@@ -852,6 +853,7 @@ const App = () => {
                     jogStep: jogStep,
                     onStepChange: setJogStep,
                     flashingButton: flashingButton,
+                    onFlash: flashControl,
                     unit: unit,
                     onUnitChange: handleUnitChange,
                     isJobActive: isJobActive,
