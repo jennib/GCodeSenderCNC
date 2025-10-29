@@ -133,11 +133,14 @@ const App = () => {
                     const lastMessageTrimmed = lastLog.message.trim().toLowerCase();
                     // Check if last message was 'ok' or 'ok' followed only by dots.
                     if (/^ok\.*$/.test(lastMessageTrimmed)) {
-                        const newLogs = [...prev];
-                        const updatedLastLog = { ...newLogs[newLogs.length - 1] };
-                        updatedLastLog.message += '.';
-                        newLogs[newLogs.length - 1] = updatedLastLog;
-                        return newLogs;
+                        // Limit the line length to avoid horizontal scroll
+                        if (lastLog.message.length < 60) {
+                            const newLogs = [...prev];
+                            const updatedLastLog = { ...newLogs[newLogs.length - 1] };
+                            updatedLastLog.message += '.';
+                            newLogs[newLogs.length - 1] = updatedLastLog;
+                            return newLogs;
+                        }
                     }
                 }
             }
