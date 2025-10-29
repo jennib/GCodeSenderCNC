@@ -197,11 +197,15 @@ export class SerialManager {
                             }
                         } else if (trimmedValue) {
                             if (trimmedValue.startsWith('error:')) {
-                                this.callbacks.onError(`GRBL Error: ${trimmedValue}`);
+                                // If a job is running (i.e., a promise is pending for an 'ok'),
+                                // reject the promise and let the job handler log the error contextually.
+                                // Otherwise, it's a manual command error, so report it directly.
                                 if (this.linePromiseReject) {
                                     this.linePromiseReject(new Error(trimmedValue));
                                     this.linePromiseResolve = null;
                                     this.linePromiseReject = null;
+                                } else {
+                                    this.callbacks.onError(`GRBL Error: ${trimmedValue}`);
                                 }
                             } else {
                                 this.callbacks.onLog({ type: 'received', message: trimmedValue });

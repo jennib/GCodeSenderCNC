@@ -265,19 +265,14 @@ const App = () => {
     const addLog = useCallback((log) => {
         let processedLog = { ...log };
 
-        // Add explanation for GRBL errors
+        // Add explanation for GRBL errors, preserving the original message context.
         if (processedLog.type === 'error' && processedLog.message.includes('error:')) {
             const codeMatch = processedLog.message.match(/error:(\d+)/);
             if (codeMatch && codeMatch[1]) {
                 const code = parseInt(codeMatch[1], 10);
                 const explanation = GRBL_ERROR_CODES[code];
-                const originalError = `error:${code}`;
-
                 if (explanation) {
-                    // The message from onError can be long, but for the console, we want it concise.
-                    processedLog.message = `${originalError} (${explanation})`;
-                } else {
-                    processedLog.message = originalError; // Fallback to just the error code
+                    processedLog.message = `${processedLog.message} (${explanation})`;
                 }
             }
         }
