@@ -94,12 +94,8 @@ const JogPanel = ({
                 ),
                 h('div', { className: 'mt-3 border-t border-secondary pt-3' },
                     h('h4', { className: 'text-sm font-bold text-text-secondary mb-2 text-center' }, 'Homing'),
-                    h('div', { className: 'grid grid-cols-3 gap-2 text-sm' },
-                        h('button', { onClick: () => onHome('all'), disabled: isControlDisabled, className: 'col-span-3 p-2 bg-secondary rounded hover:bg-secondary-focus disabled:opacity-50 font-bold' }, 'Home All'),
-                        h('button', { onClick: () => onHome('xy'), disabled: isControlDisabled, className: 'col-span-3 p-2 bg-secondary rounded hover:bg-secondary-focus disabled:opacity-50' }, 'Home XY'),
-                        h('button', { onClick: () => onHome('x'), disabled: isControlDisabled, className: 'p-2 bg-secondary rounded hover:bg-secondary-focus disabled:opacity-50' }, 'Home X'),
-                        h('button', { onClick: () => onHome('y'), disabled: isControlDisabled, className: 'p-2 bg-secondary rounded hover:bg-secondary-focus disabled:opacity-50' }, 'Home Y'),
-                        h('button', { onClick: () => onHome('z'), disabled: isControlDisabled, className: 'p-2 bg-secondary rounded hover:bg-secondary-focus disabled:opacity-50' }, 'Home Z')
+                    h('div', { className: 'grid grid-cols-1 gap-2 text-sm' },
+                        h('button', { onClick: () => onHome('all'), disabled: isControlDisabled, className: 'p-2 bg-secondary rounded hover:bg-secondary-focus disabled:opacity-50 font-bold' }, 'Home All ($H)')
                     )
                 )
             ),
