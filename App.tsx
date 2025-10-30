@@ -1,24 +1,27 @@
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { SerialManager } from './services/serialService.ts';
-import { SimulatedSerialManager } from './services/simulatedSerialService.ts';
+// Fix: Import from .js files as .ts files are empty or not provided
+import { SerialManager } from './services/serialService.js';
+import { SimulatedSerialManager } from './services/simulatedSerialService.js';
 import { JobStatus, PortInfo, ConsoleLog, MachineState, Macro, MachineSettings, Tool, GCodeTimeEstimate, GCodeAnalysisWarning, Notification } from './types.ts';
 import SerialConnector from './components/SerialConnector.tsx';
 import GCodePanel from './components/GCodePanel.tsx';
 import Console from './components/Console.tsx';
-import JogPanel from './components/JogPanel.tsx';
-import MacrosPanel from './components/MacrosPanel.tsx';
-import WebcamPanel from './components/WebcamPanel.tsx';
-import PreflightChecklistModal from './components/PreflightChecklistModal.tsx';
-import MacroEditorModal from './components/MacroEditorModal.tsx';
-import SettingsModal from './components/SettingsModal.tsx';
-import ToolLibraryModal from './components/ToolLibraryModal.tsx';
-import { NotificationContainer } from './components/Notification.tsx';
-import ThemeToggle from './components/ThemeToggle.tsx';
-import StatusBar from './components/StatusBar.tsx';
+// Fix: Import from .js files as .ts files are empty or not provided
+import JogPanel from './components/JogPanel.js';
+import MacrosPanel from './components/MacrosPanel.js';
+import WebcamPanel from './components/WebcamPanel.js';
+import PreflightChecklistModal from './components/PreflightChecklistModal.js';
+import MacroEditorModal from './components/MacroEditorModal.js';
+import SettingsModal from './components/SettingsModal.js';
+import ToolLibraryModal from './components/ToolLibraryModal.js';
+import { NotificationContainer } from './components/Notification.js';
+import ThemeToggle from './components/ThemeToggle.js';
+import StatusBar from './components/StatusBar.js';
 import { AlertTriangle, OctagonAlert, Unlock, Settings } from './components/Icons.tsx';
-import { estimateGCodeTime } from './services/gcodeTimeEstimator.ts';
-import { analyzeGCode } from './services/gcodeAnalyzer.ts';
+// Fix: Import from .js files as .ts files are empty or not provided
+import { estimateGCodeTime } from './services/gcodeTimeEstimator.js';
+import { analyzeGCode } from './services/gcodeAnalyzer.js';
 
 const GRBL_ALARM_CODES: { [key: number | string]: { name: string; desc: string; resolution: string } } = {
     1: { name: 'Hard limit', desc: 'A limit switch was triggered. Usually due to machine travel limits.', resolution: 'Check for obstructions. The machine may need to be moved off the switch manually. Use the "$X" command to unlock after clearing the issue, then perform a homing cycle ($H).' },
@@ -879,6 +882,8 @@ const App: React.FC = () => {
         addNotification('Macro deleted!', 'success');
     }, [addNotification]);
 
+    // Fix: Comment out unused function to prevent warnings, will be removed with props.
+    /*
     const handleImportSettings = useCallback((imported: { macros: Macro[], machineSettings: MachineSettings, toolLibrary: Tool[] }) => {
         if(window.confirm("This will overwrite your current macros, settings, and tool library. Are you sure?")) {
             setMacros(imported.macros);
@@ -887,6 +892,7 @@ const App: React.FC = () => {
             addNotification("Settings imported successfully!", 'success');
         }
     }, [addNotification]);
+    */
 
     const alarmInfo = isAlarm ? (GRBL_ALARM_CODES[machineState!.code!] || GRBL_ALARM_CODES.default) : null;
     const isJobActive = jobStatus === JobStatus.Running || jobStatus === JobStatus.Paused;
@@ -944,15 +950,13 @@ const App: React.FC = () => {
                 macro={editingMacroIndex !== null ? macros[editingMacroIndex] : null}
                 index={editingMacroIndex}
             />
+            {/* Fix: Removed props that are not defined in SettingsModal component type */}
             <SettingsModal
                 isOpen={isSettingsModalOpen}
                 onCancel={() => setIsSettingsModalOpen(false)}
                 onSave={setMachineSettings}
                 settings={machineSettings}
                 onOpenToolLibrary={() => setIsToolLibraryModalOpen(true)}
-                macros={macros}
-                toolLibrary={toolLibrary}
-                onImportSettings={handleImportSettings}
             />
             <ToolLibraryModal
                 isOpen={isToolLibraryModalOpen}

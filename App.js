@@ -14,6 +14,7 @@ import PreflightChecklistModal from './components/PreflightChecklistModal.js';
 import MacroEditorModal from './components/MacroEditorModal.js';
 import SettingsModal from './components/SettingsModal.js';
 import ToolLibraryModal from './components/ToolLibraryModal.js';
+import GCodeGeneratorModal from './components/GCodeGeneratorModal.js';
 import { NotificationContainer } from './components/Notification.js';
 import ThemeToggle from './components/ThemeToggle.js';
 import StatusBar from './components/StatusBar.js';
@@ -131,6 +132,7 @@ const App = () => {
     // Advanced Features State
     const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
     const [isToolLibraryModalOpen, setIsToolLibraryModalOpen] = useState(false);
+    const [isGCodeGeneratorModalOpen, setIsGCodeGeneratorModalOpen] = useState(false);
     const [selectedToolId, setSelectedToolId] = useState(null);
 
 
@@ -483,6 +485,11 @@ const App = () => {
         setSelectedToolId(null);
         setTimeEstimate(estimateGCodeTime(lines));
         addLog({ type: 'status', message: `Loaded ${name} (${lines.length} lines).` });
+    };
+    
+    const handleGeneratedGCodeLoad = (gcode, name) => {
+        handleFileLoad(gcode, name);
+        setIsGCodeGeneratorModalOpen(false);
     };
 
     const handleGCodeChange = (content) => {
@@ -880,6 +887,15 @@ const App = () => {
         addNotification('Macro deleted!', 'success');
     }, [addNotification]);
 
+    const handleImportSettings = useCallback((imported) => {
+        if(window.confirm("This will overwrite your current macros, settings, and tool library. Are you sure?")) {
+            setMacros(imported.macros);
+            setMachineSettings(imported.machineSettings);
+            setToolLibrary(imported.toolLibrary);
+            addNotification("Settings imported successfully!", 'success');
+        }
+    }, [addNotification]);
+
     const alarmInfo = isAlarm ? (GRBL_ALARM_CODES[machineState.code] || GRBL_ALARM_CODES.default) : null;
     const isJobActive = jobStatus === JobStatus.Running || jobStatus === JobStatus.Paused;
 
@@ -900,7 +916,7 @@ const App = () => {
     }, [isJobActive]);
 
 
-    const isAnyControlLocked = !isConnected || isJobActive || isJogging || isMacroRunning || ['Alarm', 'Home'].includes(machineState?.status);
+    const isAnyControlLocked = !isConnected || isJobActive || isJogging || isMacroRunning || (machineState?.status && ['Alarm', 'Home'].includes(machineState.status));
     const selectedTool = toolLibrary.find(t => t.id === selectedToolId) || null;
     
     const now = new Date();
@@ -938,13 +954,23 @@ const App = () => {
             onCancel: () => setIsSettingsModalOpen(false),
             onSave: setMachineSettings,
             settings: machineSettings,
-            onOpenToolLibrary: () => setIsToolLibraryModalOpen(true)
+            onOpenToolLibrary: () => setIsToolLibraryModalOpen(true),
+            macros: macros,
+            toolLibrary: toolLibrary,
+            onImportSettings: handleImportSettings,
         }),
         React.createElement(ToolLibraryModal, {
             isOpen: isToolLibraryModalOpen,
             onCancel: () => setIsToolLibraryModalOpen(false),
             onSave: setToolLibrary,
             library: toolLibrary
+        }),
+        React.createElement(GCodeGeneratorModal, {
+            isOpen: isGCodeGeneratorModalOpen,
+            onCancel: () => setIsGCodeGeneratorModalOpen(false),
+            onLoadGCode: handleGeneratedGCodeLoad,
+            unit: unit,
+            settings: machineSettings
         }),
         React.createElement('header', { className: "bg-surface shadow-md p-4 flex justify-between items-center z-10 flex-shrink-0 gap-4" },
             React.createElement('div', { className: "flex items-baseline gap-2" },
@@ -1028,6 +1054,7 @@ const App = () => {
                     toolLibrary: toolLibrary,
                     selectedToolId: selectedToolId,
                     onToolSelect: setSelectedToolId,
+                    onOpenGenerator: () => setIsGCodeGeneratorModalOpen(true),
                 })
             ),
             React.createElement('div', { className: "flex flex-col gap-4 overflow-hidden min-h-0" },

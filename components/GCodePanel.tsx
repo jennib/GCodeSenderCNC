@@ -2,8 +2,9 @@
 import React, { useRef, useState, useEffect, DragEvent } from 'react';
 import { JobStatus, MachineState, GCodeTimeEstimate, MachineSettings, Tool } from '../types.ts';
 import { Play, Pause, Square, Upload, FileText, Code, Eye, Maximize, Pencil, CheckCircle, X, Save, Plus, Minus, RefreshCw, Percent, ZoomIn, ZoomOut, Clock, BookOpen, Crosshair } from './Icons.tsx';
-import GCodeVisualizer from './GCodeVisualizer.tsx';
-import GCodeLine from './GCodeLine.tsx';
+// Fix: Import from .js files as .tsx files are empty or not provided
+import GCodeVisualizer from './GCodeVisualizer.js';
+import GCodeLine from './GCodeLine.js';
 
 interface FeedrateOverrideControlProps {
     onFeedOverride: (command: 'reset' | 'inc10' | 'dec10' | 'inc1' | 'dec1') => void;
