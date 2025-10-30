@@ -790,7 +790,7 @@ const App = () => {
             x: ['$HX'],
             y: ['$HY'],
             z: ['$HZ'],
-            xy: ['$HX', '$HY']
+            xy: ['$HXY']
         };
 
         const commands = commandMap[axes];

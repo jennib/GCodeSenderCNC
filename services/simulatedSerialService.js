@@ -1,3 +1,4 @@
+
 const getParam = (gcode, param) => {
     // Allows for optional whitespace between parameter and value
     const regex = new RegExp(`${param}\\s*([-+]?[0-9]*\\.?[0-9]*)`, 'i');
@@ -184,11 +185,21 @@ export class SimulatedSerialManager {
 
         if (upperLine.startsWith('$H')) {
             this.position.status = 'Home';
+            const oldMpos = { ...this.position.mpos };
             // Simulate homing process running in the background
             setTimeout(() => {
-                if(upperLine === '$H' || upperLine.includes('X')) this.position.mpos.x = 0;
-                if(upperLine === '$H' || upperLine.includes('Y')) this.position.mpos.y = 0;
-                if(upperLine === '$H' || upperLine.includes('Z')) this.position.mpos.z = 0;
+                if (upperLine === '$H' || upperLine.includes('X')) {
+                    this.position.wpos.x -= oldMpos.x;
+                    this.position.mpos.x = 0;
+                }
+                if (upperLine === '$H' || upperLine.includes('Y')) {
+                    this.position.wpos.y -= oldMpos.y;
+                    this.position.mpos.y = 0;
+                }
+                if (upperLine === '$H' || upperLine.includes('Z')) {
+                    this.position.wpos.z -= oldMpos.z;
+                    this.position.mpos.z = 0;
+                }
                 this.position.status = 'Idle';
             }, 1000); // Homing takes time
             
