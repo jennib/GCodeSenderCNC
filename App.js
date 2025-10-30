@@ -256,7 +256,7 @@ const App = () => {
         audioContextRef.current = context;
 
         // Pre-load the audio file to be ready for playback.
-        fetch('/assets/completion-sound.mp3')
+        fetch('/completion-sound.mp3')
             .then(response => {
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
