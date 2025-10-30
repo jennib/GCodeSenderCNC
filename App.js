@@ -1,4 +1,5 @@
 
+
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { SerialManager } from './services/serialService.js';
 import { SimulatedSerialManager } from './services/simulatedSerialService.js';
@@ -901,6 +902,11 @@ const App = () => {
 
     const isAnyControlLocked = !isConnected || isJobActive || isJogging || isMacroRunning || ['Alarm', 'Home'].includes(machineState?.status);
     const selectedTool = toolLibrary.find(t => t.id === selectedToolId) || null;
+    
+    const now = new Date();
+    const pad = (num) => num.toString().padStart(2, '0');
+    const version = `0.${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}${pad(now.getHours())}:${pad(now.getMinutes())}`;
+
 
     return React.createElement('div', { className: "min-h-screen bg-background font-sans text-text-primary flex flex-col" },
         !isAudioUnlocked && React.createElement('div', { className: "bg-accent-yellow/20 text-accent-yellow text-center p-2 text-sm font-semibold animate-pulse" },
@@ -941,8 +947,9 @@ const App = () => {
             library: toolLibrary
         }),
         React.createElement('header', { className: "bg-surface shadow-md p-4 flex justify-between items-center z-10 flex-shrink-0 gap-4" },
-            React.createElement('div', { className: "flex items-center gap-4" },
-                 React.createElement('h1', { className: "text-xl font-bold" }, "CNC Sender 3D")
+            React.createElement('div', { className: "flex items-baseline gap-2" },
+                 React.createElement('h1', { className: "text-xl font-bold" }, "CNC Sender 3D"),
+                 React.createElement('span', { className: 'text-xs text-text-secondary font-mono' }, version)
             ),
             React.createElement('div', { className: "flex items-center gap-4" },
                 React.createElement('button', {
