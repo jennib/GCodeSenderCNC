@@ -228,8 +228,8 @@ const GCodeVisualizer = React.forwardRef(({ gcodeLines, currentLine, hoveredLine
         if (!bounds || bounds.minX === Infinity) {
             setCamera(prev => ({
                 ...prev,
-                target: [0,0,0],
-                distance: 100,
+                target: [machineSettings.workArea.x / 2, machineSettings.workArea.y / 2, 0],
+                distance: Math.max(machineSettings.workArea.x, machineSettings.workArea.y) * 1.5,
                 rotation: newRotation ?? prev.rotation
             }));
             return;
@@ -244,15 +244,15 @@ const GCodeVisualizer = React.forwardRef(({ gcodeLines, currentLine, hoveredLine
         const sizeZ = bounds.maxZ - bounds.minZ;
         const maxDim = Math.max(sizeX, sizeY, sizeZ);
         
-        const distance = maxDim * 1.5; // Adjust multiplier for padding
+        const distance = maxDim * 1.5;
 
         setCamera(prev => ({
             ...prev,
             target: [centerX, centerY, centerZ],
-            distance: Math.max(distance, 20), // Ensure a minimum distance
+            distance: Math.max(distance, 20),
             rotation: newRotation ?? prev.rotation
         }));
-    }, []);
+    }, [machineSettings]);
 
     useImperativeHandle(ref, () => ({
         fitView: () => fitView(parsedGCode?.bounds),
@@ -270,16 +270,7 @@ const GCodeVisualizer = React.forwardRef(({ gcodeLines, currentLine, hoveredLine
     // Effect to regenerate buffers when their data sources change.
     useEffect(() => {
         const gl = glRef.current;
-        if (!gl || !parsedGCode) {
-            // Clear buffers if there's no code to display
-            if (buffersRef.current) {
-                gl.deleteBuffer(buffersRef.current.position);
-                gl.deleteBuffer(buffersRef.current.color);
-                // Clean up other buffers as well
-            }
-            buffersRef.current = null;
-            return;
-        };
+        if (!gl) return;
 
         // --- Create Work Area Buffers ---
         const workArea = machineSettings.workArea;
@@ -320,8 +311,61 @@ const GCodeVisualizer = React.forwardRef(({ gcodeLines, currentLine, hoveredLine
         gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(Array(boundsVertices.length / 3).fill(boundsColor).flat()), gl.STATIC_DRAW);
         workAreaBuffers.boundsVertexCount = boundsVertices.length / 3;
         
+        // --- Create Axis Indicator Buffers ---
+        const axisLength = Math.max(25, Math.hypot(workArea.x, workArea.y) * 0.1);
+        const labelSize = axisLength * 0.1; // Half-size of the letter labels
+        const axisLabelOffset = axisLength + labelSize * 2; // Position for the labels to be clearly visible past the axis line
+
+        const axisVertices = [
+            // X-axis line
+            0, 0, 0,  axisLength, 0, 0,
+            // Y-axis line
+            0, 0, 0,  0, axisLength, 0,
+            // Z-axis line
+            0, 0, 0,  0, 0, axisLength
+        ];
+        const red = [1.0, 0.3, 0.3, 1.0];
+        const green = [0.3, 1.0, 0.3, 1.0];
+        const blue = [0.3, 0.3, 1.0, 1.0];
+        const axisColors = [...red, ...red, ...green, ...green, ...blue, ...blue];
+
+        // 'X' Label vertices
+        const xLabel = [
+            axisLabelOffset - labelSize, -labelSize, 0,   axisLabelOffset + labelSize,  labelSize, 0,
+            axisLabelOffset - labelSize,  labelSize, 0,   axisLabelOffset + labelSize, -labelSize, 0,
+        ];
+        axisVertices.push(...xLabel);
+        axisColors.push(...Array(4).fill(red).flat());
+
+        // 'Y' Label vertices
+        const yLabel = [
+            -labelSize, axisLabelOffset + labelSize, 0,   0, axisLabelOffset, 0,
+             labelSize, axisLabelOffset + labelSize, 0,   0, axisLabelOffset, 0,
+             0, axisLabelOffset, 0,                     0, axisLabelOffset - labelSize, 0,
+        ];
+        axisVertices.push(...yLabel);
+        axisColors.push(...Array(6).fill(green).flat());
+
+        // 'Z' Label vertices
+        const zLabel = [
+            -labelSize, 0, axisLabelOffset + labelSize,    labelSize, 0, axisLabelOffset + labelSize,
+             labelSize, 0, axisLabelOffset + labelSize,   -labelSize, 0, axisLabelOffset - labelSize,
+            -labelSize, 0, axisLabelOffset - labelSize,    labelSize, 0, axisLabelOffset - labelSize,
+        ];
+        axisVertices.push(...zLabel);
+        axisColors.push(...Array(6).fill(blue).flat());
+
+
+        workAreaBuffers.axisPosition = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, workAreaBuffers.axisPosition);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(axisVertices), gl.STATIC_DRAW);
+        workAreaBuffers.axisColor = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, workAreaBuffers.axisColor);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(axisColors), gl.STATIC_DRAW);
+        workAreaBuffers.axisVertexCount = axisVertices.length / 3;
+
         // --- Create Toolpath Buffers ---
-        const { segments } = parsedGCode;
+        const segments = parsedGCode ? parsedGCode.segments : [];
         const vertices = [];
         const colors = [];
 
@@ -404,10 +448,14 @@ const GCodeVisualizer = React.forwardRef(({ gcodeLines, currentLine, hoveredLine
             gl.deleteBuffer(buffersRef.current.color);
             gl.deleteBuffer(buffersRef.current.toolPosition);
             gl.deleteBuffer(buffersRef.current.toolColor);
-            gl.deleteBuffer(buffersRef.current.workArea.gridPosition);
-            gl.deleteBuffer(buffersRef.current.workArea.gridColor);
-            gl.deleteBuffer(buffersRef.current.workArea.boundsPosition);
-            gl.deleteBuffer(buffersRef.current.workArea.boundsColor);
+            if (buffersRef.current.workArea) {
+                gl.deleteBuffer(buffersRef.current.workArea.gridPosition);
+                gl.deleteBuffer(buffersRef.current.workArea.gridColor);
+                gl.deleteBuffer(buffersRef.current.workArea.boundsPosition);
+                gl.deleteBuffer(buffersRef.current.workArea.boundsColor);
+                gl.deleteBuffer(buffersRef.current.workArea.axisPosition);
+                gl.deleteBuffer(buffersRef.current.workArea.axisColor);
+            }
         }
 
         buffersRef.current = { 
@@ -485,10 +533,7 @@ const GCodeVisualizer = React.forwardRef(({ gcodeLines, currentLine, hoveredLine
 
             // Z-up 'up' vector logic
             let up = [0, 0, 1]; // Z is the default 'up' axis for the scene
-            // Check if we are looking from almost directly above or below
             if (Math.abs(Math.sin(camera.rotation[1])) > 0.99999) {
-                // To prevent gimbal lock, use Y-axis as temporary 'up' vector for the camera.
-                // This makes the world's +Y direction point 'up' on the screen.
                 up = [0, 1, 0];
             }
             mat4.lookAt(viewMatrix, eye, camera.target, up);
@@ -497,9 +542,11 @@ const GCodeVisualizer = React.forwardRef(({ gcodeLines, currentLine, hoveredLine
             gl.uniformMatrix4fv(programInfo.uniformLocations.projectionMatrix, false, projectionMatrix);
             gl.uniformMatrix4fv(programInfo.uniformLocations.modelViewMatrix, false, viewMatrix);
             
-            // --- Draw Work Area ---
+            // --- Draw Work Area & Axes ---
             if (buffers.workArea) {
                 const wa = buffers.workArea;
+                gl.lineWidth(1.0);
+                
                 gl.bindBuffer(gl.ARRAY_BUFFER, wa.gridPosition);
                 gl.vertexAttribPointer(programInfo.attribLocations.vertexPosition, 3, gl.FLOAT, false, 0, 0);
                 gl.enableVertexAttribArray(programInfo.attribLocations.vertexPosition);
@@ -513,10 +560,18 @@ const GCodeVisualizer = React.forwardRef(({ gcodeLines, currentLine, hoveredLine
                 gl.bindBuffer(gl.ARRAY_BUFFER, wa.boundsColor);
                 gl.vertexAttribPointer(programInfo.attribLocations.vertexColor, 4, gl.FLOAT, false, 0, 0);
                 gl.drawArrays(gl.LINES, 0, wa.boundsVertexCount);
+
+                gl.lineWidth(2.0); // Thicker lines for axes
+                gl.bindBuffer(gl.ARRAY_BUFFER, wa.axisPosition);
+                gl.vertexAttribPointer(programInfo.attribLocations.vertexPosition, 3, gl.FLOAT, false, 0, 0);
+                gl.bindBuffer(gl.ARRAY_BUFFER, wa.axisColor);
+                gl.vertexAttribPointer(programInfo.attribLocations.vertexColor, 4, gl.FLOAT, false, 0, 0);
+                gl.drawArrays(gl.LINES, 0, wa.axisVertexCount);
+                gl.lineWidth(1.0);
             }
 
             // --- Draw Toolpath ---
-            if (buffers.position) {
+            if (buffers.position && buffers.vertexCount > 0) {
                 gl.bindBuffer(gl.ARRAY_BUFFER, buffers.position);
                 gl.vertexAttribPointer(programInfo.attribLocations.vertexPosition, 3, gl.FLOAT, false, 0, 0);
                 gl.enableVertexAttribArray(programInfo.attribLocations.vertexPosition);
@@ -529,7 +584,7 @@ const GCodeVisualizer = React.forwardRef(({ gcodeLines, currentLine, hoveredLine
             }
 
             // --- Draw Tool ---
-            if (buffers.toolPosition) {
+            if (buffers.toolPosition && buffers.toolVertexCount > 0) {
                  gl.bindBuffer(gl.ARRAY_BUFFER, buffers.toolPosition);
                 gl.vertexAttribPointer(programInfo.attribLocations.vertexPosition, 3, gl.FLOAT, false, 0, 0);
                 gl.enableVertexAttribArray(programInfo.attribLocations.vertexPosition);
