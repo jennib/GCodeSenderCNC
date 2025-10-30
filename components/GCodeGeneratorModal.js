@@ -41,12 +41,24 @@ const GCodeGeneratorModal = ({ isOpen, onCancel, onLoadGCode, unit, settings }) 
         feed: 600, spindle: 9000, safeZ: 5,
     });
 
+    // --- Slot State ---
+    const [slotParams, setSlotParams] = useState({
+        type: 'straight',
+        // common
+        slotWidth: 6, toolDiameter: 6, depth: -5, depthPerPass: 2,
+        feed: 400, spindle: 8000, safeZ: 5,
+        // straight
+        startX: 10, startY: 10, endX: 90, endY: 20,
+        // arc
+        centerX: 50, centerY: 50, radius: 40, startAngle: 45, endAngle: 135,
+    });
+
 
     useEffect(() => {
         if (isOpen) {
             handleGenerate();
         }
-    }, [isOpen, activeTab, surfaceParams, drillParams, drillType, pocketParams, profileParams]);
+    }, [isOpen, activeTab, surfaceParams, drillParams, drillType, pocketParams, profileParams, slotParams]);
     
     const handleParamChange = (setter, params, field, value) => {
         const numValue = value === '' ? '' : parseFloat(value);
@@ -280,13 +292,13 @@ const GCodeGeneratorModal = ({ isOpen, onCancel, onLoadGCode, unit, settings }) 
                 code.push(`G1 Z${currentDepth.toFixed(3)} F${feed/2}`);
 
                 code.push(`G1 X${p1.x.toFixed(3)} F${feed}`);
-                code.push(`G2 X${-offset.toFixed(3)} Y${p8.y.toFixed(3)} I0 J${r.toFixed(3)}`);
+                code.push(`G2 X${(-offset).toFixed(3)} Y${p8.y.toFixed(3)} I0 J${r.toFixed(3)}`);
                 code.push(`G1 Y${p7.y.toFixed(3)}`);
                 code.push(`G2 X${p6.x.toFixed(3)} Y${l.toFixed(3)} I${r.toFixed(3)} J0`);
                 code.push(`G1 X${p5.x.toFixed(3)}`);
                 code.push(`G2 X${w.toFixed(3)} Y${p4.y.toFixed(3)} I0 J${-r.toFixed(3)}`);
                 code.push(`G1 Y${p3.y.toFixed(3)}`);
-                code.push(`G2 X${p2.x.toFixed(3)} Y${-offset.toFixed(3)} I${-r.toFixed(3)} J0`);
+                code.push(`G2 X${p2.x.toFixed(3)} Y${(-offset).toFixed(3)} I${-r.toFixed(3)} J0`);
                 
                  paths.push({ d: `M ${p1.x} ${p1.y} L ${p2.x} ${p2.y} A ${r} ${r} 0 0 0 ${p3.x} ${p3.y} L ${p4.x} ${p4.y} A ${r} ${r} 0 0 0 ${p5.x} ${p5.y} L ${p6.x} ${p6.y} A ${r} ${r} 0 0 0 ${p7.x} ${p7.y} L ${p8.x} ${p8.y} A ${r} ${r} 0 0 0 ${p1.x} ${p1.y}`, stroke: 'var(--color-primary)', fill: 'none', strokeWidth: '1%'});
             
@@ -307,16 +319,115 @@ const GCodeGeneratorModal = ({ isOpen, onCancel, onLoadGCode, unit, settings }) 
         return { code, paths, bounds };
     };
 
+    const generateSlotCode = () => {
+        const { type, slotWidth, toolDiameter, depth, depthPerPass, feed, spindle, safeZ, startX, startY, endX, endY, centerX, centerY, radius, startAngle, endAngle } = slotParams;
+        const params = [slotWidth, toolDiameter, depth, depthPerPass, feed, spindle, safeZ];
+        if (params.some(p => p === '' || p === null)) return { code: [], paths: [], bounds: {} };
+
+        const code = [`(--- Slot Operation: ${type} ---)`, `G21 G90`, `M3 S${spindle}`];
+        const paths = [];
+        let bounds = { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity };
+        const updateBounds = (x, y) => {
+            bounds.minX = Math.min(bounds.minX, x);
+            bounds.maxX = Math.max(bounds.maxX, x);
+            bounds.minY = Math.min(bounds.minY, y);
+            bounds.maxY = Math.max(bounds.maxY, y);
+        };
+        
+        const offsets = [];
+        if (slotWidth <= toolDiameter) {
+            offsets.push(0);
+        } else {
+            const wallOffset = (slotWidth - toolDiameter) / 2;
+            offsets.push(-wallOffset, wallOffset);
+            // Simple fill pass in the middle if needed
+            if (toolDiameter < slotWidth && slotWidth <= toolDiameter * 2) {
+                // The two wall passes are enough
+            } else if (slotWidth > toolDiameter * 2) {
+                 offsets.push(0); // Add a center pass
+            }
+        }
+        offsets.sort((a,b) => a-b);
+
+
+        let currentDepth = 0;
+        while (currentDepth > depth) {
+            currentDepth = Math.max(depth, currentDepth - depthPerPass);
+            code.push(`(--- Pass at Z=${currentDepth.toFixed(3)} ---)`);
+
+            for (const offset of offsets) {
+                if (type === 'straight') {
+                    const angle = Math.atan2(endY - startY, endX - startX);
+                    const perpAngle = angle + Math.PI / 2;
+
+                    const dx = Math.cos(perpAngle) * offset;
+                    const dy = Math.sin(perpAngle) * offset;
+
+                    const passStartX = startX + dx;
+                    const passStartY = startY + dy;
+                    const passEndX = endX + dx;
+                    const passEndY = endY + dy;
+
+                    code.push(`G0 Z${safeZ}`);
+                    code.push(`G0 X${passStartX.toFixed(3)} Y${passStartY.toFixed(3)}`);
+                    code.push(`G1 Z${currentDepth.toFixed(3)} F${feed / 2}`);
+                    code.push(`G1 X${passEndX.toFixed(3)} Y${passEndY.toFixed(3)} F${feed}`);
+
+                    if (currentDepth === Math.max(depth, -depthPerPass)) {
+                        paths.push({ d: `M${passStartX} ${passStartY} L${passEndX} ${passEndY}`, stroke: 'var(--color-primary)', strokeWidth: `${toolDiameter}%` });
+                        updateBounds(passStartX, passStartY);
+                        updateBounds(passEndX, passEndY);
+                    }
+                } else { // arc
+                    const passRadius = radius + offset;
+                    if (passRadius <= 0) continue;
+
+                    const startRad = startAngle * (Math.PI / 180);
+                    const endRad = endAngle * (Math.PI / 180);
+
+                    const passStartX = centerX + passRadius * Math.cos(startRad);
+                    const passStartY = centerY + passRadius * Math.sin(startRad);
+                    const passEndX = centerX + passRadius * Math.cos(endRad);
+                    const passEndY = centerY + passRadius * Math.sin(endRad);
+
+                    const gCodeArc = (endAngle > startAngle) ? 'G3' : 'G2';
+                    const sweepFlag = (endAngle > startAngle) ? 1 : 0;
+                    
+                    const I = centerX - passStartX;
+                    const J = centerY - passStartY;
+                    
+                    code.push(`G0 Z${safeZ}`);
+                    code.push(`G0 X${passStartX.toFixed(3)} Y${passStartY.toFixed(3)}`);
+                    code.push(`G1 Z${currentDepth.toFixed(3)} F${feed / 2}`);
+                    code.push(`${gCodeArc} X${passEndX.toFixed(3)} Y${passEndY.toFixed(3)} I${I.toFixed(3)} J${J.toFixed(3)} F${feed}`);
+                    
+                    if (currentDepth === Math.max(depth, -depthPerPass)) {
+                        const largeArcFlag = Math.abs(endAngle - startAngle) > 180 ? 1 : 0;
+                        paths.push({ d: `M ${passStartX} ${passStartY} A ${passRadius} ${passRadius} 0 ${largeArcFlag} ${sweepFlag} ${passEndX} ${passEndY}`, stroke: 'var(--color-primary)', fill: 'none', strokeWidth: `${toolDiameter}%` });
+                        // Simple bounding box for arc
+                        updateBounds(centerX - passRadius, centerY - passRadius);
+                        updateBounds(centerX + passRadius, centerY + passRadius);
+                    }
+                }
+            }
+        }
+
+        code.push(`G0 Z${safeZ}`, `M5`);
+        return { code, paths, bounds };
+    };
+
     const handleGenerate = useCallback(() => {
         let result;
         if (activeTab === 'surfacing') result = generateSurfacingCode();
         else if (activeTab === 'drilling') result = generateDrillingCode();
         else if (activeTab === 'pocket') result = generatePocketCode();
         else if (activeTab === 'profile') result = generateProfileCode();
+        else if (activeTab === 'slot') result = generateSlotCode();
+
 
         setGeneratedGCode(result.code.join('\n'));
         setPreviewPaths({ paths: result.paths, bounds: result.bounds });
-    }, [activeTab, surfaceParams, drillParams, drillType, pocketParams, profileParams]);
+    }, [activeTab, surfaceParams, drillParams, drillType, pocketParams, profileParams, slotParams]);
     
     if (!isOpen) return null;
 
@@ -419,6 +530,28 @@ const GCodeGeneratorModal = ({ isOpen, onCancel, onLoadGCode, unit, settings }) 
         )
     );
 
+    const renderSlotForm = () => h('div', { className: 'space-y-4' },
+        h(RadioGroup, { options: [{ value: 'straight', label: 'Straight' }, { value: 'arc', label: 'Arc' }], selected: slotParams.type, onChange: val => setSlotParams(p => ({...p, type: val})) }),
+        slotParams.type === 'straight' ? h(React.Fragment, null,
+            h(Input, { label: 'Start Point (X, Y)', valueX: slotParams.startX, valueY: slotParams.startY, onChangeX: e => handleParamChange(setSlotParams, slotParams, 'startX', e.target.value), onChangeY: e => handleParamChange(setSlotParams, slotParams, 'startY', e.target.value), isXY: true, unit }),
+            h(Input, { label: 'End Point (X, Y)', valueX: slotParams.endX, valueY: slotParams.endY, onChangeX: e => handleParamChange(setSlotParams, slotParams, 'endX', e.target.value), onChangeY: e => handleParamChange(setSlotParams, slotParams, 'endY', e.target.value), isXY: true, unit }),
+        ) : h(React.Fragment, null,
+            h(Input, { label: 'Center Point (X, Y)', valueX: slotParams.centerX, valueY: slotParams.centerY, onChangeX: e => handleParamChange(setSlotParams, slotParams, 'centerX', e.target.value), onChangeY: e => handleParamChange(setSlotParams, slotParams, 'centerY', e.target.value), isXY: true, unit }),
+            h(Input, { label: 'Radius', value: slotParams.radius, onChange: e => handleParamChange(setSlotParams, slotParams, 'radius', e.target.value), unit }),
+            h(Input, { label: 'Start, End Angle', valueX: slotParams.startAngle, valueY: slotParams.endAngle, onChangeX: e => handleParamChange(setSlotParams, slotParams, 'startAngle', e.target.value), onChangeY: e => handleParamChange(setSlotParams, slotParams, 'endAngle', e.target.value), isXY: true, unit: '°' }),
+        ),
+        h('hr', { className: 'border-secondary' }),
+        h('div', { className: 'grid grid-cols-2 gap-4' },
+             h(Input, { label: 'Slot Width', value: slotParams.slotWidth, onChange: e => handleParamChange(setSlotParams, slotParams, 'slotWidth', e.target.value), unit }),
+             h(Input, { label: 'Tool Diameter', value: slotParams.toolDiameter, onChange: e => handleParamChange(setSlotParams, slotParams, 'toolDiameter', e.target.value), unit }),
+        ),
+        h('div', { className: 'grid grid-cols-2 gap-4' },
+            h(Input, { label: 'Total Depth', value: slotParams.depth, onChange: e => handleParamChange(setSlotParams, slotParams, 'depth', e.target.value), unit, help: 'Negative value' }),
+            h(Input, { label: 'Depth per Pass', value: slotParams.depthPerPass, onChange: e => handleParamChange(setSlotParams, slotParams, 'depthPerPass', e.target.value), unit })
+        ),
+        h(Input, { label: 'Feed Rate', value: slotParams.feed, onChange: e => handleParamChange(setSlotParams, slotParams, 'feed', e.target.value), unit: unit + '/min' }),
+    );
+
     return h('div', { className: 'fixed inset-0 bg-background/80 backdrop-blur-sm z-40 flex items-center justify-center', onClick: onCancel },
         h('div', { className: 'bg-surface rounded-lg shadow-2xl w-full max-w-4xl border border-secondary transform transition-all max-h-[90vh] flex flex-col', onClick: e => e.stopPropagation() },
             h('div', { className: 'p-6 border-b border-secondary flex justify-between items-center' },
@@ -431,12 +564,14 @@ const GCodeGeneratorModal = ({ isOpen, onCancel, onLoadGCode, unit, settings }) 
                         h(Tab, { label: 'Surfacing', isActive: activeTab === 'surfacing', onClick: () => setActiveTab('surfacing') }),
                         h(Tab, { label: 'Drilling', isActive: activeTab === 'drilling', onClick: () => setActiveTab('drilling') }),
                         h(Tab, { label: 'Pocket', isActive: activeTab === 'pocket', onClick: () => setActiveTab('pocket') }),
-                        h(Tab, { label: 'Profile', isActive: activeTab === 'profile', onClick: () => setActiveTab('profile') })
+                        h(Tab, { label: 'Profile', isActive: activeTab === 'profile', onClick: () => setActiveTab('profile') }),
+                        h(Tab, { label: 'Slot', isActive: activeTab === 'slot', onClick: () => setActiveTab('slot') })
                     ),
                     activeTab === 'surfacing' && renderSurfaceForm(),
                     activeTab === 'drilling' && renderDrillForm(),
                     activeTab === 'pocket' && renderPocketForm(),
-                    activeTab === 'profile' && renderProfileForm()
+                    activeTab === 'profile' && renderProfileForm(),
+                    activeTab === 'slot' && renderSlotForm()
                 ),
                 h('div', { className: 'bg-background p-4 rounded-md flex flex-col gap-4' },
                     h(Preview, { paths: previewPaths.paths, bounds: previewPaths.bounds }),

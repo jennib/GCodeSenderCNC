@@ -1,7 +1,7 @@
 import React, { useRef, useEffect, useState, useCallback, useImperativeHandle, ForwardedRef } from 'react';
 // Fix: Correct import for parseGCode function from .js file and ParsedGCode type from .ts file.
 import { parseGCode } from '../services/gcodeParser.js';
-import type { ParsedGCode } from '../services/gcodeParser';
+import type { ParsedGCode } from '../services/gcodeParser.ts';
 import { MachineSettings } from '../types';
 
 // --- WebGL Helper Functions ---
@@ -541,9 +541,12 @@ const GCodeVisualizer = React.forwardRef<GCodeVisualizerHandle, GCodeVisualizerP
             if (!gl || !programInfo) return;
             
             // Handle canvas resizing within the loop
-            if (canvas.width !== canvas.clientWidth || canvas.height !== canvas.clientHeight) {
-                canvas.width = canvas.clientWidth;
-                canvas.height = canvas.clientHeight;
+            // Fix: Add instanceof check to satisfy TypeScript that clientWidth/clientHeight exist.
+            if (canvas instanceof HTMLCanvasElement) {
+                if (canvas.width !== canvas.clientWidth || canvas.height !== canvas.clientHeight) {
+                    canvas.width = canvas.clientWidth;
+                    canvas.height = canvas.clientHeight;
+                }
             }
 
             gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
