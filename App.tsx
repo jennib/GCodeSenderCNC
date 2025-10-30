@@ -1,13 +1,15 @@
 
+
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-// Fix: Import from .js files as .ts files are empty or not provided
+// Fix: Corrected import path for SerialManager to use .js file as .ts file is not a module.
 import { SerialManager } from './services/serialService.js';
+// Fix: Corrected import path for SimulatedSerialManager to use .js file as .ts file is not a module.
 import { SimulatedSerialManager } from './services/simulatedSerialService.js';
 import { JobStatus, PortInfo, ConsoleLog, MachineState, Macro, MachineSettings, Tool, GCodeTimeEstimate, GCodeAnalysisWarning, Notification } from './types.ts';
 import SerialConnector from './components/SerialConnector.tsx';
 import GCodePanel from './components/GCodePanel.tsx';
 import Console from './components/Console.tsx';
-// Fix: Import from .js files as .ts files are empty or not provided
+// Fix: Corrected import path for JogPanel to use .js file as .tsx file is not a module.
 import JogPanel from './components/JogPanel.js';
 import MacrosPanel from './components/MacrosPanel.js';
 import WebcamPanel from './components/WebcamPanel.js';
@@ -19,7 +21,6 @@ import { NotificationContainer } from './components/Notification.js';
 import ThemeToggle from './components/ThemeToggle.js';
 import StatusBar from './components/StatusBar.js';
 import { AlertTriangle, OctagonAlert, Unlock, Settings } from './components/Icons.tsx';
-// Fix: Import from .js files as .ts files are empty or not provided
 import { estimateGCodeTime } from './services/gcodeTimeEstimator.js';
 import { analyzeGCode } from './services/gcodeAnalyzer.js';
 
@@ -657,7 +658,8 @@ const App: React.FC = () => {
 
     }, [unit, addLog]);
 
-    const handleProbe = useCallback(async (axes: string, offsets: { x: number, y: number, z: number }) => {
+    // Fix: Correct signature for handleProbe to allow partial offsets.
+    const handleProbe = useCallback(async (axes: string, offsets: { x?: number, y?: number, z?: number }) => {
         const manager = serialManagerRef.current;
         if (!manager || !isConnected) {
             addLog({ type: 'error', message: 'Cannot probe while disconnected.' });
@@ -682,13 +684,13 @@ const App: React.FC = () => {
                 await manager.sendLineAndWaitForOk('G90');
             };
 
-            if (axes.includes('X')) {
+            if (axes.includes('X') && offsets.x !== undefined) {
                 await probeAxis('X', offsets.x);
             }
-            if (axes.includes('Y')) {
+            if (axes.includes('Y') && offsets.y !== undefined) {
                 await probeAxis('Y', offsets.y);
             }
-            if (axes.includes('Z')) {
+            if (axes.includes('Z') && offsets.z !== undefined) {
                 await probeAxis('Z', offsets.z);
             }
     
@@ -882,7 +884,6 @@ const App: React.FC = () => {
         addNotification('Macro deleted!', 'success');
     }, [addNotification]);
 
-    // Fix: Comment out unused function to prevent warnings, will be removed with props.
     /*
     const handleImportSettings = useCallback((imported: { macros: Macro[], machineSettings: MachineSettings, toolLibrary: Tool[] }) => {
         if(window.confirm("This will overwrite your current macros, settings, and tool library. Are you sure?")) {

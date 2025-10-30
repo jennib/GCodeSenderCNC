@@ -1,4 +1,3 @@
-
 import React, { useRef, useEffect, useState, useCallback, useImperativeHandle } from 'react';
 import { parseGCode } from '../services/gcodeParser.js';
 
@@ -394,8 +393,18 @@ const GCodeVisualizer = React.forwardRef(({ gcodeLines, currentLine, hoveredLine
                 let endAngle = Math.atan2(seg.end.y - seg.center.y, seg.end.x - seg.center.x);
                 
                 let angleDiff = endAngle - startAngle;
-                if (seg.clockwise && angleDiff > 0) angleDiff -= 2 * Math.PI;
-                if (!seg.clockwise && angleDiff < 0) angleDiff += 2 * Math.PI;
+
+                // If start and end points are the same and it's a valid arc, it's a full circle.
+                const isFullCircle = Math.abs(seg.start.x - seg.end.x) < 1e-6 &&
+                                     Math.abs(seg.start.y - seg.end.y) < 1e-6 &&
+                                     radius > 1e-6;
+
+                if (isFullCircle) {
+                    angleDiff = seg.clockwise ? -2 * Math.PI : 2 * Math.PI;
+                } else {
+                    if (seg.clockwise && angleDiff > 0) angleDiff -= 2 * Math.PI;
+                    if (!seg.clockwise && angleDiff < 0) angleDiff += 2 * Math.PI;
+                }
 
                 for (let j = 0; j < arcPoints; j++) {
                     const p1_angle = startAngle + (j / arcPoints) * angleDiff;

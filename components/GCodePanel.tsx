@@ -2,7 +2,7 @@
 import React, { useRef, useState, useEffect, DragEvent } from 'react';
 import { JobStatus, MachineState, GCodeTimeEstimate, MachineSettings, Tool } from '../types.ts';
 import { Play, Pause, Square, Upload, FileText, Code, Eye, Maximize, Pencil, CheckCircle, X, Save, Plus, Minus, RefreshCw, Percent, ZoomIn, ZoomOut, Clock, BookOpen, Crosshair } from './Icons.tsx';
-// Fix: Import from .js files as .tsx files are empty or not provided
+// Fix: Corrected import path for GCodeVisualizer to use .js file as .tsx file is not a module.
 import GCodeVisualizer from './GCodeVisualizer.js';
 import GCodeLine from './GCodeLine.js';
 

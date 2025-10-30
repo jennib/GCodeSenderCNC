@@ -41,7 +41,8 @@ export const parseGCode = (gcodeLines) => {
             }
         }
 
-        if (cleanLine.includes('X') || cleanLine.includes('Y') || cleanLine.includes('Z')) {
+        // A motion command must have a destination (X, Y, Z) or an arc offset (I, J)
+        if (cleanLine.includes('X') || cleanLine.includes('Y') || cleanLine.includes('Z') || cleanLine.includes('I') || cleanLine.includes('J')) {
             const start = { ...currentPos };
             const end = {
                 x: getParam(cleanLine, 'X') ?? currentPos.x,
