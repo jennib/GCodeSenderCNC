@@ -1,7 +1,7 @@
 
 import React, { useRef, useState, useEffect } from 'react';
 import { JobStatus } from '../types.js';
-import { Play, Pause, Square, Upload, FileText, Code, Eye, Maximize, Pencil, CheckCircle, X, Save, Plus, Minus, RefreshCw, Percent, ZoomIn, ZoomOut, Clock, BookOpen } from './Icons.js';
+import { Play, Pause, Square, Upload, FileText, Code, Eye, Maximize, Pencil, CheckCircle, X, Save, Plus, Minus, RefreshCw, Percent, ZoomIn, ZoomOut, Clock, BookOpen, Crosshair } from './Icons.js';
 import GCodeVisualizer from './GCodeVisualizer.js';
 import GCodeLine from './GCodeLine.js';
 
@@ -291,6 +291,13 @@ const GCodePanel = ({
                         React.createElement(Code, { className: "w-5 h-5" })
                     ),
                     view === 'visualizer' && gcodeLines.length > 0 && React.createElement(React.Fragment, null,
+                        React.createElement('button', {
+                            onClick: () => visualizerRef.current?.resetView(),
+                            title: "Reset to Top-Down View",
+                            className: "p-1 rounded transition-colors hover:bg-secondary"
+                        },
+                            React.createElement(Crosshair, { className: "w-5 h-5" })
+                        ),
                         React.createElement('button', {
                             onClick: () => visualizerRef.current?.fitView(),
                             title: "Fit to View",

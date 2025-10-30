@@ -132,18 +132,41 @@ const mat4 = {
     },
     lookAt: (out, eye, center, up) => {
         let x0, x1, x2, y0, y1, y2, z0, z1, z2, len;
-        z0 = eye[0] - center[0]; z1 = eye[1] - center[1]; z2 = eye[2] - center[2];
-        len = 1 / Math.hypot(z0,z1,z2); z0 *= len; z1 *= len; z2 *= len;
-        x0 = up[1] * z2 - up[2] * z1; x1 = up[2] * z0 - up[0] * z2; x2 = up[0] * z1 - up[1] * z0;
-        len = 1 / Math.hypot(x0,x1,x2); x0 *= len; x1 *= len; x2 *= len;
-        y0 = z1 * x2 - z2 * x1; y1 = z2 * x0 - z0 * x2; y2 = z0 * x1 - z1 * x0;
-        out[0]=x0; out[1]=y0; out[2]=z0; out[3]=0;
-        out[4]=x1; out[5]=y1; out[6]=z1; out[7]=0;
-        out[8]=x2; out[9]=y2; out[10]=z2; out[11]=0;
-        out[12]=-(x0*eye[0]+x1*eye[1]+x2*eye[2]);
-        out[13]=-(y0*eye[0]+y1*eye[1]+y2*eye[2]);
-        out[14]=-(z0*eye[0]+z1*eye[1]+z2*eye[2]);
-        out[15]=1;
+        let eyeX = eye[0], eyeY = eye[1], eyeZ = eye[2];
+        let upX = up[0], upY = up[1], upZ = up[2];
+        let centerX = center[0], centerY = center[1], centerZ = center[2];
+
+        z0 = eyeX - centerX;
+        z1 = eyeY - centerY;
+        z2 = eyeZ - centerZ;
+        len = Math.hypot(z0, z1, z2);
+        if (len > 0) {
+            len = 1 / len;
+            z0 *= len; z1 *= len; z2 *= len;
+        }
+
+        x0 = upY * z2 - upZ * z1;
+        x1 = upZ * z0 - upX * z2;
+        x2 = upX * z1 - upY * z0;
+        len = Math.hypot(x0, x1, x2);
+        if (len > 0) {
+            len = 1 / len;
+            x0 *= len; x1 *= len; x2 *= len;
+        } else {
+            x0 = 0; x1 = 0; x2 = 0;
+        }
+
+        y0 = z1 * x2 - z2 * x1;
+        y1 = z2 * x0 - z0 * x2;
+        y2 = z0 * x1 - z1 * x0;
+
+        out[0] = x0; out[1] = y0; out[2] = z0; out[3] = 0;
+        out[4] = x1; out[5] = y1; out[6] = z1; out[7] = 0;
+        out[8] = x2; out[9] = y2; out[10] = z2; out[11] = 0;
+        out[12] = -(x0 * eyeX + x1 * eyeY + x2 * eyeZ);
+        out[13] = -(y0 * eyeX + y1 * eyeY + y2 * eyeZ);
+        out[14] = -(z0 * eyeX + z1 * eyeY + z2 * eyeZ);
+        out[15] = 1;
         return out;
     }
 };
@@ -161,7 +184,7 @@ const GCodeVisualizer = React.forwardRef(({ gcodeLines, currentLine, hoveredLine
     const [camera, setCamera] = useState({
         target: [0, 0, 0],
         distance: 100,
-        rotation: [Math.PI / 4, -Math.PI / 4] // [alpha, beta]
+        rotation: [0, Math.PI / 2] // Default to top-down view (Z-up system)
     });
     const mouseState = useRef({ isDown: false, lastPos: { x: 0, y: 0 }, button: 0 });
 
@@ -201,9 +224,14 @@ const GCodeVisualizer = React.forwardRef(({ gcodeLines, currentLine, hoveredLine
         };
     };
 
-    const fitView = useCallback((bounds) => {
+    const fitView = useCallback((bounds, newRotation = null) => {
         if (!bounds || bounds.minX === Infinity) {
-            setCamera(prev => ({ ...prev, target: [0,0,0], distance: 100 }));
+            setCamera(prev => ({
+                ...prev,
+                target: [0,0,0],
+                distance: 100,
+                rotation: newRotation ?? prev.rotation
+            }));
             return;
         }
 
@@ -221,7 +249,8 @@ const GCodeVisualizer = React.forwardRef(({ gcodeLines, currentLine, hoveredLine
         setCamera(prev => ({
             ...prev,
             target: [centerX, centerY, centerZ],
-            distance: Math.max(distance, 20) // Ensure a minimum distance
+            distance: Math.max(distance, 20), // Ensure a minimum distance
+            rotation: newRotation ?? prev.rotation
         }));
     }, []);
 
@@ -229,12 +258,13 @@ const GCodeVisualizer = React.forwardRef(({ gcodeLines, currentLine, hoveredLine
         fitView: () => fitView(parsedGCode?.bounds),
         zoomIn: () => setCamera(c => ({...c, distance: c.distance / 1.5})),
         zoomOut: () => setCamera(c => ({...c, distance: c.distance * 1.5})),
+        resetView: () => fitView(parsedGCode?.bounds, [0, Math.PI / 2]),
     }));
 
     useEffect(() => {
         const parsed = parseGCode(gcodeLines);
         setParsedGCode(parsed);
-        fitView(parsed.bounds);
+        fitView(parsed.bounds, [0, Math.PI / 2]);
     }, [gcodeLines, fitView]);
 
     // Effect to regenerate buffers when their data sources change.
@@ -445,12 +475,23 @@ const GCodeVisualizer = React.forwardRef(({ gcodeLines, currentLine, hoveredLine
             mat4.perspective(projectionMatrix, 45 * Math.PI / 180, gl.canvas.clientWidth / gl.canvas.clientHeight, 0.1, 10000);
 
             const viewMatrix = mat4.create();
+            
+            // Z-up camera position calculation
             const eye = [
                 camera.target[0] + camera.distance * Math.cos(camera.rotation[0]) * Math.cos(camera.rotation[1]),
-                camera.target[1] + camera.distance * Math.sin(camera.rotation[1]),
-                camera.target[2] + camera.distance * Math.sin(camera.rotation[0]) * Math.cos(camera.rotation[1])
+                camera.target[1] + camera.distance * Math.sin(camera.rotation[0]) * Math.cos(camera.rotation[1]),
+                camera.target[2] + camera.distance * Math.sin(camera.rotation[1])
             ];
-            mat4.lookAt(viewMatrix, eye, camera.target, [0, 1, 0]);
+
+            // Z-up 'up' vector logic
+            let up = [0, 0, 1]; // Z is the default 'up' axis for the scene
+            // Check if we are looking from almost directly above or below
+            if (Math.abs(Math.sin(camera.rotation[1])) > 0.99999) {
+                // To prevent gimbal lock, use Y-axis as temporary 'up' vector for the camera.
+                // This makes the world's +Y direction point 'up' on the screen.
+                up = [0, 1, 0];
+            }
+            mat4.lookAt(viewMatrix, eye, camera.target, up);
 
             gl.useProgram(programInfo.program);
             gl.uniformMatrix4fv(programInfo.uniformLocations.projectionMatrix, false, projectionMatrix);
@@ -532,6 +573,7 @@ const GCodeVisualizer = React.forwardRef(({ gcodeLines, currentLine, hoveredLine
                     const newRotation = [...c.rotation];
                     newRotation[0] -= dx * 0.01;
                     newRotation[1] -= dy * 0.01;
+                    // Clamp pitch to prevent flipping over
                     newRotation[1] = Math.max(-Math.PI / 2 + 0.01, Math.min(Math.PI / 2 - 0.01, newRotation[1]));
                     return { ...c, rotation: newRotation };
                 });
@@ -539,9 +581,24 @@ const GCodeVisualizer = React.forwardRef(({ gcodeLines, currentLine, hoveredLine
                 setCamera(c => {
                     const factor = 0.1 * (c.distance / 100);
                     const newTarget = [...c.target];
-                    newTarget[0] += (dx * -Math.sin(c.rotation[0]) + dy * Math.cos(c.rotation[0])*Math.sin(c.rotation[1])) * factor;
-                    newTarget[1] += dy * -Math.cos(c.rotation[1]) * factor;
-                    newTarget[2] += (dx * Math.cos(c.rotation[0]) + dy * Math.sin(c.rotation[0])*Math.sin(c.rotation[1])) * factor;
+                    
+                    const sYaw = Math.sin(c.rotation[0]);
+                    const cYaw = Math.cos(c.rotation[0]);
+                    const sPitch = Math.sin(c.rotation[1]);
+                    const cPitch = Math.cos(c.rotation[1]);
+                    
+                    // Pan calculation for Z-up camera system
+                    const rightX = -sYaw;
+                    const rightY = cYaw;
+                    
+                    const upX = -cYaw * sPitch;
+                    const upY = -sYaw * sPitch;
+                    const upZ = cPitch;
+                    
+                    newTarget[0] -= (dx * rightX - dy * upX) * factor;
+                    newTarget[1] -= (dx * rightY - dy * upY) * factor;
+                    newTarget[2] -= (-dy * upZ) * factor;
+
                     return { ...c, target: newTarget };
                 });
             }
