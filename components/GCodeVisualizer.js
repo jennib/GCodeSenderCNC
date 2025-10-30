@@ -153,7 +153,9 @@ const GCodeVisualizer = React.forwardRef(({ gcodeLines, currentLine, hoveredLine
     const glRef = useRef(null);
     const programInfoRef = useRef(null);
     const buffersRef = useRef(null);
-    const requestRef = useRef();
+    
+    // This ref will hold all dynamic data for the render loop to access without re-triggering effects.
+    const renderDataRef = useRef({});
 
     const [parsedGCode, setParsedGCode] = useState(null);
     const [camera, setCamera] = useState({
@@ -235,9 +237,19 @@ const GCodeVisualizer = React.forwardRef(({ gcodeLines, currentLine, hoveredLine
         fitView(parsed.bounds);
     }, [gcodeLines, fitView]);
 
+    // Effect to regenerate buffers when their data sources change.
     useEffect(() => {
         const gl = glRef.current;
-        if (!gl || !parsedGCode) return;
+        if (!gl || !parsedGCode) {
+            // Clear buffers if there's no code to display
+            if (buffersRef.current) {
+                gl.deleteBuffer(buffersRef.current.position);
+                gl.deleteBuffer(buffersRef.current.color);
+                // Clean up other buffers as well
+            }
+            buffersRef.current = null;
+            return;
+        };
 
         // --- Create Work Area Buffers ---
         const workArea = machineSettings.workArea;
@@ -262,19 +274,17 @@ const GCodeVisualizer = React.forwardRef(({ gcodeLines, currentLine, hoveredLine
         );
 
         const workAreaBuffers = {};
-        const gridPositionBuffer = gl.createBuffer();
-        gl.bindBuffer(gl.ARRAY_BUFFER, gridPositionBuffer);
+        workAreaBuffers.gridPosition = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, workAreaBuffers.gridPosition);
         gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(gridVertices), gl.STATIC_DRAW);
-        workAreaBuffers.gridPosition = gridPositionBuffer;
         workAreaBuffers.gridColor = gl.createBuffer();
         gl.bindBuffer(gl.ARRAY_BUFFER, workAreaBuffers.gridColor);
         gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(Array(gridVertices.length / 3).fill(gridColor).flat()), gl.STATIC_DRAW);
         workAreaBuffers.gridVertexCount = gridVertices.length / 3;
 
-        const boundsPositionBuffer = gl.createBuffer();
-        gl.bindBuffer(gl.ARRAY_BUFFER, boundsPositionBuffer);
+        workAreaBuffers.boundsPosition = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, workAreaBuffers.boundsPosition);
         gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(boundsVertices), gl.STATIC_DRAW);
-        workAreaBuffers.boundsPosition = boundsPositionBuffer;
         workAreaBuffers.boundsColor = gl.createBuffer();
         gl.bindBuffer(gl.ARRAY_BUFFER, workAreaBuffers.boundsColor);
         gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(Array(boundsVertices.length / 3).fill(boundsColor).flat()), gl.STATIC_DRAW);
@@ -357,6 +367,18 @@ const GCodeVisualizer = React.forwardRef(({ gcodeLines, currentLine, hoveredLine
             gl.bindBuffer(gl.ARRAY_BUFFER, toolColorBuffer);
             gl.bufferData(gl.ARRAY_BUFFER, toolModel.colors, gl.STATIC_DRAW);
         }
+        
+        // Clean up old buffers before assigning new ones
+        if (buffersRef.current) {
+            gl.deleteBuffer(buffersRef.current.position);
+            gl.deleteBuffer(buffersRef.current.color);
+            gl.deleteBuffer(buffersRef.current.toolPosition);
+            gl.deleteBuffer(buffersRef.current.toolColor);
+            gl.deleteBuffer(buffersRef.current.workArea.gridPosition);
+            gl.deleteBuffer(buffersRef.current.workArea.gridColor);
+            gl.deleteBuffer(buffersRef.current.workArea.boundsPosition);
+            gl.deleteBuffer(buffersRef.current.workArea.boundsColor);
+        }
 
         buffersRef.current = { 
             position: positionBuffer, 
@@ -369,81 +391,8 @@ const GCodeVisualizer = React.forwardRef(({ gcodeLines, currentLine, hoveredLine
         };
 
     }, [parsedGCode, currentLine, hoveredLineIndex, machineSettings]);
-
-    const drawScene = useCallback(() => {
-        const gl = glRef.current;
-        const programInfo = programInfoRef.current;
-        const buffers = buffersRef.current;
-
-        if (!gl || !programInfo || !buffers) return;
-
-        gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
-        gl.clearColor(0.117, 0.16, 0.23, 1.0); // background color
-        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-
-        const projectionMatrix = mat4.create();
-        mat4.perspective(projectionMatrix, 45 * Math.PI / 180, gl.canvas.clientWidth / gl.canvas.clientHeight, 0.1, 10000);
-
-        const viewMatrix = mat4.create();
-        const eye = [
-            camera.target[0] + camera.distance * Math.cos(camera.rotation[0]) * Math.cos(camera.rotation[1]),
-            camera.target[1] + camera.distance * Math.sin(camera.rotation[1]),
-            camera.target[2] + camera.distance * Math.sin(camera.rotation[0]) * Math.cos(camera.rotation[1])
-        ];
-        mat4.lookAt(viewMatrix, eye, camera.target, [0, 1, 0]);
-
-        gl.useProgram(programInfo.program);
-        gl.uniformMatrix4fv(programInfo.uniformLocations.projectionMatrix, false, projectionMatrix);
-        gl.uniformMatrix4fv(programInfo.uniformLocations.modelViewMatrix, false, viewMatrix);
-        
-        // --- Draw Work Area ---
-        if (buffers.workArea) {
-            const wa = buffers.workArea;
-            // Draw Grid
-            gl.bindBuffer(gl.ARRAY_BUFFER, wa.gridPosition);
-            gl.vertexAttribPointer(programInfo.attribLocations.vertexPosition, 3, gl.FLOAT, false, 0, 0);
-            gl.enableVertexAttribArray(programInfo.attribLocations.vertexPosition);
-            gl.bindBuffer(gl.ARRAY_BUFFER, wa.gridColor);
-            gl.vertexAttribPointer(programInfo.attribLocations.vertexColor, 4, gl.FLOAT, false, 0, 0);
-            gl.enableVertexAttribArray(programInfo.attribLocations.vertexColor);
-            gl.drawArrays(gl.LINES, 0, wa.gridVertexCount);
-
-            // Draw Bounds
-            gl.bindBuffer(gl.ARRAY_BUFFER, wa.boundsPosition);
-            gl.vertexAttribPointer(programInfo.attribLocations.vertexPosition, 3, gl.FLOAT, false, 0, 0);
-            gl.bindBuffer(gl.ARRAY_BUFFER, wa.boundsColor);
-            gl.vertexAttribPointer(programInfo.attribLocations.vertexColor, 4, gl.FLOAT, false, 0, 0);
-            gl.drawArrays(gl.LINES, 0, wa.boundsVertexCount);
-        }
-
-        // --- Draw Toolpath ---
-        if (buffers.position) {
-            gl.bindBuffer(gl.ARRAY_BUFFER, buffers.position);
-            gl.vertexAttribPointer(programInfo.attribLocations.vertexPosition, 3, gl.FLOAT, false, 0, 0);
-            gl.enableVertexAttribArray(programInfo.attribLocations.vertexPosition);
-
-            gl.bindBuffer(gl.ARRAY_BUFFER, buffers.color);
-            gl.vertexAttribPointer(programInfo.attribLocations.vertexColor, 4, gl.FLOAT, false, 0, 0);
-            gl.enableVertexAttribArray(programInfo.attribLocations.vertexColor);
-            
-            gl.drawArrays(gl.LINES, 0, buffers.vertexCount);
-        }
-
-        // --- Draw Tool ---
-        if (buffers.toolPosition) {
-             gl.bindBuffer(gl.ARRAY_BUFFER, buffers.toolPosition);
-            gl.vertexAttribPointer(programInfo.attribLocations.vertexPosition, 3, gl.FLOAT, false, 0, 0);
-            gl.enableVertexAttribArray(programInfo.attribLocations.vertexPosition);
-
-            gl.bindBuffer(gl.ARRAY_BUFFER, buffers.toolColor);
-            gl.vertexAttribPointer(programInfo.attribLocations.vertexColor, 4, gl.FLOAT, false, 0, 0);
-            gl.enableVertexAttribArray(programInfo.attribLocations.vertexColor);
-
-            gl.drawArrays(gl.TRIANGLES, 0, buffers.toolVertexCount);
-        }
-
-    }, [camera]);
-
+    
+    // The main setup and continuous render loop effect. Runs ONLY ONCE.
     useEffect(() => {
         const canvas = canvasRef.current;
         const gl = canvas.getContext('webgl', { antialias: true });
@@ -468,21 +417,101 @@ const GCodeVisualizer = React.forwardRef(({ gcodeLines, currentLine, hoveredLine
         gl.enable(gl.DEPTH_TEST);
         gl.depthFunc(gl.LEQUAL);
         
-        const handleResize = () => {
-            canvas.width = canvas.clientWidth;
-            canvas.height = canvas.clientHeight;
+        let animationFrameId;
+
+        const renderLoop = () => {
+            animationFrameId = requestAnimationFrame(renderLoop);
+
+            const { camera } = renderDataRef.current;
+            const buffers = buffersRef.current;
+            const programInfo = programInfoRef.current;
+
+            if (!gl || !programInfo) return;
+            
+            // Handle canvas resizing within the loop
+            if (canvas.width !== canvas.clientWidth || canvas.height !== canvas.clientHeight) {
+                canvas.width = canvas.clientWidth;
+                canvas.height = canvas.clientHeight;
+            }
+
+            gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+            gl.clearColor(0.117, 0.16, 0.23, 1.0); // background color
+            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+            // If buffers aren't ready yet, we're done for this frame.
+            if (!buffers || !camera) return;
+
+            const projectionMatrix = mat4.create();
+            mat4.perspective(projectionMatrix, 45 * Math.PI / 180, gl.canvas.clientWidth / gl.canvas.clientHeight, 0.1, 10000);
+
+            const viewMatrix = mat4.create();
+            const eye = [
+                camera.target[0] + camera.distance * Math.cos(camera.rotation[0]) * Math.cos(camera.rotation[1]),
+                camera.target[1] + camera.distance * Math.sin(camera.rotation[1]),
+                camera.target[2] + camera.distance * Math.sin(camera.rotation[0]) * Math.cos(camera.rotation[1])
+            ];
+            mat4.lookAt(viewMatrix, eye, camera.target, [0, 1, 0]);
+
+            gl.useProgram(programInfo.program);
+            gl.uniformMatrix4fv(programInfo.uniformLocations.projectionMatrix, false, projectionMatrix);
+            gl.uniformMatrix4fv(programInfo.uniformLocations.modelViewMatrix, false, viewMatrix);
+            
+            // --- Draw Work Area ---
+            if (buffers.workArea) {
+                const wa = buffers.workArea;
+                gl.bindBuffer(gl.ARRAY_BUFFER, wa.gridPosition);
+                gl.vertexAttribPointer(programInfo.attribLocations.vertexPosition, 3, gl.FLOAT, false, 0, 0);
+                gl.enableVertexAttribArray(programInfo.attribLocations.vertexPosition);
+                gl.bindBuffer(gl.ARRAY_BUFFER, wa.gridColor);
+                gl.vertexAttribPointer(programInfo.attribLocations.vertexColor, 4, gl.FLOAT, false, 0, 0);
+                gl.enableVertexAttribArray(programInfo.attribLocations.vertexColor);
+                gl.drawArrays(gl.LINES, 0, wa.gridVertexCount);
+
+                gl.bindBuffer(gl.ARRAY_BUFFER, wa.boundsPosition);
+                gl.vertexAttribPointer(programInfo.attribLocations.vertexPosition, 3, gl.FLOAT, false, 0, 0);
+                gl.bindBuffer(gl.ARRAY_BUFFER, wa.boundsColor);
+                gl.vertexAttribPointer(programInfo.attribLocations.vertexColor, 4, gl.FLOAT, false, 0, 0);
+                gl.drawArrays(gl.LINES, 0, wa.boundsVertexCount);
+            }
+
+            // --- Draw Toolpath ---
+            if (buffers.position) {
+                gl.bindBuffer(gl.ARRAY_BUFFER, buffers.position);
+                gl.vertexAttribPointer(programInfo.attribLocations.vertexPosition, 3, gl.FLOAT, false, 0, 0);
+                gl.enableVertexAttribArray(programInfo.attribLocations.vertexPosition);
+
+                gl.bindBuffer(gl.ARRAY_BUFFER, buffers.color);
+                gl.vertexAttribPointer(programInfo.attribLocations.vertexColor, 4, gl.FLOAT, false, 0, 0);
+                gl.enableVertexAttribArray(programInfo.attribLocations.vertexColor);
+                
+                gl.drawArrays(gl.LINES, 0, buffers.vertexCount);
+            }
+
+            // --- Draw Tool ---
+            if (buffers.toolPosition) {
+                 gl.bindBuffer(gl.ARRAY_BUFFER, buffers.toolPosition);
+                gl.vertexAttribPointer(programInfo.attribLocations.vertexPosition, 3, gl.FLOAT, false, 0, 0);
+                gl.enableVertexAttribArray(programInfo.attribLocations.vertexPosition);
+
+                gl.bindBuffer(gl.ARRAY_BUFFER, buffers.toolColor);
+                gl.vertexAttribPointer(programInfo.attribLocations.vertexColor, 4, gl.FLOAT, false, 0, 0);
+                gl.enableVertexAttribArray(programInfo.attribLocations.vertexColor);
+
+                gl.drawArrays(gl.TRIANGLES, 0, buffers.toolVertexCount);
+            }
         };
-        const resizeObserver = new ResizeObserver(handleResize);
-        resizeObserver.observe(canvas);
-        handleResize();
 
-        return () => resizeObserver.disconnect();
-    }, []);
+        renderLoop();
 
+        return () => {
+            cancelAnimationFrame(animationFrameId);
+        };
+    }, []); // Empty dependency array ensures this runs only once.
+
+    // Update the ref on every render with the latest camera state.
     useEffect(() => {
-        requestRef.current = requestAnimationFrame(drawScene);
-        return () => cancelAnimationFrame(requestRef.current);
-    }, [drawScene]);
+        renderDataRef.current = { camera };
+    });
     
     // --- Mouse Controls ---
     useEffect(() => {
@@ -507,8 +536,8 @@ const GCodeVisualizer = React.forwardRef(({ gcodeLines, currentLine, hoveredLine
                     return { ...c, rotation: newRotation };
                 });
             } else if (mouseState.current.button === 2) { // Right-click: Pan
-                const factor = 0.1 * (camera.distance / 100);
                 setCamera(c => {
+                    const factor = 0.1 * (c.distance / 100);
                     const newTarget = [...c.target];
                     newTarget[0] += (dx * -Math.sin(c.rotation[0]) + dy * Math.cos(c.rotation[0])*Math.sin(c.rotation[1])) * factor;
                     newTarget[1] += dy * -Math.cos(c.rotation[1]) * factor;
@@ -541,7 +570,7 @@ const GCodeVisualizer = React.forwardRef(({ gcodeLines, currentLine, hoveredLine
             canvas.removeEventListener('wheel', handleWheel);
             canvas.removeEventListener('contextmenu', handleContextMenu);
         };
-    }, [camera]);
+    }, []);
 
 
     return React.createElement('div', { className: "w-full h-full bg-background rounded cursor-grab active:cursor-grabbing" },
