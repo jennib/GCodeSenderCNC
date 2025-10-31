@@ -1,7 +1,7 @@
 
 
 import React from 'react';
-import { Settings, BookOpen, Upload, X, CheckCircle } from './Icons.js';
+import { Settings, BookOpen, Zap, X, CheckCircle } from './Icons.js';
 
 const h = React.createElement;
 
@@ -45,7 +45,6 @@ const WelcomeModal = ({ isOpen, onClose, onOpenSettings, onOpenToolLibrary, isMa
             h('div', { className: 'p-8 space-y-4' },
                 h('p', { className: 'text-center text-lg text-text-secondary' }, "Here's a quick guide to get you started:"),
                 h(Step, {
-                    icon: h(Settings, { className: 'w-7 h-7 text-white' }),
                     title: "1. Configure Your Machine",
                     description: "Tell the sender about your CNC's work area and spindle. This is crucial for safety checks and accurate previews.",
                     buttonText: "Open Machine Settings",
@@ -53,19 +52,21 @@ const WelcomeModal = ({ isOpen, onClose, onOpenSettings, onOpenToolLibrary, isMa
                     isComplete: isMachineSetupComplete
                 }),
                 h(Step, {
-                    icon: h(BookOpen, { className: 'w-7 h-7 text-white' }),
                     title: "2. Add Your First Tool",
                     description: "Create a tool library so the application knows the diameter of your bits for previews and G-code generation.",
                     buttonText: "Open Tool Library",
                     onButtonClick: onOpenToolLibrary,
                     isComplete: isToolLibrarySetupComplete
                 }),
-                h(Step, {
-                    icon: h(Upload, { className: 'w-7 h-7 text-white' }),
-                    title: "3. Load G-Code & Start",
-                    description: "Load a file, complete the pre-flight checklist, and you're ready to make chips!",
-                    isComplete: false, // This step is informational
-                }),
+                h('div', { className: 'flex items-start gap-4 py-4 border-t border-secondary' },
+                    h('div', { className: 'flex-shrink-0 w-8 h-8 flex items-center justify-center mt-1' },
+                         h(Zap, { className: 'w-8 h-8 text-primary' })
+                    ),
+                    h('div', { className: 'flex-grow' },
+                        h('h3', { className: 'font-bold text-lg text-text-primary' }, "You're ready to go!"),
+                        h('p', { className: 'text-text-secondary text-sm mt-1' }, "Connect to your machine, then load an existing G-code file or use the built-in generator to create one.")
+                    )
+                ),
                  h('p', { className: 'text-center text-xs text-text-secondary pt-4 border-t border-secondary' }, "Remember, this is demonstration software. Always monitor your machine and use it at your own risk.")
             ),
             h('div', { className: 'bg-background px-6 py-4 flex justify-end rounded-b-lg' },

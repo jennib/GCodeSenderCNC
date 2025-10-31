@@ -1,5 +1,6 @@
 
 
+
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 // Corrected import path for SerialManager to use .js file as .ts file is not a module.
 import { SerialManager } from './services/serialService.js';
