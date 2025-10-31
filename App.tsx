@@ -1,6 +1,8 @@
 
 
 
+
+
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { SerialManager } from './services/serialService.js';
 import { SimulatedSerialManager } from './services/simulatedSerialService.js';
@@ -95,7 +97,8 @@ const DEFAULT_SETTINGS = {
 
 // FIX: Properly type the usePrevious hook to be generic and type-safe.
 const usePrevious = <T,>(value: T): T | undefined => {
-    const ref = useRef<T>();
+    // FIX: Provide an initial value to useRef to fix "Expected 1 arguments, but got 0" error.
+    const ref = useRef<T | undefined>(undefined);
     useEffect(() => {
         ref.current = value;
     });

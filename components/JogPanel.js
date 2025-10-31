@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect } from 'react';
 import { ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Pin, RotateCw, RotateCcw, PowerOff, Probe } from './Icons.js';
 
@@ -33,7 +34,7 @@ const JogPanel = ({
         setProbeOffsetY(unit === 'mm' ? 3.0 : 0.12);
     }, [unit]);
 
-    const isControlDisabled = !isConnected || isJobActive || isJogging || isMacroRunning || (machineState && ['Alarm', 'Home', 'Jog'].includes(machineState.status));
+    const isControlDisabled = !isConnected || isJobActive || isJogging || isMacroRunning || ['Alarm', 'Home', 'Jog'].includes(machineState?.status || '');
     const isZJogDisabledForStep = (unit === 'mm' && jogStep > 10) || (unit === 'in' && jogStep > 1);
 
     const JogButton = ({ id, axis, direction, icon, label, hotkey }) => {

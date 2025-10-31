@@ -7,6 +7,167 @@ import { parseGCode } from '../services/gcodeParser.js';
 
 const h = React.createElement;
 
+const Tab = ({ label, isActive, onClick }) => h('button', {
+    onClick,
+    className: `px-4 py-2 text-sm font-semibold -mb-px border-b-2 ${isActive ? 'border-primary text-primary' : 'border-transparent text-text-secondary hover:text-text-primary'}`
+}, label);
+
+const RadioGroup = ({ label, options, selected, onChange }) => h('div', { className: 'mb-2' },
+    label && h('label', { className: 'block text-sm font-medium text-text-secondary mb-1' }, label),
+    h('div', { className: 'flex bg-secondary rounded-md p-1' },
+        options.map(opt => h('button', {
+            key: opt.value,
+            onClick: () => onChange(opt.value),
+            className: `w-full p-1 rounded-md text-sm font-semibold transition-colors ${selected === opt.value ? 'bg-primary text-white' : 'hover:bg-secondary-focus'}`
+        }, opt.label))
+    )
+);
+
+const Input = ({ label, value, valueX, valueY, onChange, onChangeX, onChangeY, unit, help, isXY = false }) => h('div', null,
+    h('label', { className: 'block text-sm font-medium text-text-secondary mb-1' }, label),
+    isXY ?
+        h('div', { className: 'flex gap-2' },
+            h('input', { type: 'number', value: valueX, onChange: onChangeX, className: 'w-full bg-background border-secondary rounded-md py-1 px-2 focus:outline-none focus:ring-1 focus:ring-primary' }),
+            h('input', { type: 'number', value: valueY, onChange: onChangeY, className: 'w-full bg-background border-secondary rounded-md py-1 px-2 focus:outline-none focus:ring-1 focus:ring-primary' })
+        )
+        :
+        h('div', { className: 'relative' },
+            h('input', { type: 'number', value: value, onChange: onChange, className: 'w-full bg-background border-secondary rounded-md py-1 px-2 focus:outline-none focus:ring-1 focus:ring-primary' }),
+            unit && h('span', { className: 'absolute right-2 top-1/2 -translate-y-1/2 text-xs text-text-secondary' }, unit)
+        ),
+    help && h('p', { className: 'text-xs text-text-secondary mt-1' }, help)
+);
+
+const Preview = ({ paths, viewBox }) => {
+    const [vbMinX, vbMinY, vbWidth, vbHeight] = viewBox.split(' ').map(parseFloat);
+
+    const gridElements = [];
+    const labelElements = [];
+    const majorDim = Math.max(vbWidth, vbHeight);
+    const magnitudes = [0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50, 100, 200, 500, 1000];
+    const targetLines = 8;
+    const roughSpacing = majorDim / targetLines;
+    const spacing = magnitudes.find(m => m > roughSpacing) || magnitudes[magnitudes.length - 1];
+
+    const gridLineStyle = { stroke: 'var(--color-secondary)', strokeWidth: '0.25%', vectorEffect: 'non-scaling-stroke' };
+    const axisLineStyle = { stroke: 'var(--color-secondary-focus)', strokeWidth: '0.5%', vectorEffect: 'non-scaling-stroke' };
+    const labelStyle = { fontSize: '4%', fill: 'var(--color-text-secondary)', vectorEffect: 'non-scaling-stroke' };
+
+    if (spacing > 0 && isFinite(vbMinX) && isFinite(vbWidth)) {
+        const startX = Math.floor(vbMinX / spacing) * spacing;
+        for (let x = startX; x <= vbMinX + vbWidth; x += spacing) {
+            gridElements.push(h('line', { key: `v-${x}`, x1: x, y1: vbMinY, x2: x, y2: vbMinY + vbHeight, ...gridLineStyle }));
+             // Add labels along the top edge
+            labelElements.push(h('text', {
+                key: `lx-${x}`, x: x, y: vbMinY,
+                transform: `scale(1, -1)`,
+                style: { ...labelStyle, textAnchor: 'middle', dominantBaseline: 'hanging' }
+            }, x.toFixed(0)));
+        }
+    }
+    if (spacing > 0 && isFinite(vbMinY) && isFinite(vbHeight)) {
+        const startY = Math.floor(vbMinY / spacing) * spacing;
+        for (let y = startY; y <= vbMinY + vbHeight; y += spacing) {
+            gridElements.push(h('line', { key: `h-${y}`, x1: vbMinX, y1: y, x2: vbMinX + vbWidth, y2: y, ...gridLineStyle }));
+            const yFlipped = -y;
+             // Add labels along the left edge
+            labelElements.push(h('text', {
+                key: `ly-${y}`, x: vbMinX, y: y,
+                transform: `scale(1, -1)`,
+                style: { ...labelStyle, textAnchor: 'start', dominantBaseline: 'middle' }
+            }, yFlipped.toFixed(0)));
+        }
+    }
+    
+    // Y-Axis
+    if (0 >= vbMinX && 0 <= vbMinX + vbWidth) {
+        gridElements.push(h('line', { key: 'axis-y', x1: 0, y1: vbMinY, x2: 0, y2: vbMinY + vbHeight, ...axisLineStyle }));
+    }
+    // X-Axis
+    if (0 >= vbMinY && 0 <= vbMinY + vbHeight) {
+        gridElements.push(h('line', { key: 'axis-x', x1: vbMinX, y1: 0, x2: vbMinX + vbWidth, y2: 0, ...axisLineStyle }));
+    }
+
+    return h('div', { className: 'aspect-square w-full bg-secondary rounded' },
+        h('svg', { viewBox, className: 'w-full h-full' },
+             h('g', { transform: 'scale(1, -1)' },
+                h('g', { key: 'grid-group' }, gridElements),
+                h('g', { key: 'path-group' },
+                    paths.map((p, i) => {
+                        if (p.d) {
+                            return h('path', { key: i, d: p.d, stroke: p.stroke, fill: p.fill || 'none', strokeWidth: p.strokeWidth || '1%', strokeDasharray: p.strokeDasharray, style: { vectorEffect: 'non-scaling-stroke' } });
+                        }
+                        if (p.cx !== undefined) {
+                            return h('circle', { key: i, cx: p.cx, cy: p.cy, r: p.r, fill: p.fill || 'none', stroke: p.stroke, strokeWidth: p.strokeWidth || '1%', strokeDasharray: p.strokeDasharray, style: { vectorEffect: 'non-scaling-stroke' } });
+                        }
+                        return null;
+                    })
+                )
+            ),
+             h('g', { key: 'label-group' }, labelElements)
+        )
+    );
+};
+
+const ToolSelector = ({ selectedId, onChange, colSpan = 'col-span-full', unit, toolLibrary }) => h('div', { className: colSpan },
+    h('label', { className: 'block text-sm font-medium text-text-secondary mb-1' }, 'Tool'),
+    h('select', {
+        value: selectedId || '',
+        onChange: e => onChange(e.target.value ? parseInt(e.target.value, 10) : null),
+        className: 'w-full bg-background border-secondary rounded-md py-1 px-2 focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50',
+        disabled: !toolLibrary || toolLibrary.length === 0
+    },
+        h('option', { value: '' }, toolLibrary && toolLibrary.length > 0 ? 'Select a tool...' : 'No tools in library'),
+        toolLibrary && toolLibrary.map(tool => h('option', { key: tool.id, value: tool.id }, `${tool.name} (Ø ${tool.diameter}${unit})`))
+    ),
+    (!toolLibrary || toolLibrary.length === 0) && h('p', { className: 'text-xs text-text-secondary mt-1' },
+        'Add tools in the Tool Library to enable generation.'
+    )
+);
+
+const ArrayControls = ({ settings, onChange, activeTab, unit }) => {
+    const handleToggle = (e) => {
+        onChange({ ...settings, isEnabled: e.target.checked });
+    };
+
+    const isVisible = !['surfacing', 'drilling'].includes(activeTab);
+    if (!isVisible) return null;
+
+    return h('div', { className: 'bg-background/50 p-4 rounded-md' },
+        h('label', { className: 'flex items-center gap-2 cursor-pointer font-semibold text-text-primary' },
+            h('input', {
+                type: 'checkbox',
+                checked: settings.isEnabled,
+                onChange: handleToggle,
+                className: 'h-4 w-4 rounded border-secondary text-primary focus:ring-primary'
+            }),
+            'Enable Array Pattern'
+        ),
+        settings.isEnabled && h('div', { className: 'mt-4 pt-4 border-t border-secondary space-y-4' },
+            h(RadioGroup, { options: [{ value: 'rect', label: 'Rectangular Grid' }, { value: 'circ', label: 'Circular Array' }], selected: settings.pattern, onChange: val => onChange({ ...settings, pattern: val }) }),
+            settings.pattern === 'rect' ? h(React.Fragment, null,
+                h(Input, { label: 'Columns, Rows', valueX: settings.rectCols, valueY: settings.rectRows, onChangeX: e => onChange({ ...settings, rectCols: e.target.value }), onChangeY: e => onChange({ ...settings, rectRows: e.target.value }), isXY: true }),
+                h(Input, { label: 'Spacing (X, Y)', valueX: settings.rectSpacingX, valueY: settings.rectSpacingY, onChangeX: e => onChange({ ...settings, rectSpacingX: e.target.value }), onChangeY: e => onChange({ ...settings, rectSpacingY: e.target.value }), isXY: true, unit }),
+            ) : h(React.Fragment, null,
+                h(Input, { label: 'Number of Copies', value: settings.circCopies, onChange: e => onChange({ ...settings, circCopies: e.target.value }) }),
+                h(Input, { label: 'Center (X, Y)', valueX: settings.circCenterX, valueY: settings.circCenterY, onChangeX: e => onChange({ ...settings, circCenterX: e.target.value }), onChangeY: e => onChange({ ...settings, circCenterY: e.target.value }), isXY: true, unit }),
+                h(Input, { label: 'Radius', value: settings.circRadius, onChange: e => onChange({ ...settings, circRadius: e.target.value }), unit }),
+                h(Input, { label: 'Start Angle', value: settings.circStartAngle, onChange: e => onChange({ ...settings, circStartAngle: e.target.value }), unit: '°' }),
+            )
+        )
+    );
+};
+
+const SpindleAndFeedControls = ({ params, onParamChange, feedLabel = 'Feed Rate', plunge, plungeLabel = 'Plunge Rate', unit }) => h(React.Fragment, null,
+    h('hr', { className: 'border-secondary' }),
+    h('div', { className: 'grid grid-cols-2 gap-4' },
+        h(Input, { label: feedLabel, value: params.feed, onChange: e => onParamChange('feed', e.target.value), unit: unit + '/min' }),
+        h(Input, { label: 'Spindle Speed', value: params.spindle, onChange: e => onParamChange('spindle', e.target.value), unit: 'RPM' })
+    ),
+    plunge && h(Input, { label: plungeLabel, value: params.plungeFeed, onChange: e => onParamChange('plungeFeed', e.target.value), unit: unit + '/min' }),
+    h(Input, { label: 'Safe Z', value: params.safeZ, onChange: e => onParamChange('safeZ', e.target.value), unit, help: 'Rapid height above stock' }),
+);
+
 const GCodeGeneratorModal = ({ isOpen, onCancel, onLoadGCode, unit, settings, toolLibrary }) => {
     const [activeTab, setActiveTab] = useState('surfacing');
     const [generatedGCode, setGeneratedGCode] = useState('');
@@ -18,14 +179,14 @@ const GCodeGeneratorModal = ({ isOpen, onCancel, onLoadGCode, unit, settings, to
     // --- Surfacing State ---
     const [surfaceParams, setSurfaceParams] = useState({
         width: 100, length: 100, depth: -1, stepover: 40,
-        feed: 800, spindle: 8000, safeZ: 5, startX: 0, startY: 0,
+        feed: 800, spindle: settings.spindle.max || 8000, safeZ: 5, startX: 0, startY: 0,
         toolId: null,
     });
 
     // --- Drilling State ---
     const [drillType, setDrillType] = useState('single');
     const [drillParams, setDrillParams] = useState({
-        depth: -5, peck: 2, retract: 2, feed: 150, spindle: 8000, safeZ: 5,
+        depth: -5, peck: 2, retract: 2, feed: 150, spindle: settings.spindle.max || 8000, safeZ: 5,
         singleX: 10, singleY: 10,
         rectCols: 4, rectRows: 3, rectSpacingX: 25, rectSpacingY: 20, rectStartX: 10, rectStartY: 10,
         circCenterX: 50, circCenterY: 50, circRadius: 40, circHoles: 6, circStartAngle: 0,
@@ -38,7 +199,7 @@ const GCodeGeneratorModal = ({ isOpen, onCancel, onLoadGCode, unit, settings, to
         holeDiameter: 20, holeDepth: -15,
         counterboreEnabled: true,
         cbDiameter: 30, cbDepth: -5,
-        depthPerPass: 2, feed: 400, plungeFeed: 150, spindle: 8000, safeZ: 5,
+        depthPerPass: 2, feed: 400, plungeFeed: 150, spindle: settings.spindle.max || 8000, safeZ: 5,
         toolId: null,
     });
 
@@ -48,7 +209,7 @@ const GCodeGeneratorModal = ({ isOpen, onCancel, onLoadGCode, unit, settings, to
         shape: 'rect',
         width: 80, length: 50, cornerRadius: 5, diameter: 60,
         depth: -10, depthPerPass: 2, stepover: 40,
-        feed: 500, plungeFeed: 150, spindle: 8000, safeZ: 5,
+        feed: 500, plungeFeed: 150, spindle: settings.spindle.max || 8000, safeZ: 5,
         toolId: null,
     });
 
@@ -58,7 +219,7 @@ const GCodeGeneratorModal = ({ isOpen, onCancel, onLoadGCode, unit, settings, to
         width: 80, length: 50, cornerRadius: 10, diameter: 60,
         depth: -12, depthPerPass: 3, cutSide: 'outside',
         tabsEnabled: true, numTabs: 4, tabWidth: 6, tabHeight: 2,
-        feed: 600, spindle: 9000, safeZ: 5,
+        feed: 600, spindle: settings.spindle.max || 9000, safeZ: 5,
         toolId: null,
     });
 
@@ -66,7 +227,7 @@ const GCodeGeneratorModal = ({ isOpen, onCancel, onLoadGCode, unit, settings, to
     const [slotParams, setSlotParams] = useState({
         type: 'straight',
         slotWidth: 6, depth: -5, depthPerPass: 2,
-        feed: 400, spindle: 8000, safeZ: 5,
+        feed: 400, spindle: settings.spindle.max || 8000, safeZ: 5,
         startX: 10, startY: 10, endX: 90, endY: 20,
         centerX: 50, centerY: 50, radius: 40, startAngle: 45, endAngle: 135,
         toolId: null,
@@ -83,7 +244,7 @@ const GCodeGeneratorModal = ({ isOpen, onCancel, onLoadGCode, unit, settings, to
         alignment: 'left',
         depth: -0.5,
         feed: 300,
-        spindle: 10000,
+        spindle: settings.spindle.max || 10000,
         safeZ: 5,
         toolId: null,
     });
@@ -96,7 +257,7 @@ const GCodeGeneratorModal = ({ isOpen, onCancel, onLoadGCode, unit, settings, to
         pitch: 1,
         depth: 10,
         feed: 200,
-        spindle: 10000,
+        spindle: settings.spindle.max || 10000,
         safeZ: 5,
         toolId: null,
     });
@@ -888,67 +1049,8 @@ const GCodeGeneratorModal = ({ isOpen, onCancel, onLoadGCode, unit, settings, to
     
     if (!isOpen) return null;
     
-    const ToolSelector = ({ selectedId, onChange, colSpan = 'col-span-full' }) => h('div', { className: colSpan },
-        h('label', { className: 'block text-sm font-medium text-text-secondary mb-1' }, 'Tool'),
-        h('select', {
-            value: selectedId || '',
-            onChange: e => onChange(e.target.value ? parseInt(e.target.value, 10) : null),
-            className: 'w-full bg-background border-secondary rounded-md py-1 px-2 focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50',
-            disabled: !toolLibrary || toolLibrary.length === 0
-        },
-            h('option', { value: '' }, toolLibrary && toolLibrary.length > 0 ? 'Select a tool...' : 'No tools in library'),
-            toolLibrary && toolLibrary.map(tool => h('option', { key: tool.id, value: tool.id }, `${tool.name} (Ø ${tool.diameter}${unit})`))
-        ),
-        (!toolLibrary || toolLibrary.length === 0) && h('p', { className: 'text-xs text-text-secondary mt-1' },
-            'Add tools in the Tool Library to enable generation.'
-        )
-    );
-
-    const ArrayControls = ({ settings, onChange }) => {
-        const handleToggle = (e) => {
-            onChange({ ...settings, isEnabled: e.target.checked });
-        };
-    
-        const isVisible = !['surfacing', 'drilling'].includes(activeTab);
-        if (!isVisible) return null;
-
-        return h('div', { className: 'bg-background/50 p-4 rounded-md' },
-            h('label', { className: 'flex items-center gap-2 cursor-pointer font-semibold text-text-primary' },
-                h('input', {
-                    type: 'checkbox',
-                    checked: settings.isEnabled,
-                    onChange: handleToggle,
-                    className: 'h-4 w-4 rounded border-secondary text-primary focus:ring-primary'
-                }),
-                'Enable Array Pattern'
-            ),
-            settings.isEnabled && h('div', { className: 'mt-4 pt-4 border-t border-secondary space-y-4' },
-                h(RadioGroup, { options: [{ value: 'rect', label: 'Rectangular Grid' }, { value: 'circ', label: 'Circular Array' }], selected: settings.pattern, onChange: val => onChange({ ...settings, pattern: val }) }),
-                settings.pattern === 'rect' ? h(React.Fragment, null,
-                    h(Input, { label: 'Columns, Rows', valueX: settings.rectCols, valueY: settings.rectRows, onChangeX: e => handleParamChange(onChange, settings, 'rectCols', e.target.value), onChangeY: e => handleParamChange(onChange, settings, 'rectRows', e.target.value), isXY: true }),
-                    h(Input, { label: 'Spacing (X, Y)', valueX: settings.rectSpacingX, valueY: settings.rectSpacingY, onChangeX: e => handleParamChange(onChange, settings, 'rectSpacingX', e.target.value), onChangeY: e => handleParamChange(onChange, settings, 'rectSpacingY', e.target.value), isXY: true, unit }),
-                ) : h(React.Fragment, null,
-                    h(Input, { label: 'Number of Copies', value: settings.circCopies, onChange: e => handleParamChange(onChange, settings, 'circCopies', e.target.value) }),
-                    h(Input, { label: 'Center (X, Y)', valueX: settings.circCenterX, valueY: settings.circCenterY, onChangeX: e => handleParamChange(onChange, settings, 'circCenterX', e.target.value), onChangeY: e => handleParamChange(onChange, settings, 'circCenterY', e.target.value), isXY: true, unit }),
-                    h(Input, { label: 'Radius', value: settings.circRadius, onChange: e => handleParamChange(onChange, settings, 'circRadius', e.target.value), unit }),
-                    h(Input, { label: 'Start Angle', value: settings.circStartAngle, onChange: e => handleParamChange(onChange, settings, 'circStartAngle', e.target.value), unit: '°' }),
-                )
-            )
-        );
-    };
-
-    const SpindleAndFeedControls = ({ params, onParamChange, feedLabel = 'Feed Rate', plunge, plungeLabel = 'Plunge Rate' }) => h(React.Fragment, null,
-        h('hr', { className: 'border-secondary' }),
-        h('div', { className: 'grid grid-cols-2 gap-4' },
-            h(Input, { label: feedLabel, value: params.feed, onChange: e => onParamChange('feed', e.target.value), unit: unit + '/min' }),
-            h(Input, { label: 'Spindle Speed', value: params.spindle, onChange: e => onParamChange('spindle', e.target.value), unit: 'RPM' })
-        ),
-        plunge && h(Input, { label: plungeLabel, value: params.plungeFeed, onChange: e => onParamChange('plungeFeed', e.target.value), unit: unit + '/min' }),
-        h(Input, { label: 'Safe Z', value: params.safeZ, onChange: e => onParamChange('safeZ', e.target.value), unit, help: 'Rapid height above stock' }),
-    );
-
     const renderSurfaceForm = () => h('div', { className: 'space-y-4' },
-        h(ToolSelector, { selectedId: surfaceParams.toolId, onChange: (id) => setSurfaceParams(p => ({ ...p, toolId: id })) }),
+        h(ToolSelector, { selectedId: surfaceParams.toolId, onChange: (id) => setSurfaceParams(p => ({ ...p, toolId: id })), unit, toolLibrary }),
         h('hr', { className: 'border-secondary' }),
         h('div', { className: 'grid grid-cols-2 gap-4' },
              h(Input, { label: `Width (X)`, value: surfaceParams.width, onChange: e => handleParamChange(setSurfaceParams, surfaceParams, 'width', e.target.value), unit }),
@@ -956,11 +1058,11 @@ const GCodeGeneratorModal = ({ isOpen, onCancel, onLoadGCode, unit, settings, to
         ),
         h(Input, { label: 'Final Depth', value: surfaceParams.depth, onChange: e => handleParamChange(setSurfaceParams, surfaceParams, 'depth', e.target.value), unit, help: 'Should be negative' }),
         h(Input, { label: 'Stepover', value: surfaceParams.stepover, onChange: e => handleParamChange(setSurfaceParams, surfaceParams, 'stepover', e.target.value), unit: '%' }),
-        h(SpindleAndFeedControls, { params: surfaceParams, onParamChange: (field, value) => handleParamChange(setSurfaceParams, surfaceParams, field, value) })
+        h(SpindleAndFeedControls, { params: surfaceParams, onParamChange: (field, value) => handleParamChange(setSurfaceParams, surfaceParams, field, value), unit })
     );
     
     const renderDrillForm = () => h('div', { className: 'space-y-4' },
-        h(ToolSelector, { selectedId: drillParams.toolId, onChange: (id) => setDrillParams(p => ({ ...p, toolId: id })) }),
+        h(ToolSelector, { selectedId: drillParams.toolId, onChange: (id) => setDrillParams(p => ({ ...p, toolId: id })), unit, toolLibrary }),
         h('hr', { className: 'border-secondary' }),
         h(RadioGroup, { options: [
             { value: 'single', label: 'Single' }, 
@@ -992,11 +1094,11 @@ const GCodeGeneratorModal = ({ isOpen, onCancel, onLoadGCode, unit, settings, to
             h(Input, { label: 'Retract Height', value: drillParams.retract, onChange: e => handleParamChange(setDrillParams, drillParams, 'retract', e.target.value), unit, help: 'Height after each peck' }),
             h(Input, { label: 'Plunge Feed', value: drillParams.feed, onChange: e => handleParamChange(setDrillParams, drillParams, 'feed', e.target.value), unit: unit + '/min' })
         ),
-        h(SpindleAndFeedControls, { params: drillParams, feedLabel: "Drill Feed", onParamChange: (field, value) => handleParamChange(setDrillParams, drillParams, field, value) })
+        h(SpindleAndFeedControls, { params: drillParams, feedLabel: "Drill Feed", onParamChange: (field, value) => handleParamChange(setDrillParams, drillParams, field, value), unit })
     );
     
     const renderBoreForm = () => h('div', { className: 'space-y-4' },
-        h(ToolSelector, { selectedId: boreParams.toolId, onChange: (id) => setBoreParams(p => ({ ...p, toolId: id })) }),
+        h(ToolSelector, { selectedId: boreParams.toolId, onChange: (id) => setBoreParams(p => ({ ...p, toolId: id })), unit, toolLibrary }),
         h('hr', { className: 'border-secondary' }),
         h(Input, { label: 'Center Point (X, Y)', valueX: boreParams.centerX, valueY: boreParams.centerY, onChangeX: e => handleParamChange(setBoreParams, boreParams, 'centerX', e.target.value), onChangeY: e => handleParamChange(setBoreParams, boreParams, 'centerY', e.target.value), isXY: true, unit }),
         h('div', { className: 'grid grid-cols-2 gap-4' },
@@ -1012,11 +1114,11 @@ const GCodeGeneratorModal = ({ isOpen, onCancel, onLoadGCode, unit, settings, to
              h(Input, { label: `CB Diameter`, value: boreParams.cbDiameter, onChange: e => handleParamChange(setBoreParams, boreParams, 'cbDiameter', e.target.value), unit }),
              h(Input, { label: `CB Depth`, value: boreParams.cbDepth, onChange: e => handleParamChange(setBoreParams, boreParams, 'cbDepth', e.target.value), unit, help: 'Negative value' })
         ),
-        h(SpindleAndFeedControls, { params: boreParams, onParamChange: (field, value) => handleParamChange(setBoreParams, boreParams, field, value), plunge: true })
+        h(SpindleAndFeedControls, { params: boreParams, onParamChange: (field, value) => handleParamChange(setBoreParams, boreParams, field, value), plunge: true, unit })
     );
 
     const renderPocketForm = () => h('div', { className: 'space-y-4' },
-        h(ToolSelector, { selectedId: pocketParams.toolId, onChange: (id) => setPocketParams(p => ({ ...p, toolId: id })) }),
+        h(ToolSelector, { selectedId: pocketParams.toolId, onChange: (id) => setPocketParams(p => ({ ...p, toolId: id })), unit, toolLibrary }),
         h('hr', { className: 'border-secondary' }),
         h(RadioGroup, { options: [{ value: 'rect', label: 'Rectangle' }, { value: 'circ', label: 'Circle' }], selected: pocketParams.shape, onChange: val => setPocketParams(p => ({...p, shape: val})) }),
         pocketParams.shape === 'rect' ? h(React.Fragment, null,
@@ -1031,12 +1133,12 @@ const GCodeGeneratorModal = ({ isOpen, onCancel, onLoadGCode, unit, settings, to
             h(Input, { label: 'Depth per Pass', value: pocketParams.depthPerPass, onChange: e => handleParamChange(setPocketParams, pocketParams, 'depthPerPass', e.target.value), unit })
         ),
         h(Input, { label: 'Stepover', value: pocketParams.stepover, onChange: e => handleParamChange(setPocketParams, pocketParams, 'stepover', e.target.value), unit: '%' }),
-        h(SpindleAndFeedControls, { params: pocketParams, onParamChange: (field, value) => handleParamChange(setPocketParams, pocketParams, field, value), plunge: true }),
-        h(ArrayControls, { settings: arraySettings, onChange: setArraySettings })
+        h(SpindleAndFeedControls, { params: pocketParams, onParamChange: (field, value) => handleParamChange(setPocketParams, pocketParams, field, value), plunge: true, unit }),
+        h(ArrayControls, { settings: arraySettings, onChange: setArraySettings, activeTab, unit })
     );
     
     const renderProfileForm = () => h('div', { className: 'space-y-4' },
-        h(ToolSelector, { selectedId: profileParams.toolId, onChange: (id) => setProfileParams(p => ({ ...p, toolId: id })) }),
+        h(ToolSelector, { selectedId: profileParams.toolId, onChange: (id) => setProfileParams(p => ({ ...p, toolId: id })), unit, toolLibrary }),
         h('hr', { className: 'border-secondary' }),
         h(RadioGroup, { options: [{ value: 'rect', label: 'Rectangle' }, { value: 'circ', label: 'Circle' }], selected: profileParams.shape, onChange: val => setProfileParams(p => ({...p, shape: val})) }),
         profileParams.shape === 'rect' ? h(React.Fragment, null,
@@ -1051,7 +1153,7 @@ const GCodeGeneratorModal = ({ isOpen, onCancel, onLoadGCode, unit, settings, to
             h(Input, { label: 'Total Depth', value: profileParams.depth, onChange: e => handleParamChange(setProfileParams, profileParams, 'depth', e.target.value), unit, help: 'Negative value' }),
             h(Input, { label: 'Depth per Pass', value: profileParams.depthPerPass, onChange: e => handleParamChange(setProfileParams, profileParams, 'depthPerPass', e.target.value), unit })
         ),
-        h(SpindleAndFeedControls, { params: profileParams, onParamChange: (field, value) => handleParamChange(setProfileParams, profileParams, field, value) }),
+        h(SpindleAndFeedControls, { params: profileParams, onParamChange: (field, value) => handleParamChange(setProfileParams, profileParams, field, value), unit }),
         h('hr', { className: 'border-secondary' }),
         h('label', { className: 'flex items-center gap-2 cursor-pointer' },
             h('input', { type: 'checkbox', checked: profileParams.tabsEnabled, onChange: e => setProfileParams(p => ({...p, tabsEnabled: e.target.checked})), className: 'h-4 w-4 rounded border-secondary text-primary' }),
@@ -1062,11 +1164,11 @@ const GCodeGeneratorModal = ({ isOpen, onCancel, onLoadGCode, unit, settings, to
              h(Input, { label: 'Tab Width', value: profileParams.tabWidth, onChange: e => handleParamChange(setProfileParams, profileParams, 'tabWidth', e.target.value), unit }),
              h(Input, { label: 'Tab Height', value: profileParams.tabHeight, onChange: e => handleParamChange(setProfileParams, profileParams, 'tabHeight', e.target.value), unit, help: 'From bottom' })
         ),
-        h(ArrayControls, { settings: arraySettings, onChange: setArraySettings })
+        h(ArrayControls, { settings: arraySettings, onChange: setArraySettings, activeTab, unit })
     );
 
     const renderSlotForm = () => h('div', { className: 'space-y-4' },
-        h(ToolSelector, { selectedId: slotParams.toolId, onChange: (id) => setSlotParams(p => ({ ...p, toolId: id })) }),
+        h(ToolSelector, { selectedId: slotParams.toolId, onChange: (id) => setSlotParams(p => ({ ...p, toolId: id })), unit, toolLibrary }),
         h('hr', { className: 'border-secondary' }),
         h(RadioGroup, { options: [{ value: 'straight', label: 'Straight' }, { value: 'arc', label: 'Arc' }], selected: slotParams.type, onChange: val => setSlotParams(p => ({...p, type: val})) }),
         slotParams.type === 'straight' ? h(React.Fragment, null,
@@ -1083,12 +1185,12 @@ const GCodeGeneratorModal = ({ isOpen, onCancel, onLoadGCode, unit, settings, to
             h(Input, { label: 'Total Depth', value: slotParams.depth, onChange: e => handleParamChange(setSlotParams, slotParams, 'depth', e.target.value), unit, help: 'Negative value' }),
             h(Input, { label: 'Depth per Pass', value: slotParams.depthPerPass, onChange: e => handleParamChange(setSlotParams, slotParams, 'depthPerPass', e.target.value), unit })
         ),
-        h(SpindleAndFeedControls, { params: slotParams, onParamChange: (field, value) => handleParamChange(setSlotParams, slotParams, field, value) }),
-        h(ArrayControls, { settings: arraySettings, onChange: setArraySettings })
+        h(SpindleAndFeedControls, { params: slotParams, onParamChange: (field, value) => handleParamChange(setSlotParams, slotParams, field, value), unit }),
+        h(ArrayControls, { settings: arraySettings, onChange: setArraySettings, activeTab, unit })
     );
     
     const renderTextForm = () => h('div', { className: 'space-y-4' },
-        h(ToolSelector, { selectedId: textParams.toolId, onChange: (id) => setTextParams(p => ({ ...p, toolId: id })) }),
+        h(ToolSelector, { selectedId: textParams.toolId, onChange: (id) => setTextParams(p => ({ ...p, toolId: id })), unit, toolLibrary }),
         h('hr', { className: 'border-secondary' }),
         h('div', null,
             h('label', { className: 'block text-sm font-medium text-text-secondary mb-1' }, 'Font'),
@@ -1115,12 +1217,12 @@ const GCodeGeneratorModal = ({ isOpen, onCancel, onLoadGCode, unit, settings, to
         h(Input, { label: 'Start Point (X, Y)', valueX: textParams.startX, valueY: textParams.startY, onChangeX: e => handleParamChange(setTextParams, textParams, 'startX', e.target.value), onChangeY: e => handleParamChange(setTextParams, textParams, 'startY', e.target.value), isXY: true, unit, help: 'Alignment reference point' }),
         h('hr', { className: 'border-secondary' }),
         h(Input, { label: 'Engraving Depth', value: textParams.depth, onChange: e => handleParamChange(setTextParams, textParams, 'depth', e.target.value), unit, help: 'Negative value' }),
-        h(SpindleAndFeedControls, { params: textParams, onParamChange: (field, value) => handleParamChange(setTextParams, textParams, field, value) }),
-        h(ArrayControls, { settings: arraySettings, onChange: setArraySettings })
+        h(SpindleAndFeedControls, { params: textParams, onParamChange: (field, value) => handleParamChange(setTextParams, textParams, field, value), unit }),
+        h(ArrayControls, { settings: arraySettings, onChange: setArraySettings, activeTab, unit })
     );
 
     const renderThreadMillingForm = () => h('div', { className: 'space-y-4' },
-        h(ToolSelector, { selectedId: threadParams.toolId, onChange: (id) => setThreadParams(p => ({ ...p, toolId: id })) }),
+        h(ToolSelector, { selectedId: threadParams.toolId, onChange: (id) => setThreadParams(p => ({ ...p, toolId: id })), unit, toolLibrary }),
         h('hr', { className: 'border-secondary' }),
         h(RadioGroup, { label: 'Type', options: [{ value: 'internal', label: 'Internal' }, { value: 'external', label: 'External' }], selected: threadParams.type, onChange: val => setThreadParams(p => ({...p, type: val})) }),
         h(RadioGroup, { label: 'Hand', options: [{ value: 'right', label: 'Right-Hand' }, { value: 'left', label: 'Left-Hand' }], selected: threadParams.hand, onChange: val => setThreadParams(p => ({...p, hand: val})) }),
@@ -1130,8 +1232,8 @@ const GCodeGeneratorModal = ({ isOpen, onCancel, onLoadGCode, unit, settings, to
             h(Input, { label: 'Pitch', value: threadParams.pitch, onChange: e => handleParamChange(setThreadParams, threadParams, 'pitch', e.target.value), unit, help: 'Distance between threads' })
         ),
         h(Input, { label: 'Thread Depth', value: threadParams.depth, onChange: e => handleParamChange(setThreadParams, threadParams, 'depth', e.target.value), unit, help: 'Length of thread' }),
-        h(SpindleAndFeedControls, { params: threadParams, onParamChange: (field, value) => handleParamChange(setThreadParams, threadParams, field, value) }),
-        h(ArrayControls, { settings: arraySettings, onChange: setArraySettings })
+        h(SpindleAndFeedControls, { params: threadParams, onParamChange: (field, value) => handleParamChange(setThreadParams, threadParams, field, value), unit }),
+        h(ArrayControls, { settings: arraySettings, onChange: setArraySettings, activeTab, unit })
     );
     
     const getParamsForTab = (tab) => {
@@ -1223,108 +1325,6 @@ const GCodeGeneratorModal = ({ isOpen, onCancel, onLoadGCode, unit, settings, to
                     className: 'px-6 py-2 bg-primary text-white font-bold rounded-md hover:bg-primary-focus disabled:bg-secondary disabled:cursor-not-allowed flex items-center gap-2'
                 }, h(Save, { className: 'w-5 h-5' }), 'Load into Sender')
             )
-        )
-    );
-};
-
-const Tab = ({ label, isActive, onClick }) => h('button', {
-    onClick,
-    className: `px-4 py-2 text-sm font-semibold -mb-px border-b-2 ${isActive ? 'border-primary text-primary' : 'border-transparent text-text-secondary hover:text-text-primary'}`
-}, label);
-
-const RadioGroup = ({ label, options, selected, onChange }) => h('div', { className: 'mb-2' },
-    label && h('label', { className: 'block text-sm font-medium text-text-secondary mb-1' }, label),
-    h('div', { className: 'flex bg-secondary rounded-md p-1' },
-        options.map(opt => h('button', {
-            key: opt.value,
-            onClick: () => onChange(opt.value),
-            className: `w-full p-1 rounded-md text-sm font-semibold transition-colors ${selected === opt.value ? 'bg-primary text-white' : 'hover:bg-secondary-focus'}`
-        }, opt.label))
-    )
-);
-
-const Input = ({ label, value, valueX, valueY, onChange, onChangeX, onChangeY, unit, help, isXY = false }) => h('div', null,
-    h('label', { className: 'block text-sm font-medium text-text-secondary mb-1' }, label),
-    isXY ?
-        h('div', { className: 'flex gap-2' },
-            h('input', { type: 'number', value: valueX, onChange: onChangeX, className: 'w-full bg-background border-secondary rounded-md py-1 px-2 focus:outline-none focus:ring-1 focus:ring-primary' }),
-            h('input', { type: 'number', value: valueY, onChange: onChangeY, className: 'w-full bg-background border-secondary rounded-md py-1 px-2 focus:outline-none focus:ring-1 focus:ring-primary' })
-        )
-        :
-        h('div', { className: 'relative' },
-            h('input', { type: 'number', value: value, onChange: onChange, className: 'w-full bg-background border-secondary rounded-md py-1 px-2 focus:outline-none focus:ring-1 focus:ring-primary' }),
-            unit && h('span', { className: 'absolute right-2 top-1/2 -translate-y-1/2 text-xs text-text-secondary' }, unit)
-        ),
-    help && h('p', { className: 'text-xs text-text-secondary mt-1' }, help)
-);
-
-const Preview = ({ paths, viewBox }) => {
-    const [vbMinX, vbMinY, vbWidth, vbHeight] = viewBox.split(' ').map(parseFloat);
-
-    const gridElements = [];
-    const labelElements = [];
-    const majorDim = Math.max(vbWidth, vbHeight);
-    const magnitudes = [0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50, 100, 200, 500, 1000];
-    const targetLines = 8;
-    const roughSpacing = majorDim / targetLines;
-    const spacing = magnitudes.find(m => m > roughSpacing) || magnitudes[magnitudes.length - 1];
-
-    const gridLineStyle = { stroke: 'var(--color-secondary)', strokeWidth: '0.25%', vectorEffect: 'non-scaling-stroke' };
-    const axisLineStyle = { stroke: 'var(--color-secondary-focus)', strokeWidth: '0.5%', vectorEffect: 'non-scaling-stroke' };
-    const labelStyle = { fontSize: '4%', fill: 'var(--color-text-secondary)', vectorEffect: 'non-scaling-stroke' };
-
-    if (spacing > 0 && isFinite(vbMinX) && isFinite(vbWidth)) {
-        const startX = Math.floor(vbMinX / spacing) * spacing;
-        for (let x = startX; x <= vbMinX + vbWidth; x += spacing) {
-            gridElements.push(h('line', { key: `v-${x}`, x1: x, y1: vbMinY, x2: x, y2: vbMinY + vbHeight, ...gridLineStyle }));
-             // Add labels along the top edge
-            labelElements.push(h('text', {
-                key: `lx-${x}`, x: x, y: vbMinY,
-                transform: `scale(1, -1)`,
-                style: { ...labelStyle, textAnchor: 'middle', dominantBaseline: 'hanging' }
-            }, x.toFixed(0)));
-        }
-    }
-    if (spacing > 0 && isFinite(vbMinY) && isFinite(vbHeight)) {
-        const startY = Math.floor(vbMinY / spacing) * spacing;
-        for (let y = startY; y <= vbMinY + vbHeight; y += spacing) {
-            gridElements.push(h('line', { key: `h-${y}`, x1: vbMinX, y1: y, x2: vbMinX + vbWidth, y2: y, ...gridLineStyle }));
-            const yFlipped = -y;
-             // Add labels along the left edge
-            labelElements.push(h('text', {
-                key: `ly-${y}`, x: vbMinX, y: y,
-                transform: `scale(1, -1)`,
-                style: { ...labelStyle, textAnchor: 'start', dominantBaseline: 'middle' }
-            }, yFlipped.toFixed(0)));
-        }
-    }
-    
-    // Y-Axis
-    if (0 >= vbMinX && 0 <= vbMinX + vbWidth) {
-        gridElements.push(h('line', { key: 'axis-y', x1: 0, y1: vbMinY, x2: 0, y2: vbMinY + vbHeight, ...axisLineStyle }));
-    }
-    // X-Axis
-    if (0 >= vbMinY && 0 <= vbMinY + vbHeight) {
-        gridElements.push(h('line', { key: 'axis-x', x1: vbMinX, y1: 0, x2: vbMinX + vbWidth, y2: 0, ...axisLineStyle }));
-    }
-
-    return h('div', { className: 'aspect-square w-full bg-secondary rounded' },
-        h('svg', { viewBox, className: 'w-full h-full' },
-             h('g', { transform: 'scale(1, -1)' },
-                h('g', { key: 'grid-group' }, gridElements),
-                h('g', { key: 'path-group' },
-                    paths.map((p, i) => {
-                        if (p.d) {
-                            return h('path', { key: i, d: p.d, stroke: p.stroke, fill: p.fill || 'none', strokeWidth: p.strokeWidth || '1%', strokeDasharray: p.strokeDasharray, style: { vectorEffect: 'non-scaling-stroke' } });
-                        }
-                        if (p.cx !== undefined) {
-                            return h('circle', { key: i, cx: p.cx, cy: p.cy, r: p.r, fill: p.fill || 'none', stroke: p.stroke, strokeWidth: p.strokeWidth || '1%', strokeDasharray: p.strokeDasharray, style: { vectorEffect: 'non-scaling-stroke' } });
-                        }
-                        return null;
-                    })
-                )
-            ),
-             h('g', { key: 'label-group' }, labelElements)
         )
     );
 };

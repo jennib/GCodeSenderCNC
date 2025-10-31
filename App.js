@@ -1,7 +1,5 @@
 
 
-
-
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { SerialManager } from './services/serialService.js';
 import { SimulatedSerialManager } from './services/simulatedSerialService.js';
@@ -96,7 +94,7 @@ const DEFAULT_SETTINGS = {
 };
 
 const usePrevious = (value) => {
-    const ref = useRef();
+    const ref = useRef(undefined);
     useEffect(() => {
         ref.current = value;
     });
