@@ -157,7 +157,8 @@ const JogPanel = ({
                     h('div', { className: 'grid grid-cols-3 gap-2 mt-2' },
                         h('button', { title: 'Spindle On (CW)', onClick: () => onSpindleCommand('cw', spindleSpeed), disabled: isControlDisabled, className: 'p-2 bg-secondary rounded hover:bg-secondary-focus disabled:opacity-50 flex justify-center' }, h(RotateCw, { className: 'w-5 h-5' })),
                         h('button', { title: 'Spindle On (CCW)', onClick: () => onSpindleCommand('ccw', spindleSpeed), disabled: isControlDisabled, className: 'p-2 bg-secondary rounded hover:bg-secondary-focus disabled:opacity-50 flex justify-center' }, h(RotateCcw, { className: 'w-5 h-5' })),
-                        h('button', { title: 'Spindle Off', onClick: () => onSpindleCommand('off'), disabled: isControlDisabled, className: 'p-2 bg-secondary rounded hover:bg-secondary-focus disabled:opacity-50 flex justify-center' }, h(PowerOff, { className: 'w-5 h-5' }))
+                        // FIX: Added missing 'speed' argument (0) to the onSpindleCommand call for the 'off' state.
+                        h('button', { title: 'Spindle Off', onClick: () => onSpindleCommand('off', 0), disabled: isControlDisabled, className: 'p-2 bg-secondary rounded hover:bg-secondary-focus disabled:opacity-50 flex justify-center' }, h(PowerOff, { className: 'w-5 h-5' }))
                     )
                 )
             )

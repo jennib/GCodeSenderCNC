@@ -18,7 +18,7 @@ import GCodeGeneratorModal from './components/GCodeGeneratorModal.js';
 import { NotificationContainer } from './components/Notification.js';
 import ThemeToggle from './components/ThemeToggle.js';
 import StatusBar from './components/StatusBar.js';
-import { AlertTriangle, OctagonAlert, Unlock, Settings } from './components/Icons.js';
+import { AlertTriangle, OctagonAlert, Unlock, Settings, BookOpen } from './components/Icons.js';
 import { estimateGCodeTime } from './services/gcodeTimeEstimator.js';
 import { analyzeGCode } from './services/gcodeAnalyzer.js';
 
@@ -26,7 +26,7 @@ const GRBL_ALARM_CODES = {
     1: { name: 'Hard limit', desc: 'A limit switch was triggered. Usually due to machine travel limits.', resolution: 'Check for obstructions. The machine may need to be moved off the switch manually. Use the "$X" command to unlock after clearing the issue, then perform a homing cycle ($H).' },
     2: { name: 'G-code motion command error', desc: 'The G-code motion target is invalid or exceeds machine travel limits.', resolution: 'Check your G-code file for errors near the last executed line. Use the "$X" command to unlock.' },
     3: { name: 'Reset while in motion', desc: 'The reset button was pressed while the machine was moving.', resolution: 'This is expected. Use "$X" to unlock the machine and resume work.' },
-    4: { name: 'Probe fail', desc: 'The probing cycle failed to make contact or the probe is already triggered.', resolution: 'Check your probe wiring and ensure it is properly positioned. Use "$X" to unlock.' },
+    4: { name: 'Probe fail', desc: 'The probing cycle failed to make contact or the probe is already triggered.', resolution: 'Check your probe wiring and ensure it is properly positioned. Use the "$X" command to unlock.' },
     5: { name: 'Probe fail, travel error', desc: 'The probing cycle failed to clear the probe switch.', resolution: 'Check probe wiring and setup. The machine may require a soft-reset (E-STOP). Use "$X" to unlock.' },
     8: { name: 'Homing fail, pull-off', desc: "The homing cycle failed because the machine couldn't move off the limit switches.", resolution: 'Check for mechanical issues or obstructions. Use "$X" to unlock.' },
     9: { name: 'Homing fail, not found', desc: 'The homing cycle failed because the limit switches were not triggered.', resolution: 'Check limit switch wiring and functionality. Use "$X" to unlock.' },
@@ -954,10 +954,6 @@ const App = () => {
             onCancel: () => setIsSettingsModalOpen(false),
             onSave: setMachineSettings,
             settings: machineSettings,
-            onOpenToolLibrary: () => setIsToolLibraryModalOpen(true),
-            macros: macros,
-            toolLibrary: toolLibrary,
-            onImportSettings: handleImportSettings,
         }),
         React.createElement(ToolLibraryModal, {
             isOpen: isToolLibraryModalOpen,
@@ -970,7 +966,8 @@ const App = () => {
             onCancel: () => setIsGCodeGeneratorModalOpen(false),
             onLoadGCode: handleGeneratedGCodeLoad,
             unit: unit,
-            settings: machineSettings
+            settings: machineSettings,
+            toolLibrary: toolLibrary
         }),
         React.createElement('header', { className: "bg-surface shadow-md p-4 flex justify-between items-center z-10 flex-shrink-0 gap-4" },
             React.createElement('div', { className: "flex items-baseline gap-2" },
@@ -978,6 +975,11 @@ const App = () => {
                  React.createElement('span', { className: 'text-xs text-text-secondary font-mono' }, version)
             ),
             React.createElement('div', { className: "flex items-center gap-4" },
+                React.createElement('button', {
+                    onClick: () => setIsToolLibraryModalOpen(true),
+                    title: "Tool Library",
+                    className: "p-2 rounded-md bg-secondary text-text-primary hover:bg-secondary-focus focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-surface"
+                }, React.createElement(BookOpen, { className: 'w-5 h-5' })),
                 React.createElement('button', {
                     onClick: () => setIsSettingsModalOpen(true),
                     title: "Machine Settings",
@@ -998,6 +1000,10 @@ const App = () => {
                     onSimulatorChange: setUseSimulator
                 })
             )
+        ),
+        React.createElement('div', { className: "bg-accent-yellow/20 text-accent-yellow text-center p-2 text-sm font-semibold flex items-center justify-center gap-2" }, 
+            React.createElement(AlertTriangle, { className: "w-4 h-4" }),
+            "Work in Progress: This software is for demonstration purposes only. Use at your own risk."
         ),
         React.createElement(StatusBar, {
             isConnected: isConnected,

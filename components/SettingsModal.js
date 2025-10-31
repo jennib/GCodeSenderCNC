@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Save, X, BookOpen } from './Icons.js';
+import { Save, X } from './Icons.js';
 
 const h = React.createElement;
 
@@ -25,7 +25,7 @@ const ScriptInput = ({ label, value, onChange, placeholder }) => h('div', null,
     })
 );
 
-const SettingsModal = ({ isOpen, onCancel, onSave, settings, onOpenToolLibrary }) => {
+const SettingsModal = ({ isOpen, onCancel, onSave, settings }) => {
     const [localSettings, setLocalSettings] = useState(settings);
 
     useEffect(() => {
@@ -85,12 +85,6 @@ const SettingsModal = ({ isOpen, onCancel, onSave, settings, onOpenToolLibrary }
                         h(InputGroup, { label: 'Spindle Speed Range' },
                             h(NumberInput, { id: 'spindle-min', value: localSettings.spindle.min, onChange: e => handleNumericChange('spindle', 'min', e.target.value), unit: 'RPM' }),
                             h(NumberInput, { id: 'spindle-max', value: localSettings.spindle.max, onChange: e => handleNumericChange('spindle', 'max', e.target.value), unit: 'RPM' })
-                        ),
-                        h('div', null, 
-                           h('button', {
-                                onClick: onOpenToolLibrary,
-                                className: 'w-full flex items-center justify-center gap-2 px-4 py-2 bg-secondary text-white font-semibold rounded-md hover:bg-secondary-focus focus:outline-none focus:ring-2 focus:ring-primary'
-                            }, h(BookOpen, {className: 'w-5 h-5'}), 'Open Tool Library')
                         )
                     ),
                     h('div', { className: 'space-y-4 bg-background p-4 rounded-md' },

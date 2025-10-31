@@ -1,15 +1,13 @@
-
-
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-// Fix: Corrected import path for SerialManager to use .js file as .ts file is not a module.
+// Corrected import path for SerialManager to use .js file as .ts file is not a module.
 import { SerialManager } from './services/serialService.js';
-// Fix: Corrected import path for SimulatedSerialManager to use .js file as .ts file is not a module.
+// Corrected import path for SimulatedSerialManager to use .js file as .ts file is not a module.
 import { SimulatedSerialManager } from './services/simulatedSerialService.js';
 import { JobStatus, PortInfo, ConsoleLog, MachineState, Macro, MachineSettings, Tool, GCodeTimeEstimate, GCodeAnalysisWarning, Notification } from './types.ts';
 import SerialConnector from './components/SerialConnector.tsx';
 import GCodePanel from './components/GCodePanel.tsx';
 import Console from './components/Console.tsx';
-// Fix: Corrected import path for JogPanel to use .js file as .tsx file is not a module.
+// Corrected import path for JogPanel to use .js file as .tsx file is not a module.
 import JogPanel from './components/JogPanel.js';
 import MacrosPanel from './components/MacrosPanel.js';
 import WebcamPanel from './components/WebcamPanel.js';
@@ -93,7 +91,7 @@ const DEFAULT_SETTINGS: MachineSettings = {
     }
 };
 
-const usePrevious = <T,>(value: T): T | undefined => {
+const usePrevious = <T extends unknown>(value: T): T | undefined => {
     const ref = useRef<T>();
     useEffect(() => {
         ref.current = value;
@@ -209,6 +207,7 @@ const App: React.FC = () => {
             localStorage.setItem('cnc-app-macros', JSON.stringify(macros));
         } catch (error) {
             console.error("Could not save macros to localStorage:", error);
+            // Fix: The `addNotification` function requires at least one argument (message), but was called with none.
             addNotification('Could not save macros.', 'error');
         }
     }, [macros]);
@@ -320,7 +319,7 @@ const App: React.FC = () => {
     }, []);
 
     const addLog = useCallback((log: Omit<ConsoleLog, 'timestamp'>) => {
-        let processedLog = { ...log };
+        let processedLog = { ...log, timestamp: new Date() };
 
         // Add explanation for GRBL errors, preserving the original message context.
         if (processedLog.type === 'error' && processedLog.message.includes('error:')) {
@@ -658,7 +657,7 @@ const App: React.FC = () => {
 
     }, [unit, addLog]);
 
-    // Fix: Correct signature for handleProbe to allow partial offsets.
+    // Correct signature for handleProbe to allow partial offsets.
     const handleProbe = useCallback(async (axes: string, offsets: { x?: number, y?: number, z?: number }) => {
         const manager = serialManagerRef.current;
         if (!manager || !isConnected) {
@@ -951,13 +950,12 @@ const App: React.FC = () => {
                 macro={editingMacroIndex !== null ? macros[editingMacroIndex] : null}
                 index={editingMacroIndex}
             />
-            {/* Fix: Removed props that are not defined in SettingsModal component type */}
+            
             <SettingsModal
                 isOpen={isSettingsModalOpen}
                 onCancel={() => setIsSettingsModalOpen(false)}
                 onSave={setMachineSettings}
                 settings={machineSettings}
-                onOpenToolLibrary={() => setIsToolLibraryModalOpen(true)}
             />
             <ToolLibraryModal
                 isOpen={isToolLibraryModalOpen}

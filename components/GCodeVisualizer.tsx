@@ -1,7 +1,8 @@
 import React, { useRef, useEffect, useState, useCallback, useImperativeHandle, ForwardedRef } from 'react';
-// Fix: Correct import for parseGCode function from .js file and ParsedGCode type from .ts file.
-import { parseGCode } from '../services/gcodeParser.js';
-import type { ParsedGCode } from '../services/gcodeParser.ts';
+// FIX: Correct import for parseGCode function from .js file and ParsedGCode type from .ts file.
+// Fix: Changed from namespace import to named import to resolve module property error.
+// FIX: Corrected module resolution error by importing `parseGCode` and `ParsedGCode` from the TypeScript source file `gcodeParser.ts` instead of multiple sources.
+import { parseGCode, type ParsedGCode } from '../services/gcodeParser.ts';
 import { MachineSettings } from '../types';
 
 // --- WebGL Helper Functions ---
@@ -248,7 +249,6 @@ const GCodeVisualizer = React.forwardRef<GCodeVisualizerHandle, GCodeVisualizerP
         if (!bounds || bounds.minX === Infinity) {
             setCamera(prev => ({
                 ...prev,
-                // Fix: Corrected typo from `machine.workArea.y` to `machineSettings.workArea.y`
                 target: [machineSettings.workArea.x / 2, machineSettings.workArea.y / 2, 0],
                 distance: Math.max(machineSettings.workArea.x, machineSettings.workArea.y) * 1.5,
                 rotation: newRotation ?? prev.rotation
@@ -283,6 +283,7 @@ const GCodeVisualizer = React.forwardRef<GCodeVisualizerHandle, GCodeVisualizerP
     }));
 
     useEffect(() => {
+        // Fix: Use the directly imported parseGCode function.
         const parsed = parseGCode(gcodeLines);
         setParsedGCode(parsed);
         fitView(parsed.bounds, [0, Math.PI / 2]);
@@ -540,12 +541,13 @@ const GCodeVisualizer = React.forwardRef<GCodeVisualizerHandle, GCodeVisualizerP
 
             if (!gl || !programInfo) return;
             
+            // Fix: Added a type guard to safely access clientWidth/clientHeight, which are specific to HTMLCanvasElement.
             // Handle canvas resizing within the loop
-            // Fix: Add instanceof check to satisfy TypeScript that clientWidth/clientHeight exist.
-            if (canvas instanceof HTMLCanvasElement) {
-                if (canvas.width !== canvas.clientWidth || canvas.height !== canvas.clientHeight) {
-                    canvas.width = canvas.clientWidth;
-                    canvas.height = canvas.clientHeight;
+            const canvasElement = gl.canvas;
+            if (canvasElement instanceof HTMLCanvasElement) {
+                if (canvasElement.width !== canvasElement.clientWidth || canvasElement.height !== canvasElement.clientHeight) {
+                    canvasElement.width = canvasElement.clientWidth;
+                    canvasElement.height = canvasElement.clientHeight;
                 }
             }
 
@@ -557,7 +559,9 @@ const GCodeVisualizer = React.forwardRef<GCodeVisualizerHandle, GCodeVisualizerP
             if (!buffers || !camera) return;
 
             const projectionMatrix = mat4.create();
-            mat4.perspective(projectionMatrix, 45 * Math.PI / 180, gl.canvas.clientWidth / gl.canvas.clientHeight, 0.1, 10000);
+            // Fix: Correctly calculate aspect ratio using buffer dimensions, avoiding properties not present on OffscreenCanvas.
+            const aspect = gl.canvas.width / gl.canvas.height;
+            mat4.perspective(projectionMatrix, 45 * Math.PI / 180, aspect, 0.1, 10000);
 
             const viewMatrix = mat4.create();
             
@@ -722,7 +726,6 @@ const GCodeVisualizer = React.forwardRef<GCodeVisualizerHandle, GCodeVisualizerP
         };
     }, []);
 
-    // Fix: Added missing return statement for the component.
     return (
         <div className="w-full h-full bg-background rounded cursor-grab active:cursor-grabbing">
             <canvas ref={canvasRef} className="w-full h-full" />

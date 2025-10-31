@@ -1,4 +1,5 @@
 
+
 export enum JobStatus {
     Idle = 'idle',
     Running = 'running',
@@ -55,6 +56,7 @@ export interface MachineSettings {
 export interface Tool {
     id: number;
     name: string;
+    diameter: number;
 }
 
 export interface GCodeAnalysisWarning {
