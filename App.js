@@ -1,5 +1,3 @@
-
-
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { SerialManager } from './services/serialService.js';
 import { SimulatedSerialManager } from './services/simulatedSerialService.js';
@@ -627,10 +625,12 @@ const App = () => {
         const command = `$J=G91 ${axis}${step * direction} F${feedRate}`;
         
         setIsJogging(true); 
-        serialManagerRef.current.sendLine(command).catch((err) => {
+        serialManagerRef.current.sendLineAndWaitForOk(command).catch((err) => {
             const errorMessage = err instanceof Error ? err.message : "An error occurred during jog.";
-            addLog({ type: 'error', message: `Jog failed: ${errorMessage}` });
-            setIsJogging(false);
+            // Don't spam console with errors from rapid clicking
+            if (!errorMessage.includes('Cannot send new line')) {
+                addLog({ type: 'error', message: `Jog failed: ${errorMessage}` });
+            }
         });
     };
 

@@ -121,7 +121,7 @@ export class SerialManager {
         this.callbacks.onDisconnect();
     }
     
-    parseGrblStatus(statusStr: string) {
+    parseGrblStatus(statusStr: string, lastStatus: MachineState) {
         try {
             const content = statusStr.slice(1, -1);
             const parts = content.split('|');
@@ -165,10 +165,18 @@ export class SerialManager {
             for (const part of parts) {
                 if (part.startsWith('WPos:')) {
                     const coords = part.substring(5).split(',');
-                    parsed.wpos = { x: parseFloat(coords[0]), y: parseFloat(coords[1]), z: parseFloat(coords[2]) };
+                    const wpos = lastStatus.wpos ? { ...lastStatus.wpos } : { x: 0, y: 0, z: 0 };
+                    if (coords.length > 0 && coords[0] !== '' && !isNaN(parseFloat(coords[0]))) wpos.x = parseFloat(coords[0]);
+                    if (coords.length > 1 && coords[1] !== '' && !isNaN(parseFloat(coords[1]))) wpos.y = parseFloat(coords[1]);
+                    if (coords.length > 2 && coords[2] !== '' && !isNaN(parseFloat(coords[2]))) wpos.z = parseFloat(coords[2]);
+                    parsed.wpos = wpos;
                 } else if (part.startsWith('MPos:')) {
                     const coords = part.substring(5).split(',');
-                    parsed.mpos = { x: parseFloat(coords[0]), y: parseFloat(coords[1]), z: parseFloat(coords[2]) };
+                    const mpos = lastStatus.mpos ? { ...lastStatus.mpos } : { x: 0, y: 0, z: 0 };
+                    if (coords.length > 0 && coords[0] !== '' && !isNaN(parseFloat(coords[0]))) mpos.x = parseFloat(coords[0]);
+                    if (coords.length > 1 && coords[1] !== '' && !isNaN(parseFloat(coords[1]))) mpos.y = parseFloat(coords[1]);
+                    if (coords.length > 2 && coords[2] !== '' && !isNaN(parseFloat(coords[2]))) mpos.z = parseFloat(coords[2]);
+                    parsed.mpos = mpos;
                 } else if (part.startsWith('FS:')) {
                     const speeds = part.substring(3).split(',');
                     if (!parsed.spindle) parsed.spindle = { state: 'off', speed: 0 };
@@ -205,7 +213,7 @@ export class SerialManager {
                     lines.forEach(line => {
                         const trimmedValue = line.trim();
                         if (trimmedValue.startsWith('<') && trimmedValue.endsWith('>')) {
-                            const statusUpdate = this.parseGrblStatus(trimmedValue);
+                            const statusUpdate = this.parseGrblStatus(trimmedValue, this.lastStatus);
                             if (statusUpdate) {
                                 // A more robust state update. Instead of merging with spread syntax,
                                 // we explicitly build the new state to prevent stale properties
