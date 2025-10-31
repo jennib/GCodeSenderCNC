@@ -1,3 +1,5 @@
+
+
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 // Corrected import path for SerialManager to use .js file as .ts file is not a module.
 import { SerialManager } from './services/serialService.js';
@@ -207,7 +209,7 @@ const App: React.FC = () => {
             localStorage.setItem('cnc-app-macros', JSON.stringify(macros));
         } catch (error) {
             console.error("Could not save macros to localStorage:", error);
-            // Fix: The `addNotification` function requires at least one argument (message), but was called with none.
+            // FIX: The `addNotification` function was called without arguments. It requires at least a message string.
             addNotification('Could not save macros.', 'error');
         }
     }, [macros]);

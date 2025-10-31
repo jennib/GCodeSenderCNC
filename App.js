@@ -15,6 +15,7 @@ import MacroEditorModal from './components/MacroEditorModal.js';
 import SettingsModal from './components/SettingsModal.js';
 import ToolLibraryModal from './components/ToolLibraryModal.js';
 import GCodeGeneratorModal from './components/GCodeGeneratorModal.js';
+import WelcomeModal from './components/WelcomeModal.js';
 import { NotificationContainer } from './components/Notification.js';
 import ThemeToggle from './components/ThemeToggle.js';
 import StatusBar from './components/StatusBar.js';
@@ -26,7 +27,7 @@ const GRBL_ALARM_CODES = {
     1: { name: 'Hard limit', desc: 'A limit switch was triggered. Usually due to machine travel limits.', resolution: 'Check for obstructions. The machine may need to be moved off the switch manually. Use the "$X" command to unlock after clearing the issue, then perform a homing cycle ($H).' },
     2: { name: 'G-code motion command error', desc: 'The G-code motion target is invalid or exceeds machine travel limits.', resolution: 'Check your G-code file for errors near the last executed line. Use the "$X" command to unlock.' },
     3: { name: 'Reset while in motion', desc: 'The reset button was pressed while the machine was moving.', resolution: 'This is expected. Use "$X" to unlock the machine and resume work.' },
-    4: { name: 'Probe fail', desc: 'The probing cycle failed to make contact or the probe is already triggered.', resolution: 'Check your probe wiring and ensure it is properly positioned. Use the "$X" command to unlock.' },
+    4: { name: 'Probe fail', desc: 'The probing cycle failed to make contact or the probe is already triggered.', resolution: 'Check your probe wiring and ensure it is properly positioned. Use the "$X" to unlock.' },
     5: { name: 'Probe fail, travel error', desc: 'The probing cycle failed to clear the probe switch.', resolution: 'Check probe wiring and setup. The machine may require a soft-reset (E-STOP). Use "$X" to unlock.' },
     8: { name: 'Homing fail, pull-off', desc: "The homing cycle failed because the machine couldn't move off the limit switches.", resolution: 'Check for mechanical issues or obstructions. Use "$X" to unlock.' },
     9: { name: 'Homing fail, not found', desc: 'The homing cycle failed because the limit switches were not triggered.', resolution: 'Check limit switch wiring and functionality. Use "$X" to unlock.' },
@@ -124,6 +125,11 @@ const App = () => {
     const [isMacroRunning, setIsMacroRunning] = useState(false);
     const [preflightWarnings, setPreflightWarnings] = useState([]);
 
+    // Onboarding State
+    const [isWelcomeModalOpen, setIsWelcomeModalOpen] = useState(false);
+    const [cameFromWelcome, setCameFromWelcome] = useState(null);
+    const [machineSetupCompleted, setMachineSetupCompleted] = useState(() => localStorage.getItem('cnc-app-machine-setup-complete') === 'true');
+
     // Macro Editing State
     const [isMacroEditorOpen, setIsMacroEditorOpen] = useState(false);
     const [editingMacroIndex, setEditingMacroIndex] = useState(null);
@@ -186,6 +192,13 @@ const App = () => {
     const audioContextRef = useRef(null);
     const audioBufferRef = useRef(null);
     
+    useEffect(() => {
+        const onboardingComplete = localStorage.getItem('cnc-app-onboarding-complete');
+        if (onboardingComplete !== 'true') {
+            setIsWelcomeModalOpen(true);
+        }
+    }, []);
+
     useEffect(() => {
         jobStatusRef.current = jobStatus;
     }, [jobStatus]);
@@ -922,6 +935,60 @@ const App = () => {
     const now = new Date();
     const pad = (num) => num.toString().padStart(2, '0');
     const version = `0.${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}${pad(now.getHours())}:${pad(now.getMinutes())}`;
+    
+    // --- Welcome & Onboarding Handlers ---
+    const handleCloseWelcomeModal = () => {
+        setIsWelcomeModalOpen(false);
+        localStorage.setItem('cnc-app-onboarding-complete', 'true');
+    };
+
+    const handleOpenSettingsFromWelcome = () => {
+        setIsWelcomeModalOpen(false);
+        setCameFromWelcome('settings');
+        setIsSettingsModalOpen(true);
+    };
+
+    const handleOpenToolsFromWelcome = () => {
+        setIsWelcomeModalOpen(false);
+        setCameFromWelcome('tools');
+        setIsToolLibraryModalOpen(true);
+    };
+    
+    const handleSaveSettings = (newSettings) => {
+        setMachineSettings(newSettings);
+        setIsSettingsModalOpen(false);
+        if (cameFromWelcome === 'settings') {
+            setMachineSetupCompleted(true);
+            localStorage.setItem('cnc-app-machine-setup-complete', 'true');
+            setIsWelcomeModalOpen(true);
+            setCameFromWelcome(null);
+        }
+    };
+
+    const handleCancelSettings = () => {
+        setIsSettingsModalOpen(false);
+        if (cameFromWelcome === 'settings') {
+            setIsWelcomeModalOpen(true);
+            setCameFromWelcome(null);
+        }
+    };
+    
+    const handleSaveToolLibrary = (newLibrary) => {
+        setToolLibrary(newLibrary);
+        setIsToolLibraryModalOpen(false);
+        if (cameFromWelcome === 'tools') {
+            setIsWelcomeModalOpen(true);
+            setCameFromWelcome(null);
+        }
+    };
+
+    const handleCancelTools = () => {
+        setIsToolLibraryModalOpen(false);
+        if (cameFromWelcome === 'tools') {
+            setIsWelcomeModalOpen(true);
+            setCameFromWelcome(null);
+        }
+    };
 
 
     return React.createElement('div', { className: "min-h-screen bg-background font-sans text-text-primary flex flex-col" },
@@ -931,6 +998,14 @@ const App = () => {
         React.createElement(NotificationContainer, {
             notifications: notifications,
             onDismiss: removeNotification
+        }),
+        React.createElement(WelcomeModal, {
+            isOpen: isWelcomeModalOpen,
+            onClose: handleCloseWelcomeModal,
+            onOpenSettings: handleOpenSettingsFromWelcome,
+            onOpenToolLibrary: handleOpenToolsFromWelcome,
+            isMachineSetupComplete: machineSetupCompleted,
+            isToolLibrarySetupComplete: toolLibrary.length > 0
         }),
         React.createElement(PreflightChecklistModal, {
             isOpen: isPreflightModalOpen,
@@ -951,14 +1026,14 @@ const App = () => {
         }),
         React.createElement(SettingsModal, {
             isOpen: isSettingsModalOpen,
-            onCancel: () => setIsSettingsModalOpen(false),
-            onSave: setMachineSettings,
+            onCancel: handleCancelSettings,
+            onSave: handleSaveSettings,
             settings: machineSettings,
         }),
         React.createElement(ToolLibraryModal, {
             isOpen: isToolLibraryModalOpen,
-            onCancel: () => setIsToolLibraryModalOpen(false),
-            onSave: setToolLibrary,
+            onCancel: handleCancelTools,
+            onSave: handleSaveToolLibrary,
             library: toolLibrary
         }),
         React.createElement(GCodeGeneratorModal, {
@@ -971,7 +1046,7 @@ const App = () => {
         }),
         React.createElement('header', { className: "bg-surface shadow-md p-4 flex justify-between items-center z-10 flex-shrink-0 gap-4" },
             React.createElement('div', { className: "flex items-baseline gap-2" },
-                 React.createElement('h1', { className: "text-xl font-bold" }, "CNC Sender 3D"),
+                 React.createElement('h1', { className: "text-xl font-bold" }, "mycnc.app"),
                  React.createElement('span', { className: 'text-xs text-text-secondary font-mono' }, version)
             ),
             React.createElement('div', { className: "flex items-center gap-4" },
