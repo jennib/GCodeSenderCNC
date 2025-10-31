@@ -1,6 +1,9 @@
 
 
 
+
+
+
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 // Corrected import path for SerialManager to use .js file as .ts file is not a module.
 import { SerialManager } from './services/serialService.js';
@@ -959,6 +962,11 @@ const App: React.FC = () => {
                 onCancel={() => setIsSettingsModalOpen(false)}
                 onSave={setMachineSettings}
                 settings={machineSettings}
+                // FIX: Property 'onResetDialogs' was missing but is required by SettingsModal.
+                onResetDialogs={() => {
+                    localStorage.removeItem('cnc-app-skip-preflight');
+                    addNotification("Dialog settings have been reset.", 'info');
+                }}
             />
             <ToolLibraryModal
                 isOpen={isToolLibraryModalOpen}

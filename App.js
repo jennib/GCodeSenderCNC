@@ -1,5 +1,7 @@
 
 
+
+
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { SerialManager } from './services/serialService.js';
 import { SimulatedSerialManager } from './services/simulatedSerialService.js';
@@ -499,6 +501,16 @@ const App = () => {
         setTimeEstimate(estimateGCodeTime(lines));
         addLog({ type: 'status', message: `Loaded ${name} (${lines.length} lines).` });
     };
+
+    const handleClearFile = useCallback(() => {
+        setGcodeLines([]);
+        setFileName('');
+        setProgress(0);
+        setJobStatus(JobStatus.Idle);
+        setSelectedToolId(null);
+        setTimeEstimate({ totalSeconds: 0, cumulativeSeconds: [] });
+        addLog({ type: 'status', message: 'G-code cleared from preview.' });
+    }, [addLog]);
     
     const handleGeneratedGCodeLoad = (gcode, name) => {
         handleFileLoad(gcode, name);
@@ -523,18 +535,19 @@ const App = () => {
         setTimeEstimate(estimateGCodeTime(lines));
         addLog({ type: 'status', message: `G-code modified (${lines.length} lines).` });
     };
-
-    const handleStartJobConfirmed = useCallback((options) => {
+    
+    const handleStartJob = useCallback((startLine, isDryRun) => {
         const manager = serialManagerRef.current;
         if (!manager || !isConnected || gcodeLines.length === 0) return;
-
-        setIsPreflightModalOpen(false);
         setJobStatus(JobStatus.Running);
-        manager.sendGCode(gcodeLines, {
-            startLine: jobStartOptions.startLine,
-            isDryRun: options.isDryRun
-        });
-    }, [isConnected, gcodeLines, jobStartOptions]);
+        manager.sendGCode(gcodeLines, { startLine, isDryRun });
+    }, [isConnected, gcodeLines]);
+
+    const handleStartJobConfirmed = useCallback((options) => {
+        setIsPreflightModalOpen(false);
+        handleStartJob(jobStartOptions.startLine, options.isDryRun);
+    }, [jobStartOptions, handleStartJob]);
+
 
     const handleJobControl = useCallback((action, options) => {
         const manager = serialManagerRef.current;
@@ -543,10 +556,25 @@ const App = () => {
         switch (action) {
             case 'start':
                 if (gcodeLines.length > 0) {
+                    const startLine = options?.startLine ?? 0;
+                    setJobStartOptions({ startLine, isDryRun: false });
+
                     const warnings = analyzeGCode(gcodeLines, machineSettings);
                     setPreflightWarnings(warnings);
-                    setJobStartOptions({ startLine: options?.startLine ?? 0, isDryRun: false });
-                    setIsPreflightModalOpen(true);
+                    const hasErrors = warnings.some(w => w.type === 'error');
+
+                    if (hasErrors) {
+                        addNotification('Job has critical errors! Review in pre-flight check.', 'error');
+                        setIsPreflightModalOpen(true);
+                        return;
+                    }
+                    
+                    const skipPreflight = localStorage.getItem('cnc-app-skip-preflight') === 'true';
+                    if (skipPreflight) {
+                        handleStartJob(startLine, false);
+                    } else {
+                        setIsPreflightModalOpen(true);
+                    }
                 }
                 break;
             case 'pause':
@@ -578,7 +606,7 @@ const App = () => {
                 });
                 break;
         }
-    }, [isConnected, gcodeLines, machineSettings]);
+    }, [isConnected, gcodeLines, machineSettings, handleStartJob, addNotification]);
     
     const handleManualCommand = useCallback((command) => {
         serialManagerRef.current?.sendLine(command);
@@ -682,8 +710,8 @@ const App = () => {
             return;
         }
     
-        const probeTravel = unit === 'mm' ? -25 : -1.0;
-        const probeFeed = unit === 'mm' ? 25 : 1;
+        const probeTravel = unit === 'mm' ? 25 : 1.0;
+        const probeFeed = unit === 'mm' ? 100 : 4;
         const retractDist = unit === 'mm' ? 5 : 0.2;
     
         addLog({ type: 'status', message: `Starting ${axes.toUpperCase()}-Probe cycle...` });
@@ -691,7 +719,7 @@ const App = () => {
         try {
             const probeAxis = async (axis, offset, travelDir = -1) => {
                 const travel = probeTravel * travelDir;
-                await manager.sendLineAndWaitForOk(`G38.2 ${axis}${travel} F${probeFeed}`);
+                await manager.sendLineAndWaitForOk(`G38.2 ${axis}${travel.toFixed(4)} F${probeFeed}`);
                 addLog({ type: 'status', message: `Probe contact detected on ${axis}.` });
                 await manager.sendLineAndWaitForOk(`G10 L20 P1 ${axis}${offset}`);
                 addLog({ type: 'status', message: `${axis}-axis zero set to ${offset}${unit}.` });
@@ -1029,6 +1057,10 @@ const App = () => {
             onCancel: handleCancelSettings,
             onSave: handleSaveSettings,
             settings: machineSettings,
+            onResetDialogs: () => {
+                localStorage.removeItem('cnc-app-skip-preflight');
+                addNotification("Dialog settings have been reset.", 'info');
+            }
         }),
         React.createElement(ToolLibraryModal, {
             isOpen: isToolLibraryModalOpen,
@@ -1128,6 +1160,7 @@ const App = () => {
                     isConnected: isConnected,
                     unit: unit,
                     onGCodeChange: handleGCodeChange,
+                    onClearFile: handleClearFile,
                     machineState: machineState,
                     onFeedOverride: handleFeedOverride,
                     timeEstimate: timeEstimate,

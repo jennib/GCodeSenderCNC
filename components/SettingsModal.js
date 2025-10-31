@@ -1,3 +1,5 @@
+
+
 import React, { useState, useEffect } from 'react';
 import { Save, X } from './Icons.js';
 
@@ -25,7 +27,7 @@ const ScriptInput = ({ label, value, onChange, placeholder }) => h('div', null,
     })
 );
 
-const SettingsModal = ({ isOpen, onCancel, onSave, settings }) => {
+const SettingsModal = ({ isOpen, onCancel, onSave, settings, onResetDialogs }) => {
     const [localSettings, setLocalSettings] = useState(settings);
 
     useEffect(() => {
@@ -77,14 +79,14 @@ const SettingsModal = ({ isOpen, onCancel, onSave, settings }) => {
             h('div', { className: 'p-6 space-y-6 overflow-y-auto' },
                 h('div', { className: 'grid grid-cols-1 md:grid-cols-2 gap-6' },
                     h('div', { className: 'space-y-4 bg-background p-4 rounded-md' },
-                        h(InputGroup, { label: 'Work Area Dimensions' },
-                            h(NumberInput, { id: 'work-x', value: localSettings.workArea.x, onChange: e => handleNumericChange('workArea', 'x', e.target.value), unit: 'mm' }),
-                            h(NumberInput, { id: 'work-y', value: localSettings.workArea.y, onChange: e => handleNumericChange('workArea', 'y', e.target.value), unit: 'mm' }),
-                            h(NumberInput, { id: 'work-z', value: localSettings.workArea.z, onChange: e => handleNumericChange('workArea', 'z', e.target.value), unit: 'mm' })
+                        h(InputGroup, { label: 'Work Area Dimensions (mm)' },
+                            h(NumberInput, { id: 'work-x', value: localSettings.workArea.x, onChange: e => handleNumericChange('workArea', 'x', e.target.value), unit: 'X' }),
+                            h(NumberInput, { id: 'work-y', value: localSettings.workArea.y, onChange: e => handleNumericChange('workArea', 'y', e.target.value), unit: 'Y' }),
+                            h(NumberInput, { id: 'work-z', value: localSettings.workArea.z, onChange: e => handleNumericChange('workArea', 'z', e.target.value), unit: 'Z' })
                         ),
-                        h(InputGroup, { label: 'Spindle Speed Range' },
-                            h(NumberInput, { id: 'spindle-min', value: localSettings.spindle.min, onChange: e => handleNumericChange('spindle', 'min', e.target.value), unit: 'RPM' }),
-                            h(NumberInput, { id: 'spindle-max', value: localSettings.spindle.max, onChange: e => handleNumericChange('spindle', 'max', e.target.value), unit: 'RPM' })
+                        h(InputGroup, { label: 'Spindle Speed Range (RPM)' },
+                            h(NumberInput, { id: 'spindle-min', value: localSettings.spindle.min, onChange: e => handleNumericChange('spindle', 'min', e.target.value), unit: 'Min' }),
+                            h(NumberInput, { id: 'spindle-max', value: localSettings.spindle.max, onChange: e => handleNumericChange('spindle', 'max', e.target.value), unit: 'Max' })
                         )
                     ),
                     h('div', { className: 'space-y-4 bg-background p-4 rounded-md' },
@@ -92,6 +94,16 @@ const SettingsModal = ({ isOpen, onCancel, onSave, settings }) => {
                         h(ScriptInput, { label: 'Startup Script (on connect)', value: localSettings.scripts.startup, onChange: e => handleScriptChange('startup', e.target.value), placeholder: 'e.g., G21 G90' }),
                         h(ScriptInput, { label: 'Tool Change Script', value: localSettings.scripts.toolChange, onChange: e => handleScriptChange('toolChange', e.target.value), placeholder: 'e.g., M5 G0 Z10' }),
                         h(ScriptInput, { label: 'Shutdown Script (on disconnect)', value: localSettings.scripts.shutdown, onChange: e => handleScriptChange('shutdown', e.target.value), placeholder: 'e.g., M5 G0 X0 Y0' })
+                    )
+                ),
+                h('div', { className: 'bg-background p-4 rounded-md' },
+                    h('h3', { className: 'text-sm font-bold text-text-secondary mb-2' }, 'Interface Settings'),
+                    h('div', { className: 'flex items-center justify-between' },
+                        h('p', { className: 'text-sm' }, 'Reset "Don\'t show again" dialogs.'),
+                        h('button', {
+                            onClick: onResetDialogs,
+                            className: 'px-4 py-2 bg-secondary text-white text-sm font-semibold rounded-md hover:bg-secondary-focus focus:outline-none focus:ring-2 focus:ring-secondary'
+                        }, 'Reset Dialogs')
                     )
                 )
             ),

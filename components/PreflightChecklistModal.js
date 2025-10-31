@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect } from 'react';
 import { CheckCircle, X, AlertTriangle } from './Icons.js';
 
@@ -22,6 +23,7 @@ const PreflightChecklistModal = ({ isOpen, onCancel, onConfirm, jobInfo, isHomed
     const [isToolpathChecked, setIsToolpathChecked] = useState(false);
     const [isToolConfirmed, setIsToolConfirmed] = useState(false);
     const [isDryRun, setIsDryRun] = useState(false);
+    const [dontShowAgain, setDontShowAgain] = useState(false);
 
     // Reset checkboxes when modal is opened
     useEffect(() => {
@@ -30,12 +32,20 @@ const PreflightChecklistModal = ({ isOpen, onCancel, onConfirm, jobInfo, isHomed
             setIsToolpathChecked(false);
             setIsToolConfirmed(false);
             setIsDryRun(false);
+            setDontShowAgain(false);
         }
     }, [isOpen]);
 
     if (!isOpen) {
         return null;
     }
+    
+    const handleConfirm = () => {
+        if (dontShowAgain) {
+            localStorage.setItem('cnc-app-skip-preflight', 'true');
+        }
+        onConfirm({ isDryRun });
+    };
     
     const allChecksPassed = isHomed && isWorkZeroSet && isToolpathChecked && (selectedTool ? isToolConfirmed : true);
     const { startLine = 0 } = jobInfo;
@@ -131,16 +141,27 @@ const PreflightChecklistModal = ({ isOpen, onCancel, onConfirm, jobInfo, isHomed
                 )
             ),
             h('div', { className: 'bg-background px-6 py-4 flex justify-between items-center rounded-b-lg' },
-                h('label', { className: 'flex items-center gap-2 cursor-pointer text-sm font-semibold' },
-                    h('input', {
-                        type: 'checkbox',
-                        checked: isDryRun,
-                        onChange: e => setIsDryRun(e.target.checked),
-                        className: 'h-5 w-5 rounded border-secondary text-primary focus:ring-primary'
-                    }),
-                    h('div', { className: 'flex flex-col' },
-                        "Dry Run",
-                        h('span', { className: 'text-xs font-normal text-text-secondary' }, '(ignore spindle commands)')
+                h('div', { className: 'flex gap-6' },
+                    h('label', { className: 'flex items-center gap-2 cursor-pointer text-sm font-semibold' },
+                        h('input', {
+                            type: 'checkbox',
+                            checked: isDryRun,
+                            onChange: e => setIsDryRun(e.target.checked),
+                            className: 'h-5 w-5 rounded border-secondary text-primary focus:ring-primary'
+                        }),
+                        h('div', { className: 'flex flex-col' },
+                            "Dry Run",
+                            h('span', { className: 'text-xs font-normal text-text-secondary' }, '(ignore spindle commands)')
+                        )
+                    ),
+                    h('label', { className: 'flex items-center gap-2 cursor-pointer text-sm' },
+                        h('input', {
+                            type: 'checkbox',
+                            checked: dontShowAgain,
+                            onChange: e => setDontShowAgain(e.target.checked),
+                            className: 'h-5 w-5 rounded border-secondary text-primary focus:ring-primary'
+                        }),
+                        "Don't show this again"
                     )
                 ),
                 h('div', { className: 'flex items-center gap-4' },
@@ -149,7 +170,7 @@ const PreflightChecklistModal = ({ isOpen, onCancel, onConfirm, jobInfo, isHomed
                         className: 'px-4 py-2 bg-secondary text-white font-semibold rounded-md hover:bg-secondary-focus focus:outline-none focus:ring-2 focus:ring-secondary focus:ring-offset-2 focus:ring-offset-background'
                     }, 'Cancel'),
                     h('button', {
-                        onClick: () => onConfirm({ isDryRun }),
+                        onClick: handleConfirm,
                         disabled: !allChecksPassed || hasErrors,
                         title: hasErrors ? 'Cannot start job with critical errors (red warnings).' : (!allChecksPassed ? 'Complete all checklist items to start.' : 'Start Job'),
                         className: 'px-6 py-2 bg-accent-green text-white font-bold rounded-md hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 focus:ring-offset-background disabled:bg-secondary disabled:cursor-not-allowed flex items-center gap-2'

@@ -25,12 +25,23 @@ const GCodeGeneratorModal = ({ isOpen, onCancel, onLoadGCode, unit, settings, to
     // --- Drilling State ---
     const [drillType, setDrillType] = useState('single');
     const [drillParams, setDrillParams] = useState({
-        depth: -5, peck: 2, retract: 2, feed: 150, safeZ: 5,
+        depth: -5, peck: 2, retract: 2, feed: 150, spindle: 8000, safeZ: 5,
         singleX: 10, singleY: 10,
         rectCols: 4, rectRows: 3, rectSpacingX: 25, rectSpacingY: 20, rectStartX: 10, rectStartY: 10,
         circCenterX: 50, circCenterY: 50, circRadius: 40, circHoles: 6, circStartAngle: 0,
         toolId: null,
     });
+    
+    // --- Bore State ---
+    const [boreParams, setBoreParams] = useState({
+        centerX: 50, centerY: 50,
+        holeDiameter: 20, holeDepth: -15,
+        counterboreEnabled: true,
+        cbDiameter: 30, cbDepth: -5,
+        depthPerPass: 2, feed: 400, plungeFeed: 150, spindle: 8000, safeZ: 5,
+        toolId: null,
+    });
+
 
     // --- Pocket State ---
     const [pocketParams, setPocketParams] = useState({
@@ -147,7 +158,7 @@ const GCodeGeneratorModal = ({ isOpen, onCancel, onLoadGCode, unit, settings, to
         if (isOpen) {
             handleGenerate();
         }
-    }, [isOpen, activeTab, surfaceParams, drillParams, drillType, pocketParams, profileParams, slotParams, textParams, threadParams, arraySettings]);
+    }, [isOpen, activeTab, surfaceParams, drillParams, drillType, boreParams, pocketParams, profileParams, slotParams, textParams, threadParams, arraySettings]);
     
      useEffect(() => {
         fitView();
@@ -214,8 +225,8 @@ const GCodeGeneratorModal = ({ isOpen, onCancel, onLoadGCode, unit, settings, to
         const selectedTool = toolLibrary.find(t => t.id === drillParams.toolId);
         if (!selectedTool) return { error: "Please select a tool." };
 
-        const { depth, peck, retract, feed, safeZ } = drillParams;
-        if ([depth, peck, retract, feed, safeZ].some(p => p === '' || p === null)) return { error: "Please fill all required fields." };
+        const { depth, peck, retract, feed, spindle, safeZ } = drillParams;
+        if ([depth, peck, retract, feed, spindle, safeZ].some(p => p === '' || p === null)) return { error: "Please fill all required fields." };
         
         const code = [
             `(--- Drilling Operation: ${drillType} ---)`,
@@ -223,6 +234,7 @@ const GCodeGeneratorModal = ({ isOpen, onCancel, onLoadGCode, unit, settings, to
             `(Depth: ${depth}, Peck: ${peck}, Retract: ${retract})`,
             `T${selectedTool.id} M6`,
             `G21 G90`, // mm, absolute
+            `M3 S${spindle}`,
         ];
         
         const paths = [];
@@ -265,11 +277,67 @@ const GCodeGeneratorModal = ({ isOpen, onCancel, onLoadGCode, unit, settings, to
             paths.push({ cx: p.x, cy: p.y, r: selectedTool.diameter / 2, fill: 'var(--color-primary)' });
         });
         
+        code.push('M5');
+
         const bounds = points.reduce((acc, p) => ({
             minX: Math.min(acc.minX, p.x - 2), maxX: Math.max(acc.maxX, p.x + 2),
             minY: Math.min(acc.minY, p.y - 2), maxY: Math.max(acc.maxY, p.y + 2),
         }), { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity });
         
+        return { code, paths, bounds };
+    };
+
+    const generateBoreCode = () => {
+        const selectedTool = toolLibrary.find(t => t.id === boreParams.toolId);
+        if (!selectedTool) return { error: "Please select a tool." };
+        const toolDiameter = selectedTool.diameter;
+
+        const { centerX, centerY, holeDiameter, holeDepth, counterboreEnabled, cbDiameter, cbDepth, depthPerPass, feed, plungeFeed, spindle, safeZ } = boreParams;
+        if ([centerX, centerY, holeDiameter, holeDepth, depthPerPass, feed, plungeFeed, spindle, safeZ].some(p => p === '' || p === null)) return { error: "Please fill all required fields." };
+        if (counterboreEnabled && ([cbDiameter, cbDepth].some(p => p === '' || p === null))) return { error: "Please fill counterbore fields." };
+
+        if (toolDiameter >= holeDiameter) return { error: "Tool diameter must be smaller than hole diameter." };
+        if (counterboreEnabled && toolDiameter >= cbDiameter) return { error: "Tool diameter must be smaller than counterbore diameter." };
+        if (counterboreEnabled && cbDiameter <= holeDiameter) return { error: "Counterbore must be larger than hole." };
+
+        const code = [
+            `(--- Bore/Counterbore Operation ---)`,
+            `(Tool: ${selectedTool.name} - Ø${toolDiameter}${unit})`,
+            `T${selectedTool.id} M6`,
+            `G21 G90`,
+            `M3 S${spindle}`,
+        ];
+        const paths = [];
+
+        const millCircularPocket = (diameter, startZ, endZ) => {
+            const radius = (diameter - toolDiameter) / 2;
+            code.push(`(--- Milling pocket Ø${diameter} from Z${startZ} to Z${endZ} ---)`);
+            
+            let currentZ = startZ;
+            while (currentZ > endZ) {
+                currentZ = Math.max(endZ, currentZ - depthPerPass);
+                code.push(`G0 X${centerX.toFixed(3)} Y${centerY.toFixed(3)}`);
+                code.push(`G1 Z${currentZ.toFixed(3)} F${plungeFeed}`);
+                code.push(`G1 X${(centerX + radius).toFixed(3)} F${feed}`);
+                code.push(`G2 I${-radius.toFixed(3)} J0`);
+                code.push(`G1 X${centerX.toFixed(3)}`);
+            }
+        };
+
+        code.push(`G0 Z${safeZ}`);
+
+        if (counterboreEnabled) {
+            millCircularPocket(cbDiameter, 0, cbDepth);
+            paths.push({ cx: centerX, cy: centerY, r: cbDiameter / 2, stroke: 'var(--color-accent-yellow)', fill: 'none', strokeWidth: '1%' });
+        }
+        
+        millCircularPocket(holeDiameter, counterboreEnabled ? cbDepth : 0, holeDepth);
+        paths.push({ cx: centerX, cy: centerY, r: holeDiameter / 2, stroke: 'var(--color-primary)', fill: 'none', strokeWidth: '1%' });
+
+
+        code.push(`G0 Z${safeZ}`, `M5`);
+        const maxDiameter = counterboreEnabled ? cbDiameter : holeDiameter;
+        const bounds = { minX: centerX - maxDiameter/2, maxX: centerX + maxDiameter/2, minY: centerY - maxDiameter/2, maxY: centerY + maxDiameter/2 };
         return { code, paths, bounds };
     };
 
@@ -795,6 +863,7 @@ const GCodeGeneratorModal = ({ isOpen, onCancel, onLoadGCode, unit, settings, to
         let result = { code: [], paths: [], bounds: {}, error: null };
         if (activeTab === 'surfacing') result = generateSurfacingCode();
         else if (activeTab === 'drilling') result = generateDrillingCode();
+        else if (activeTab === 'bore') result = generateBoreCode();
         else if (activeTab === 'pocket') result = generatePocketCode();
         else if (activeTab === 'profile') result = generateProfileCode();
         else if (activeTab === 'slot') result = generateSlotCode();
@@ -815,7 +884,7 @@ const GCodeGeneratorModal = ({ isOpen, onCancel, onLoadGCode, unit, settings, to
 
         setGeneratedGCode(result.code.join('\n'));
         setPreviewPaths({ paths: result.paths, bounds: result.bounds });
-    }, [activeTab, surfaceParams, drillParams, drillType, pocketParams, profileParams, slotParams, textParams, threadParams, toolLibrary, arraySettings]);
+    }, [activeTab, surfaceParams, drillParams, drillType, boreParams, pocketParams, profileParams, slotParams, textParams, threadParams, toolLibrary, arraySettings]);
     
     if (!isOpen) return null;
     
@@ -868,6 +937,16 @@ const GCodeGeneratorModal = ({ isOpen, onCancel, onLoadGCode, unit, settings, to
         );
     };
 
+    const SpindleAndFeedControls = ({ params, onParamChange, feedLabel = 'Feed Rate', plunge, plungeLabel = 'Plunge Rate' }) => h(React.Fragment, null,
+        h('hr', { className: 'border-secondary' }),
+        h('div', { className: 'grid grid-cols-2 gap-4' },
+            h(Input, { label: feedLabel, value: params.feed, onChange: e => onParamChange('feed', e.target.value), unit: unit + '/min' }),
+            h(Input, { label: 'Spindle Speed', value: params.spindle, onChange: e => onParamChange('spindle', e.target.value), unit: 'RPM' })
+        ),
+        plunge && h(Input, { label: plungeLabel, value: params.plungeFeed, onChange: e => onParamChange('plungeFeed', e.target.value), unit: unit + '/min' }),
+        h(Input, { label: 'Safe Z', value: params.safeZ, onChange: e => onParamChange('safeZ', e.target.value), unit, help: 'Rapid height above stock' }),
+    );
+
     const renderSurfaceForm = () => h('div', { className: 'space-y-4' },
         h(ToolSelector, { selectedId: surfaceParams.toolId, onChange: (id) => setSurfaceParams(p => ({ ...p, toolId: id })) }),
         h('hr', { className: 'border-secondary' }),
@@ -877,11 +956,7 @@ const GCodeGeneratorModal = ({ isOpen, onCancel, onLoadGCode, unit, settings, to
         ),
         h(Input, { label: 'Final Depth', value: surfaceParams.depth, onChange: e => handleParamChange(setSurfaceParams, surfaceParams, 'depth', e.target.value), unit, help: 'Should be negative' }),
         h(Input, { label: 'Stepover', value: surfaceParams.stepover, onChange: e => handleParamChange(setSurfaceParams, surfaceParams, 'stepover', e.target.value), unit: '%' }),
-         h('div', { className: 'grid grid-cols-2 gap-4' },
-            h(Input, { label: 'Feed Rate', value: surfaceParams.feed, onChange: e => handleParamChange(setSurfaceParams, surfaceParams, 'feed', e.target.value), unit: unit + '/min' }),
-            h(Input, { label: 'Spindle', value: surfaceParams.spindle, onChange: e => handleParamChange(setSurfaceParams, surfaceParams, 'spindle', e.target.value), unit: 'RPM' })
-        ),
-        h(Input, { label: 'Safe Z', value: surfaceParams.safeZ, onChange: e => handleParamChange(setSurfaceParams, surfaceParams, 'safeZ', e.target.value), unit })
+        h(SpindleAndFeedControls, { params: surfaceParams, onParamChange: (field, value) => handleParamChange(setSurfaceParams, surfaceParams, field, value) })
     );
     
     const renderDrillForm = () => h('div', { className: 'space-y-4' },
@@ -916,7 +991,28 @@ const GCodeGeneratorModal = ({ isOpen, onCancel, onLoadGCode, unit, settings, to
          h('div', { className: 'grid grid-cols-2 gap-4' },
             h(Input, { label: 'Retract Height', value: drillParams.retract, onChange: e => handleParamChange(setDrillParams, drillParams, 'retract', e.target.value), unit, help: 'Height after each peck' }),
             h(Input, { label: 'Plunge Feed', value: drillParams.feed, onChange: e => handleParamChange(setDrillParams, drillParams, 'feed', e.target.value), unit: unit + '/min' })
-        )
+        ),
+        h(SpindleAndFeedControls, { params: drillParams, feedLabel: "Drill Feed", onParamChange: (field, value) => handleParamChange(setDrillParams, drillParams, field, value) })
+    );
+    
+    const renderBoreForm = () => h('div', { className: 'space-y-4' },
+        h(ToolSelector, { selectedId: boreParams.toolId, onChange: (id) => setBoreParams(p => ({ ...p, toolId: id })) }),
+        h('hr', { className: 'border-secondary' }),
+        h(Input, { label: 'Center Point (X, Y)', valueX: boreParams.centerX, valueY: boreParams.centerY, onChangeX: e => handleParamChange(setBoreParams, boreParams, 'centerX', e.target.value), onChangeY: e => handleParamChange(setBoreParams, boreParams, 'centerY', e.target.value), isXY: true, unit }),
+        h('div', { className: 'grid grid-cols-2 gap-4' },
+             h(Input, { label: `Hole Diameter`, value: boreParams.holeDiameter, onChange: e => handleParamChange(setBoreParams, boreParams, 'holeDiameter', e.target.value), unit }),
+             h(Input, { label: `Hole Depth`, value: boreParams.holeDepth, onChange: e => handleParamChange(setBoreParams, boreParams, 'holeDepth', e.target.value), unit, help: 'Negative value' })
+        ),
+         h('hr', { className: 'border-secondary' }),
+        h('label', { className: 'flex items-center gap-2 cursor-pointer font-semibold' },
+            h('input', { type: 'checkbox', checked: boreParams.counterboreEnabled, onChange: e => setBoreParams(p => ({ ...p, counterboreEnabled: e.target.checked })), className: 'h-4 w-4 rounded border-secondary text-primary' }),
+            'Add Counterbore'
+        ),
+        boreParams.counterboreEnabled && h('div', { className: 'grid grid-cols-2 gap-4 pl-6' },
+             h(Input, { label: `CB Diameter`, value: boreParams.cbDiameter, onChange: e => handleParamChange(setBoreParams, boreParams, 'cbDiameter', e.target.value), unit }),
+             h(Input, { label: `CB Depth`, value: boreParams.cbDepth, onChange: e => handleParamChange(setBoreParams, boreParams, 'cbDepth', e.target.value), unit, help: 'Negative value' })
+        ),
+        h(SpindleAndFeedControls, { params: boreParams, onParamChange: (field, value) => handleParamChange(setBoreParams, boreParams, field, value), plunge: true })
     );
 
     const renderPocketForm = () => h('div', { className: 'space-y-4' },
@@ -935,10 +1031,7 @@ const GCodeGeneratorModal = ({ isOpen, onCancel, onLoadGCode, unit, settings, to
             h(Input, { label: 'Depth per Pass', value: pocketParams.depthPerPass, onChange: e => handleParamChange(setPocketParams, pocketParams, 'depthPerPass', e.target.value), unit })
         ),
         h(Input, { label: 'Stepover', value: pocketParams.stepover, onChange: e => handleParamChange(setPocketParams, pocketParams, 'stepover', e.target.value), unit: '%' }),
-        h('div', { className: 'grid grid-cols-2 gap-4' },
-            h(Input, { label: 'Feed Rate', value: pocketParams.feed, onChange: e => handleParamChange(setPocketParams, pocketParams, 'feed', e.target.value), unit: unit + '/min' }),
-            h(Input, { label: 'Plunge Rate', value: pocketParams.plungeFeed, onChange: e => handleParamChange(setPocketParams, pocketParams, 'plungeFeed', e.target.value), unit: unit + '/min' })
-        ),
+        h(SpindleAndFeedControls, { params: pocketParams, onParamChange: (field, value) => handleParamChange(setPocketParams, pocketParams, field, value), plunge: true }),
         h(ArrayControls, { settings: arraySettings, onChange: setArraySettings })
     );
     
@@ -958,6 +1051,7 @@ const GCodeGeneratorModal = ({ isOpen, onCancel, onLoadGCode, unit, settings, to
             h(Input, { label: 'Total Depth', value: profileParams.depth, onChange: e => handleParamChange(setProfileParams, profileParams, 'depth', e.target.value), unit, help: 'Negative value' }),
             h(Input, { label: 'Depth per Pass', value: profileParams.depthPerPass, onChange: e => handleParamChange(setProfileParams, profileParams, 'depthPerPass', e.target.value), unit })
         ),
+        h(SpindleAndFeedControls, { params: profileParams, onParamChange: (field, value) => handleParamChange(setProfileParams, profileParams, field, value) }),
         h('hr', { className: 'border-secondary' }),
         h('label', { className: 'flex items-center gap-2 cursor-pointer' },
             h('input', { type: 'checkbox', checked: profileParams.tabsEnabled, onChange: e => setProfileParams(p => ({...p, tabsEnabled: e.target.checked})), className: 'h-4 w-4 rounded border-secondary text-primary' }),
@@ -989,7 +1083,7 @@ const GCodeGeneratorModal = ({ isOpen, onCancel, onLoadGCode, unit, settings, to
             h(Input, { label: 'Total Depth', value: slotParams.depth, onChange: e => handleParamChange(setSlotParams, slotParams, 'depth', e.target.value), unit, help: 'Negative value' }),
             h(Input, { label: 'Depth per Pass', value: slotParams.depthPerPass, onChange: e => handleParamChange(setSlotParams, slotParams, 'depthPerPass', e.target.value), unit })
         ),
-        h(Input, { label: 'Feed Rate', value: slotParams.feed, onChange: e => handleParamChange(setSlotParams, slotParams, 'feed', e.target.value), unit: unit + '/min' }),
+        h(SpindleAndFeedControls, { params: slotParams, onParamChange: (field, value) => handleParamChange(setSlotParams, slotParams, field, value) }),
         h(ArrayControls, { settings: arraySettings, onChange: setArraySettings })
     );
     
@@ -1021,10 +1115,7 @@ const GCodeGeneratorModal = ({ isOpen, onCancel, onLoadGCode, unit, settings, to
         h(Input, { label: 'Start Point (X, Y)', valueX: textParams.startX, valueY: textParams.startY, onChangeX: e => handleParamChange(setTextParams, textParams, 'startX', e.target.value), onChangeY: e => handleParamChange(setTextParams, textParams, 'startY', e.target.value), isXY: true, unit, help: 'Alignment reference point' }),
         h('hr', { className: 'border-secondary' }),
         h(Input, { label: 'Engraving Depth', value: textParams.depth, onChange: e => handleParamChange(setTextParams, textParams, 'depth', e.target.value), unit, help: 'Negative value' }),
-        h('div', { className: 'grid grid-cols-2 gap-4' },
-            h(Input, { label: 'Feed Rate', value: textParams.feed, onChange: e => handleParamChange(setTextParams, textParams, 'feed', e.target.value), unit: unit + '/min' }),
-            h(Input, { label: 'Spindle Speed', value: textParams.spindle, onChange: e => handleParamChange(setTextParams, textParams, 'spindle', e.target.value), unit: 'RPM' })
-        ),
+        h(SpindleAndFeedControls, { params: textParams, onParamChange: (field, value) => handleParamChange(setTextParams, textParams, field, value) }),
         h(ArrayControls, { settings: arraySettings, onChange: setArraySettings })
     );
 
@@ -1039,10 +1130,7 @@ const GCodeGeneratorModal = ({ isOpen, onCancel, onLoadGCode, unit, settings, to
             h(Input, { label: 'Pitch', value: threadParams.pitch, onChange: e => handleParamChange(setThreadParams, threadParams, 'pitch', e.target.value), unit, help: 'Distance between threads' })
         ),
         h(Input, { label: 'Thread Depth', value: threadParams.depth, onChange: e => handleParamChange(setThreadParams, threadParams, 'depth', e.target.value), unit, help: 'Length of thread' }),
-        h('div', { className: 'grid grid-cols-2 gap-4' },
-            h(Input, { label: 'Feed Rate', value: threadParams.feed, onChange: e => handleParamChange(setThreadParams, threadParams, 'feed', e.target.value), unit: unit + '/min' }),
-            h(Input, { label: 'Spindle Speed', value: threadParams.spindle, onChange: e => handleParamChange(setThreadParams, threadParams, 'spindle', e.target.value), unit: 'RPM' })
-        ),
+        h(SpindleAndFeedControls, { params: threadParams, onParamChange: (field, value) => handleParamChange(setThreadParams, threadParams, field, value) }),
         h(ArrayControls, { settings: arraySettings, onChange: setArraySettings })
     );
     
@@ -1050,6 +1138,7 @@ const GCodeGeneratorModal = ({ isOpen, onCancel, onLoadGCode, unit, settings, to
         switch(tab) {
             case 'surfacing': return surfaceParams;
             case 'drilling': return drillParams;
+            case 'bore': return boreParams;
             case 'pocket': return pocketParams;
             case 'profile': return profileParams;
             case 'slot': return slotParams;
@@ -1091,6 +1180,7 @@ const GCodeGeneratorModal = ({ isOpen, onCancel, onLoadGCode, unit, settings, to
                         h('div', { className: 'w-full text-xs text-text-secondary uppercase tracking-wider' }, 'Milling'),
                         h(Tab, { label: 'Surfacing', isActive: activeTab === 'surfacing', onClick: () => setActiveTab('surfacing') }),
                         h(Tab, { label: 'Drilling', isActive: activeTab === 'drilling', onClick: () => setActiveTab('drilling') }),
+                        h(Tab, { label: 'Bore', isActive: activeTab === 'bore', onClick: () => setActiveTab('bore') }),
                         h(Tab, { label: 'Pocket', isActive: activeTab === 'pocket', onClick: () => setActiveTab('pocket') }),
                         h(Tab, { label: 'Profile', isActive: activeTab === 'profile', onClick: () => setActiveTab('profile') }),
                         h(Tab, { label: 'Slot', isActive: activeTab === 'slot', onClick: () => setActiveTab('slot') }),
@@ -1100,6 +1190,7 @@ const GCodeGeneratorModal = ({ isOpen, onCancel, onLoadGCode, unit, settings, to
                     ),
                     activeTab === 'surfacing' && renderSurfaceForm(),
                     activeTab === 'drilling' && renderDrillForm(),
+                    activeTab === 'bore' && renderBoreForm(),
                     activeTab === 'pocket' && renderPocketForm(),
                     activeTab === 'profile' && renderProfileForm(),
                     activeTab === 'slot' && renderSlotForm(),

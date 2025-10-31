@@ -1,4 +1,6 @@
 
+
+
 import React, { useRef, useState, useEffect } from 'react';
 import { JobStatus } from '../types.js';
 import { Play, Pause, Square, Upload, FileText, Code, Eye, Maximize, Pencil, CheckCircle, X, Save, Plus, Minus, RefreshCw, Percent, ZoomIn, ZoomOut, Clock, BookOpen, Crosshair, Zap } from './Icons.js';
@@ -39,6 +41,7 @@ const formatTime = (totalSeconds) => {
 const GCodePanel = ({ 
     onFileLoad, fileName, gcodeLines, onJobControl, 
     jobStatus, progress, isConnected, unit, onGCodeChange, 
+    onClearFile,
     machineState, onFeedOverride, timeEstimate, 
     machineSettings, toolLibrary, selectedToolId, onToolSelect,
     onOpenGenerator 
@@ -368,6 +371,14 @@ const GCodePanel = ({
                 },
                     React.createElement(Upload, { className: "w-5 h-5" }),
                     "Load File"
+                ),
+                React.createElement('button', {
+                    onClick: onClearFile,
+                    disabled: isJobActive || gcodeLines.length === 0,
+                    className: "p-2 bg-secondary text-text-primary font-semibold rounded-md hover:bg-secondary-focus focus:outline-none focus:ring-2 focus:ring-secondary focus:ring-offset-2 focus:ring-offset-surface transition-colors disabled:opacity-50 disabled:cursor-not-allowed",
+                    title: "Clear G-Code & Preview"
+                },
+                    React.createElement(X, { className: "w-5 h-5" })
                 )
             )
         ),
