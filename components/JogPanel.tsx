@@ -1,10 +1,10 @@
+
 import React, { useState, useEffect } from 'react';
-import { ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Pin, RotateCw, RotateCcw, PowerOff, Probe } from './Icons.tsx';
-import { MachineState } from '../types.ts';
+import { ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Pin, RotateCw, RotateCcw, PowerOff, Probe } from './Icons.js';
 
 interface JogPanelProps {
     isConnected: boolean;
-    machineState: MachineState | null;
+    machineState: any | null;
     onJog: (axis: string, direction: number, step: number) => void;
     onHome: (axes: 'all' | 'x' | 'y' | 'z' | 'xy') => void;
     onSetZero: (axes: 'all' | 'x' | 'y' | 'z' | 'xy') => void;
@@ -183,7 +183,6 @@ const JogPanel: React.FC<JogPanelProps> = ({
                         <div className='grid grid-cols-3 gap-2 mt-2'>
                             <button title='Spindle On (CW)' onClick={() => onSpindleCommand('cw', spindleSpeed)} disabled={isControlDisabled} className='p-2 bg-secondary rounded hover:bg-secondary-focus disabled:opacity-50 flex justify-center'><RotateCw className='w-5 h-5' /></button>
                             <button title='Spindle On (CCW)' onClick={() => onSpindleCommand('ccw', spindleSpeed)} disabled={isControlDisabled} className='p-2 bg-secondary rounded hover:bg-secondary-focus disabled:opacity-50 flex justify-center'><RotateCcw className='w-5 h-5' /></button>
-                            {/* Fix: Added missing 'speed' argument to onSpindleCommand call for 'off' state. */}
                             <button title='Spindle Off' onClick={() => onSpindleCommand('off', 0)} disabled={isControlDisabled} className='p-2 bg-secondary rounded hover:bg-secondary-focus disabled:opacity-50 flex justify-center'><PowerOff className='w-5 h-5' /></button>
                         </div>
                     </div>

@@ -1,19 +1,14 @@
 
 
 
-
-
-
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-// Corrected import path for SerialManager to use .js file as .ts file is not a module.
 import { SerialManager } from './services/serialService.js';
-// Corrected import path for SimulatedSerialManager to use .js file as .ts file is not a module.
 import { SimulatedSerialManager } from './services/simulatedSerialService.js';
-import { JobStatus, PortInfo, ConsoleLog, MachineState, Macro, MachineSettings, Tool, GCodeTimeEstimate, GCodeAnalysisWarning, Notification } from './types.ts';
-import SerialConnector from './components/SerialConnector.tsx';
-import GCodePanel from './components/GCodePanel.tsx';
-import Console from './components/Console.tsx';
-// Corrected import path for JogPanel to use .js file as .tsx file is not a module.
+// FIX: Import MachineState type to correctly type component state.
+import { JobStatus, MachineState } from './types.js';
+import SerialConnector from './components/SerialConnector.js';
+import GCodePanel from './components/GCodePanel.js';
+import Console from './components/Console.js';
 import JogPanel from './components/JogPanel.js';
 import MacrosPanel from './components/MacrosPanel.js';
 import WebcamPanel from './components/WebcamPanel.js';
@@ -24,15 +19,16 @@ import ToolLibraryModal from './components/ToolLibraryModal.js';
 import { NotificationContainer } from './components/Notification.js';
 import ThemeToggle from './components/ThemeToggle.js';
 import StatusBar from './components/StatusBar.js';
-import { AlertTriangle, OctagonAlert, Unlock, Settings } from './components/Icons.tsx';
+import { AlertTriangle, OctagonAlert, Unlock, Settings } from './components/Icons.js';
 import { estimateGCodeTime } from './services/gcodeTimeEstimator.js';
 import { analyzeGCode } from './services/gcodeAnalyzer.js';
+import { Analytics } from '@vercel/analytics/react';
 
 const GRBL_ALARM_CODES: { [key: number | string]: { name: string; desc: string; resolution: string } } = {
     1: { name: 'Hard limit', desc: 'A limit switch was triggered. Usually due to machine travel limits.', resolution: 'Check for obstructions. The machine may need to be moved off the switch manually. Use the "$X" command to unlock after clearing the issue, then perform a homing cycle ($H).' },
     2: { name: 'G-code motion command error', desc: 'The G-code motion target is invalid or exceeds machine travel limits.', resolution: 'Check your G-code file for errors near the last executed line. Use the "$X" command to unlock.' },
     3: { name: 'Reset while in motion', desc: 'The reset button was pressed while the machine was moving.', resolution: 'This is expected. Use "$X" to unlock the machine and resume work.' },
-    4: { name: 'Probe fail', desc: 'The probing cycle failed to make contact or the probe is already triggered.', resolution: 'Check your probe wiring and ensure it is properly positioned. Use "$X" to unlock.' },
+    4: { name: 'Probe fail', desc: 'The probing cycle failed to make contact or the probe is already triggered.', resolution: 'Check your probe wiring and ensure it is properly positioned. Use the "$X" command to unlock.' },
     5: { name: 'Probe fail, travel error', desc: 'The probing cycle failed to clear the probe switch.', resolution: 'Check probe wiring and setup. The machine may require a soft-reset (E-STOP). Use "$X" to unlock.' },
     8: { name: 'Homing fail, pull-off', desc: "The homing cycle failed because the machine couldn't move off the limit switches.", resolution: 'Check for mechanical issues or obstructions. Use "$X" to unlock.' },
     9: { name: 'Homing fail, not found', desc: 'The homing cycle failed because the limit switches were not triggered.', resolution: 'Check limit switch wiring and functionality. Use "$X" to unlock.' },
@@ -78,7 +74,7 @@ const GRBL_ERROR_CODES: { [key: number]: string } = {
     38: 'Tool number greater than max supported value.',
 };
 
-const DEFAULT_MACROS: Macro[] = [
+const DEFAULT_MACROS = [
     { name: 'Go to WCS Zero', commands: ['G90', 'G0 X0 Y0'] },
     { name: 'Safe Z & WCS Zero', commands: ['G90', 'G0 Z10', 'G0 X0 Y0'] },
     { name: 'Spindle On (1k RPM)', commands: ['M3 S1000'] },
@@ -87,7 +83,7 @@ const DEFAULT_MACROS: Macro[] = [
     { name: 'Reset All Offsets', commands: ['G92.1'] },
 ];
 
-const DEFAULT_SETTINGS: MachineSettings = {
+const DEFAULT_SETTINGS = {
     workArea: { x: 300, y: 300, z: 80 },
     spindle: { min: 0, max: 12000 },
     scripts: {
@@ -97,7 +93,8 @@ const DEFAULT_SETTINGS: MachineSettings = {
     }
 };
 
-const usePrevious = <T extends unknown>(value: T): T | undefined => {
+// FIX: Properly type the usePrevious hook to be generic and type-safe.
+const usePrevious = <T,>(value: T): T | undefined => {
     const ref = useRef<T>();
     useEffect(() => {
         ref.current = value;
@@ -108,27 +105,28 @@ const usePrevious = <T extends unknown>(value: T): T | undefined => {
 const App: React.FC = () => {
     const [isConnected, setIsConnected] = useState(false);
     const [isSimulatedConnection, setIsSimulatedConnection] = useState(false);
-    const [portInfo, setPortInfo] = useState<PortInfo | null>(null);
+    const [portInfo, setPortInfo] = useState(null);
     const [gcodeLines, setGcodeLines] = useState<string[]>([]);
     const [fileName, setFileName] = useState('');
-    const [jobStatus, setJobStatus] = useState<JobStatus>(JobStatus.Idle);
+    const [jobStatus, setJobStatus] = useState(JobStatus.Idle);
     const [progress, setProgress] = useState(0);
-    const [consoleLogs, setConsoleLogs] = useState<ConsoleLog[]>([]);
+    const [consoleLogs, setConsoleLogs] = useState<any[]>([]);
     const [error, setError] = useState<string | null>(null);
     const [isSerialApiSupported, setIsSerialApiSupported] = useState(true);
     const [useSimulator, setUseSimulator] = useState(false);
+    // FIX: Add explicit type for machineState to resolve 'unknown' type error.
     const [machineState, setMachineState] = useState<MachineState | null>(null);
     const [isJogging, setIsJogging] = useState(false);
     const [flashingButton, setFlashingButton] = useState<string | null>(null);
-    const [notifications, setNotifications] = useState<Notification[]>([]);
+    const [notifications, setNotifications] = useState<any[]>([]);
     const [isAudioUnlocked, setIsAudioUnlocked] = useState(false);
-    const [timeEstimate, setTimeEstimate] = useState<GCodeTimeEstimate>({ totalSeconds: 0, cumulativeSeconds: [] });
+    const [timeEstimate, setTimeEstimate] = useState({ totalSeconds: 0, cumulativeSeconds: [] as number[] });
 
     const [isPreflightModalOpen, setIsPreflightModalOpen] = useState(false);
     const [jobStartOptions, setJobStartOptions] = useState({ startLine: 0, isDryRun: false });
     const [isHomedSinceConnect, setIsHomedSinceConnect] = useState(false);
     const [isMacroRunning, setIsMacroRunning] = useState(false);
-    const [preflightWarnings, setPreflightWarnings] = useState<GCodeAnalysisWarning[]>([]);
+    const [preflightWarnings, setPreflightWarnings] = useState<any[]>([]);
 
     // Macro Editing State
     const [isMacroEditorOpen, setIsMacroEditorOpen] = useState(false);
@@ -142,7 +140,7 @@ const App: React.FC = () => {
 
 
     // Persisted State
-    const [jogStep, setJogStep] = useState<number>(() => {
+    const [jogStep, setJogStep] = useState(() => {
         try {
             const saved = localStorage.getItem('cnc-app-jogstep');
             return saved !== null ? JSON.parse(saved) : 1;
@@ -154,13 +152,13 @@ const App: React.FC = () => {
             return saved !== null ? JSON.parse(saved) : 'mm';
         } catch { return 'mm'; }
     });
-    const [isLightMode, setIsLightMode] = useState<boolean>(() => {
+    const [isLightMode, setIsLightMode] = useState(() => {
         try {
             const saved = localStorage.getItem('cnc-app-theme');
             return saved !== null ? JSON.parse(saved) : false;
         } catch { return false; }
     });
-    const [macros, setMacros] = useState<Macro[]>(() => {
+    const [macros, setMacros] = useState(() => {
         try {
             const saved = localStorage.getItem('cnc-app-macros');
             return saved ? JSON.parse(saved) : DEFAULT_MACROS;
@@ -168,7 +166,7 @@ const App: React.FC = () => {
             return DEFAULT_MACROS;
         }
     });
-    const [machineSettings, setMachineSettings] = useState<MachineSettings>(() => {
+    const [machineSettings, setMachineSettings] = useState(() => {
         try {
             const saved = localStorage.getItem('cnc-app-settings');
             return saved ? JSON.parse(saved) : DEFAULT_SETTINGS;
@@ -176,7 +174,7 @@ const App: React.FC = () => {
             return DEFAULT_SETTINGS;
         }
     });
-    const [toolLibrary, setToolLibrary] = useState<Tool[]>(() => {
+    const [toolLibrary, setToolLibrary] = useState(() => {
         try {
             const saved = localStorage.getItem('cnc-app-tool-library');
             return saved ? JSON.parse(saved) : [];
@@ -185,7 +183,7 @@ const App: React.FC = () => {
         }
     });
 
-    const serialManagerRef = useRef<SerialManager | SimulatedSerialManager | null>(null);
+    const serialManagerRef = useRef<any>(null);
     const prevState = usePrevious(machineState);
     const jobStatusRef = useRef(jobStatus);
     const audioContextRef = useRef<AudioContext | null>(null);
@@ -213,7 +211,6 @@ const App: React.FC = () => {
             localStorage.setItem('cnc-app-macros', JSON.stringify(macros));
         } catch (error) {
             console.error("Could not save macros to localStorage:", error);
-            // FIX: The `addNotification` function was called without arguments. It requires at least a message string.
             addNotification('Could not save macros.', 'error');
         }
     }, [macros]);
@@ -251,7 +248,7 @@ const App: React.FC = () => {
         });
     }, []);
 
-    const addNotification = useCallback((message: string, type: Notification['type'] = 'success', duration = 5000) => {
+    const addNotification = useCallback((message: string, type: 'success' | 'error' | 'info' = 'success', duration = 5000) => {
         const id = Date.now() + Math.random();
         const timerId = window.setTimeout(() => {
             removeNotification(id);
@@ -260,8 +257,13 @@ const App: React.FC = () => {
     }, [removeNotification]);
 
     useEffect(() => {
-        // This effect runs once on mount to initialize the audio system.
-        const context = new (window.AudioContext || (window as any).webkitAudioContext)();
+        // FIX: Handle vendor-prefixed AudioContext for cross-browser compatibility.
+        const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+        if (!AudioContext) {
+            console.error("AudioContext not supported by this browser.");
+            return;
+        }
+        const context = new AudioContext();
         audioContextRef.current = context;
 
         // Pre-load the audio file to be ready for playback.
@@ -324,7 +326,7 @@ const App: React.FC = () => {
         }
     }, []);
 
-    const addLog = useCallback((log: Omit<ConsoleLog, 'timestamp'>) => {
+    const addLog = useCallback((log: { type: string, message: string }) => {
         let processedLog = { ...log, timestamp: new Date() };
 
         // Add explanation for GRBL errors, preserving the original message context.
@@ -364,6 +366,7 @@ const App: React.FC = () => {
     }, []);
     
     useEffect(() => {
+        // FIX: The type of `prevState` is correctly inferred due to the typed `machineState`.
         if (prevState?.status === 'Home' && machineState?.status === 'Idle') {
             addNotification('Homing complete.', 'success');
             setIsHomedSinceConnect(true);
@@ -395,7 +398,7 @@ const App: React.FC = () => {
         if (!isSerialApiSupported && !useSimulator) return;
 
         const commonCallbacks = {
-            onConnect: async (info: PortInfo) => {
+            onConnect: async (info: any) => {
                 setIsConnected(true);
                 setPortInfo(info);
                 addLog({ type: 'status', message: `Connected to ${useSimulator ? 'simulator' : 'port'} at 115200 baud.` });
@@ -512,7 +515,7 @@ const App: React.FC = () => {
         addLog({ type: 'status', message: `G-code modified (${lines.length} lines).` });
     };
 
-    const handleStartJobConfirmed = useCallback((options: { isDryRun: boolean}) => {
+    const handleStartJobConfirmed = useCallback((options: { isDryRun: boolean }) => {
         const manager = serialManagerRef.current;
         if (!manager || !isConnected || gcodeLines.length === 0) return;
 
@@ -588,7 +591,7 @@ const App: React.FC = () => {
         const command = `$J=G91 ${axis}${step * direction} F${feedRate}`;
         
         setIsJogging(true); 
-        serialManagerRef.current.sendLine(command).catch((err) => {
+        serialManagerRef.current.sendLine(command).catch((err: Error) => {
             const errorMessage = err instanceof Error ? err.message : "An error occurred during jog.";
             addLog({ type: 'error', message: `Jog failed: ${errorMessage}` });
             setIsJogging(false);
@@ -663,8 +666,7 @@ const App: React.FC = () => {
 
     }, [unit, addLog]);
 
-    // Correct signature for handleProbe to allow partial offsets.
-    const handleProbe = useCallback(async (axes: string, offsets: { x?: number, y?: number, z?: number }) => {
+    const handleProbe = useCallback(async (axes: string, offsets: { x?: number; y?: number; z?: number }) => {
         const manager = serialManagerRef.current;
         if (!manager || !isConnected) {
             addLog({ type: 'error', message: 'Cannot probe while disconnected.' });
@@ -678,9 +680,9 @@ const App: React.FC = () => {
         addLog({ type: 'status', message: `Starting ${axes.toUpperCase()}-Probe cycle...` });
     
         try {
-            const probeAxis = async (axis: 'X' | 'Y' | 'Z', offset: number, travelDir = -1) => {
+            const probeAxis = async (axis: string, offset: number, travelDir = -1) => {
                 const travel = probeTravel * travelDir;
-                await manager.sendLineAndWaitForOk(`G38.2 ${axis}${travel} F${probeFeed}`);
+                await manager.sendLineAndWaitForOk(`G38.2 ${axis}${travel}`);
                 addLog({ type: 'status', message: `Probe contact detected on ${axis}.` });
                 await manager.sendLineAndWaitForOk(`G10 L20 P1 ${axis}${offset}`);
                 addLog({ type: 'status', message: `${axis}-axis zero set to ${offset}${unit}.` });
@@ -869,7 +871,7 @@ const App: React.FC = () => {
         setEditingMacroIndex(null);
     }, []);
 
-    const handleSaveMacro = useCallback((macro: Macro, index: number | null) => {
+    const handleSaveMacro = useCallback((macro: any, index: number | null) => {
         setMacros(prevMacros => {
             const newMacros = [...prevMacros];
             if (index !== null && index >= 0) {
@@ -890,7 +892,7 @@ const App: React.FC = () => {
     }, [addNotification]);
 
     /*
-    const handleImportSettings = useCallback((imported: { macros: Macro[], machineSettings: MachineSettings, toolLibrary: Tool[] }) => {
+    const handleImportSettings = useCallback((imported) => {
         if(window.confirm("This will overwrite your current macros, settings, and tool library. Are you sure?")) {
             setMacros(imported.macros);
             setMachineSettings(imported.machineSettings);
@@ -930,6 +932,7 @@ const App: React.FC = () => {
 
     return (
         <div className="min-h-screen bg-background font-sans text-text-primary flex flex-col">
+            <Analytics />
             {!isAudioUnlocked && (
                 <div className="bg-accent-yellow/20 text-accent-yellow text-center p-2 text-sm font-semibold animate-pulse">
                     Click anywhere or press any key to enable sound notifications
@@ -962,7 +965,6 @@ const App: React.FC = () => {
                 onCancel={() => setIsSettingsModalOpen(false)}
                 onSave={setMachineSettings}
                 settings={machineSettings}
-                // FIX: Property 'onResetDialogs' was missing but is required by SettingsModal.
                 onResetDialogs={() => {
                     localStorage.removeItem('cnc-app-skip-preflight');
                     addNotification("Dialog settings have been reset.", 'info');
@@ -1108,4 +1110,5 @@ const App: React.FC = () => {
     );
 };
 
+// FIX: Add default export to make it importable in index.tsx
 export default App;

@@ -1,8 +1,7 @@
 
 import React, { useRef, useState, useEffect, DragEvent } from 'react';
-import { JobStatus, MachineState, GCodeTimeEstimate, MachineSettings, Tool } from '../types.ts';
-import { Play, Pause, Square, Upload, FileText, Code, Eye, Maximize, Pencil, CheckCircle, X, Save, Plus, Minus, RefreshCw, Percent, ZoomIn, ZoomOut, Clock, BookOpen, Crosshair } from './Icons.tsx';
-// Fix: Corrected import path for GCodeVisualizer to use .js file as .tsx file is not a module.
+import { JobStatus } from '../types.js';
+import { Play, Pause, Square, Upload, FileText, Code, Eye, Maximize, Pencil, CheckCircle, X, Save, Plus, Minus, RefreshCw, Percent, ZoomIn, ZoomOut, Clock, BookOpen, Crosshair } from './Icons.js';
 import GCodeVisualizer from './GCodeVisualizer.js';
 import GCodeLine from './GCodeLine.js';
 
@@ -31,7 +30,7 @@ const FeedrateOverrideControl: React.FC<FeedrateOverrideControlProps> = ({ onFee
     );
 };
 
-const formatTime = (totalSeconds: number) => {
+const formatTime = (totalSeconds) => {
     if (totalSeconds === Infinity) return '∞';
     if (totalSeconds < 1) return '...';
     const hours = Math.floor(totalSeconds / 3600);
@@ -62,11 +61,11 @@ interface GCodePanelProps {
     isConnected: boolean;
     unit: 'mm' | 'in';
     onGCodeChange: (content: string) => void;
-    machineState: MachineState | null;
+    machineState: any | null;
     onFeedOverride: (command: 'reset' | 'inc10' | 'dec10' | 'inc1' | 'dec1') => void;
-    timeEstimate: GCodeTimeEstimate;
-    machineSettings: MachineSettings;
-    toolLibrary: Tool[];
+    timeEstimate: any;
+    machineSettings: any;
+    toolLibrary: any[];
     selectedToolId: number | null;
     onToolSelect: (id: number | null) => void;
 }

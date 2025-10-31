@@ -1,9 +1,6 @@
+
 import React, { useRef, useEffect, useState, useCallback, useImperativeHandle, ForwardedRef } from 'react';
-// FIX: Correct import for parseGCode function from .js file and ParsedGCode type from .ts file.
-// Fix: Changed from namespace import to named import to resolve module property error.
-// FIX: Corrected module resolution error by importing `parseGCode` and `ParsedGCode` from the TypeScript source file `gcodeParser.ts` instead of multiple sources.
-import { parseGCode, type ParsedGCode } from '../services/gcodeParser.ts';
-import { MachineSettings } from '../types';
+import { parseGCode } from '../services/gcodeParser.js';
 
 // --- WebGL Helper Functions ---
 const createShader = (gl: WebGLRenderingContext, type: number, source: string) => {
@@ -180,7 +177,7 @@ interface GCodeVisualizerProps {
     gcodeLines: string[];
     currentLine: number;
     hoveredLineIndex: number | null;
-    machineSettings: MachineSettings;
+    machineSettings: any;
     unit: 'mm' | 'in';
 }
 
@@ -201,7 +198,7 @@ const GCodeVisualizer = React.forwardRef<GCodeVisualizerHandle, GCodeVisualizerP
     // This ref will hold all dynamic data for the render loop to access without re-triggering effects.
     const renderDataRef = useRef<any>({});
 
-    const [parsedGCode, setParsedGCode] = useState<ParsedGCode | null>(null);
+    const [parsedGCode, setParsedGCode] = useState(null);
     const [camera, setCamera] = useState({
         target: [0, 0, 0],
         distance: 100,
@@ -245,7 +242,7 @@ const GCodeVisualizer = React.forwardRef<GCodeVisualizerHandle, GCodeVisualizerP
         };
     };
 
-    const fitView = useCallback((bounds: ParsedGCode['bounds'] | null, newRotation: number[] | null = null) => {
+    const fitView = useCallback((bounds: any | null, newRotation: number[] | null = null) => {
         if (!bounds || bounds.minX === Infinity) {
             setCamera(prev => ({
                 ...prev,
@@ -283,7 +280,6 @@ const GCodeVisualizer = React.forwardRef<GCodeVisualizerHandle, GCodeVisualizerP
     }));
 
     useEffect(() => {
-        // Fix: Use the directly imported parseGCode function.
         const parsed = parseGCode(gcodeLines);
         setParsedGCode(parsed);
         fitView(parsed.bounds, [0, Math.PI / 2]);
@@ -541,8 +537,6 @@ const GCodeVisualizer = React.forwardRef<GCodeVisualizerHandle, GCodeVisualizerP
 
             if (!gl || !programInfo) return;
             
-            // Fix: Added a type guard to safely access clientWidth/clientHeight, which are specific to HTMLCanvasElement.
-            // Handle canvas resizing within the loop
             const canvasElement = gl.canvas;
             if (canvasElement instanceof HTMLCanvasElement) {
                 if (canvasElement.width !== canvasElement.clientWidth || canvasElement.height !== canvasElement.clientHeight) {
@@ -559,7 +553,6 @@ const GCodeVisualizer = React.forwardRef<GCodeVisualizerHandle, GCodeVisualizerP
             if (!buffers || !camera) return;
 
             const projectionMatrix = mat4.create();
-            // Fix: Correctly calculate aspect ratio using buffer dimensions, avoiding properties not present on OffscreenCanvas.
             const aspect = gl.canvas.width / gl.canvas.height;
             mat4.perspective(projectionMatrix, 45 * Math.PI / 180, aspect, 0.1, 10000);
 

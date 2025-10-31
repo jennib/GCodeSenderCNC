@@ -1,12 +1,11 @@
 
 import React from 'react';
-import { Power, PowerOff, Radio } from './Icons.tsx';
-import { PortInfo } from '../types.ts';
+import { Power, PowerOff, Radio } from './Icons.js';
 
 interface SerialConnectorProps {
     isConnected: boolean;
     isSimulated: boolean;
-    portInfo: PortInfo | null;
+    portInfo: any | null;
     onConnect: () => void;
     onDisconnect: () => void;
     isApiSupported: boolean;

@@ -1,3 +1,4 @@
+
 const getParam = (gcode, param) => {
     // Allows for optional whitespace between parameter and value
     const regex = new RegExp(`${param}\\s*([-+]?[0-9]*\\.?[0-9]*)`, 'i');
@@ -55,7 +56,8 @@ export const parseGCode = (gcodeLines) => {
             } else if (motionMode === 'G2' || motionMode === 'G3') {
                 const i = getParam(cleanLine, 'I') ?? 0;
                 const j = getParam(cleanLine, 'J') ?? 0;
-                const center = { x: start.x + i, y: start.y + j };
+                // Arcs are in XY plane, Z is interpolated. The center point's Z is the same as the start point's.
+                const center = { x: start.x + i, y: start.y + j, z: start.z };
                 segments.push({ type: motionMode, start, end, center, clockwise: motionMode === 'G2', line: lineIndex });
             }
 

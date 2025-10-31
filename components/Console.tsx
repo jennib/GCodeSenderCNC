@@ -1,10 +1,9 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, ChevronRight, ChevronsLeft, ChevronsRight, Info, AlertTriangle, Maximize, Minimize } from './Icons.tsx';
-import { ConsoleLog } from '../types.ts';
+import { Send, ChevronRight, ChevronsLeft, ChevronsRight, Info, AlertTriangle, Maximize, Minimize } from './Icons.js';
 
 interface ConsoleProps {
-    logs: ConsoleLog[];
+    logs: any[];
     onSendCommand: (command: string) => void;
     isConnected: boolean;
     isJobActive: boolean;
@@ -31,7 +30,7 @@ const Console: React.FC<ConsoleProps> = ({ logs, onSendCommand, isConnected, isJ
         }
     };
 
-    const getLogColor = (type: ConsoleLog['type']) => {
+    const getLogColor = (type: any) => {
         if (isLightMode) {
             switch (type) {
                 case 'sent': return 'text-blue-700';
@@ -50,7 +49,7 @@ const Console: React.FC<ConsoleProps> = ({ logs, onSendCommand, isConnected, isJ
         }
     };
 
-    const getLogIcon = (type: ConsoleLog['type']) => {
+    const getLogIcon = (type: any) => {
         const iconProps = { className: "w-4 h-4 mr-2 flex-shrink-0" };
         switch (type) {
             case 'sent': return <ChevronsRight {...iconProps} />;

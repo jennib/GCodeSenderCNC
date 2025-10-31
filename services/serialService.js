@@ -1,3 +1,4 @@
+
 export class SerialManager {
     port = null;
     reader = null;
@@ -115,7 +116,7 @@ export class SerialManager {
             const content = statusStr.slice(1, -1);
             const parts = content.split('|');
             const statusPart = parts[0];
-            const parsed = {};
+            const parsed = { code: null };
 
             const rawStatus = statusPart.split(':')[0].toLowerCase();
             let status;
@@ -196,18 +197,20 @@ export class SerialManager {
                         if (trimmedValue.startsWith('<') && trimmedValue.endsWith('>')) {
                             const statusUpdate = this.parseGrblStatus(trimmedValue);
                             if (statusUpdate) {
-                                // Explicitly merge properties to prevent losing state from partial updates.
-                                this.lastStatus.status = statusUpdate.status;
-                                this.lastStatus.code = statusUpdate.code;
-                                if (statusUpdate.wpos) this.lastStatus.wpos = statusUpdate.wpos;
-                                if (statusUpdate.mpos) this.lastStatus.mpos = statusUpdate.mpos;
-                                if (statusUpdate.ov) this.lastStatus.ov = statusUpdate.ov;
-                                if (statusUpdate.spindle) {
-                                    this.lastStatus.spindle = {
+                                // A more robust state update. Instead of merging with spread syntax,
+                                // we explicitly build the new state to prevent stale properties
+                                // (like an alarm 'code') from persisting incorrectly.
+                                this.lastStatus = {
+                                    status: statusUpdate.status,
+                                    code: statusUpdate.code,
+                                    wpos: statusUpdate.wpos || this.lastStatus.wpos,
+                                    mpos: statusUpdate.mpos || this.lastStatus.mpos,
+                                    ov: statusUpdate.ov || this.lastStatus.ov,
+                                    spindle: {
                                         ...this.lastStatus.spindle,
-                                        ...statusUpdate.spindle,
-                                    };
-                                }
+                                        ...(statusUpdate.spindle || {}),
+                                    }
+                                };
                         
                                 // This logic must run *after* the new state is built.
                                 if (this.lastStatus.spindle.speed === 0) {
