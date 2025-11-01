@@ -1020,7 +1020,28 @@ const App: React.FC = () => {
             />
             <header className="bg-surface shadow-md p-4 flex justify-between items-center z-10 flex-shrink-0 gap-4">
                 <div className="flex items-center gap-2">
-                    <img src="/mycnc-logo.png" alt="mycnc.app logo" className="h-8 w-auto" />
+                    <svg
+                        viewBox="0 0 100 100"
+                        className="h-8 w-8"
+                        aria-label="mycnc.app logo"
+                    >
+                        <path
+                            stroke="var(--color-primary)"
+                            strokeWidth="12"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            fill="none"
+                            d="M 10 85 L 10 15 L 30 50 L 50 15 L 50 85"
+                        />
+                        <path
+                            stroke="var(--color-primary)"
+                            strokeWidth="12"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            fill="none"
+                            d="M 90 15 C 65 15, 65 85, 90 85"
+                        />
+                    </svg>
                     <span className='text-xs text-text-secondary font-mono'>{version}</span>
                 </div>
                 <div className="flex items-center gap-4">
