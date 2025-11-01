@@ -1,3 +1,5 @@
+
+
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { SerialManager } from './services/serialService.js';
 import { SimulatedSerialManager } from './services/simulatedSerialService.js';
@@ -101,6 +103,7 @@ const usePrevious = <T,>(value: T): T | undefined => {
 };
 
 const App: React.FC = () => {
+    // FIX: Initialize `isConnected` state with `false`.
     const [isConnected, setIsConnected] = useState(false);
     const [isSimulatedConnection, setIsSimulatedConnection] = useState(false);
     const [portInfo, setPortInfo] = useState(null);

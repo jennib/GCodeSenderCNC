@@ -1,7 +1,5 @@
-
-
-import React, { useState, useEffect } from 'react';
-import { Save, X } from './Icons.js';
+import React, { useState, useEffect, useRef } from 'react';
+import { Save, X, Upload, Download } from './Icons.js';
 
 const h = React.createElement;
 
@@ -27,8 +25,9 @@ const ScriptInput = ({ label, value, onChange, placeholder }) => h('div', null,
     })
 );
 
-const SettingsModal = ({ isOpen, onCancel, onSave, settings, onResetDialogs }) => {
+const SettingsModal = ({ isOpen, onCancel, onSave, settings, onResetDialogs, onExport, onImport }) => {
     const [localSettings, setLocalSettings] = useState(settings);
+    const importFileRef = useRef(null);
 
     useEffect(() => {
         if (isOpen) {
@@ -38,8 +37,9 @@ const SettingsModal = ({ isOpen, onCancel, onSave, settings, onResetDialogs }) =
 
     if (!isOpen) return null;
 
-    const handleNumericChange = (category, field, value) => {
+    const handleNestedNumericChange = (category, field, value) => {
         const numValue = value === '' ? '' : parseFloat(value);
+        if(isNaN(numValue)) return;
         setLocalSettings(prev => ({
             ...prev,
             [category]: {
@@ -64,6 +64,25 @@ const SettingsModal = ({ isOpen, onCancel, onSave, settings, onResetDialogs }) =
         onCancel();
     };
 
+    const handleFileImport = (event) => {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const importedData = JSON.parse(e.target.result);
+                onImport(importedData);
+                onCancel(); // Close modal on successful import
+            } catch (error) {
+                console.error("Failed to parse settings file:", error);
+                alert("Error: Could not read or parse the settings file. Please ensure it's a valid JSON file.");
+            }
+        };
+        reader.readAsText(file);
+        event.target.value = null; // Reset file input
+    };
+
     return h('div', {
         className: 'fixed inset-0 bg-background/80 backdrop-blur-sm z-40 flex items-center justify-center',
         onClick: onCancel, 'aria-modal': true, role: 'dialog'
@@ -80,13 +99,18 @@ const SettingsModal = ({ isOpen, onCancel, onSave, settings, onResetDialogs }) =
                 h('div', { className: 'grid grid-cols-1 md:grid-cols-2 gap-6' },
                     h('div', { className: 'space-y-4 bg-background p-4 rounded-md' },
                         h(InputGroup, { label: 'Work Area Dimensions (mm)' },
-                            h(NumberInput, { id: 'work-x', value: localSettings.workArea.x, onChange: e => handleNumericChange('workArea', 'x', e.target.value), unit: 'X' }),
-                            h(NumberInput, { id: 'work-y', value: localSettings.workArea.y, onChange: e => handleNumericChange('workArea', 'y', e.target.value), unit: 'Y' }),
-                            h(NumberInput, { id: 'work-z', value: localSettings.workArea.z, onChange: e => handleNumericChange('workArea', 'z', e.target.value), unit: 'Z' })
+                            h(NumberInput, { id: 'work-x', value: localSettings.workArea.x, onChange: e => handleNestedNumericChange('workArea', 'x', e.target.value), unit: 'X' }),
+                            h(NumberInput, { id: 'work-y', value: localSettings.workArea.y, onChange: e => handleNestedNumericChange('workArea', 'y', e.target.value), unit: 'Y' }),
+                            h(NumberInput, { id: 'work-z', value: localSettings.workArea.z, onChange: e => handleNestedNumericChange('workArea', 'z', e.target.value), unit: 'Z' })
                         ),
                         h(InputGroup, { label: 'Spindle Speed Range (RPM)' },
-                            h(NumberInput, { id: 'spindle-min', value: localSettings.spindle.min, onChange: e => handleNumericChange('spindle', 'min', e.target.value), unit: 'Min' }),
-                            h(NumberInput, { id: 'spindle-max', value: localSettings.spindle.max, onChange: e => handleNumericChange('spindle', 'max', e.target.value), unit: 'Max' })
+                            h(NumberInput, { id: 'spindle-min', value: localSettings.spindle.min, onChange: e => handleNestedNumericChange('spindle', 'min', e.target.value), unit: 'Min' }),
+                            h(NumberInput, { id: 'spindle-max', value: localSettings.spindle.max, onChange: e => handleNestedNumericChange('spindle', 'max', e.target.value), unit: 'Max' })
+                        ),
+                        h(InputGroup, { label: 'Probing Settings (mm)' },
+                             h(NumberInput, { id: 'probe-x', value: localSettings.probe.xOffset, onChange: e => handleNestedNumericChange('probe', 'xOffset', e.target.value), unit: 'X Offset' }),
+                             h(NumberInput, { id: 'probe-y', value: localSettings.probe.yOffset, onChange: e => handleNestedNumericChange('probe', 'yOffset', e.target.value), unit: 'Y Offset' }),
+                             h(NumberInput, { id: 'probe-z', value: localSettings.probe.zOffset, onChange: e => handleNestedNumericChange('probe', 'zOffset', e.target.value), unit: 'Z Offset' })
                         )
                     ),
                     h('div', { className: 'space-y-4 bg-background p-4 rounded-md' },
@@ -94,6 +118,23 @@ const SettingsModal = ({ isOpen, onCancel, onSave, settings, onResetDialogs }) =
                         h(ScriptInput, { label: 'Startup Script (on connect)', value: localSettings.scripts.startup, onChange: e => handleScriptChange('startup', e.target.value), placeholder: 'e.g., G21 G90' }),
                         h(ScriptInput, { label: 'Tool Change Script', value: localSettings.scripts.toolChange, onChange: e => handleScriptChange('toolChange', e.target.value), placeholder: 'e.g., M5 G0 Z10' }),
                         h(ScriptInput, { label: 'Shutdown Script (on disconnect)', value: localSettings.scripts.shutdown, onChange: e => handleScriptChange('shutdown', e.target.value), placeholder: 'e.g., M5 G0 X0 Y0' })
+                    )
+                ),
+                h('div', { className: 'bg-background p-4 rounded-md' },
+                    h('h3', { className: 'text-sm font-bold text-text-secondary mb-2' }, 'Configuration'),
+                    h('div', { className: 'flex items-center justify-between' },
+                        h('p', { className: 'text-sm' }, 'Export/Import all settings, macros, and tools.'),
+                        h('div', { className: 'flex gap-2' },
+                            h('input', { type: 'file', ref: importFileRef, className: 'hidden', accept: '.json', onChange: handleFileImport }),
+                            h('button', {
+                                onClick: () => importFileRef.current.click(),
+                                className: 'flex items-center gap-2 px-4 py-2 bg-secondary text-white text-sm font-semibold rounded-md hover:bg-secondary-focus'
+                            }, h(Upload, { className: 'w-4 h-4' }), 'Import'),
+                            h('button', {
+                                onClick: onExport,
+                                className: 'flex items-center gap-2 px-4 py-2 bg-secondary text-white text-sm font-semibold rounded-md hover:bg-secondary-focus'
+                            }, h(Download, { className: 'w-4 h-4' }), 'Export')
+                        )
                     )
                 ),
                 h('div', { className: 'bg-background p-4 rounded-md' },

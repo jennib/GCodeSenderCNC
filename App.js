@@ -84,6 +84,7 @@ const DEFAULT_MACROS = [
 const DEFAULT_SETTINGS = {
     workArea: { x: 300, y: 300, z: 80 },
     spindle: { min: 0, max: 12000 },
+    probe: { xOffset: 3.0, yOffset: 3.0, zOffset: 15.0 },
     scripts: {
         startup: ['G21', 'G90'].join('\n'), // Set units to mm, absolute positioning
         toolChange: ['M5', 'G0 Z10'].join('\n'), // Stop spindle, raise Z
@@ -171,7 +172,12 @@ const App = () => {
     const [machineSettings, setMachineSettings] = useState(() => {
         try {
             const saved = localStorage.getItem('cnc-app-settings');
-            return saved ? JSON.parse(saved) : DEFAULT_SETTINGS;
+            const parsed = saved ? JSON.parse(saved) : DEFAULT_SETTINGS;
+            // Ensure probe settings exist from older configs
+            if (!parsed.probe) {
+                parsed.probe = DEFAULT_SETTINGS.probe;
+            }
+            return parsed;
         } catch {
             return DEFAULT_SETTINGS;
         }
@@ -702,12 +708,18 @@ const App = () => {
 
     }, [unit, addLog]);
 
-    const handleProbe = useCallback(async (axes, offsets) => {
+    const handleProbe = useCallback(async (axes) => {
         const manager = serialManagerRef.current;
         if (!manager || !isConnected) {
             addLog({ type: 'error', message: 'Cannot probe while disconnected.' });
             return;
         }
+
+        const offsets = {
+            x: machineSettings.probe.xOffset,
+            y: machineSettings.probe.yOffset,
+            z: machineSettings.probe.zOffset,
+        };
     
         const probeTravel = unit === 'mm' ? 25 : 1.0;
         const probeFeed = unit === 'mm' ? 100 : 4;
@@ -748,7 +760,7 @@ const App = () => {
             manager.sendLine('\x18', false);
         }
     
-    }, [isConnected, addLog, addNotification, unit, setError]);
+    }, [isConnected, addLog, addNotification, unit, setError, machineSettings.probe]);
 
     useEffect(() => {
         const handleKeyDown = (e) => {
@@ -927,12 +939,35 @@ const App = () => {
         addNotification('Macro deleted!', 'success');
     }, [addNotification]);
 
+    const handleExportSettings = useCallback(() => {
+        const settingsToExport = {
+            machineSettings,
+            macros,
+            toolLibrary,
+        };
+        const blob = new Blob([JSON.stringify(settingsToExport, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `mycnc-app-settings-${new Date().toISOString().slice(0,10)}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        addNotification('Settings exported successfully!', 'success');
+    }, [machineSettings, macros, toolLibrary, addNotification]);
+    
     const handleImportSettings = useCallback((imported) => {
-        if(window.confirm("This will overwrite your current macros, settings, and tool library. Are you sure?")) {
-            setMacros(imported.macros);
-            setMachineSettings(imported.machineSettings);
-            setToolLibrary(imported.toolLibrary);
-            addNotification("Settings imported successfully!", 'success');
+        if (window.confirm("This will overwrite your current macros, settings, and tool library. Are you sure?")) {
+            // Basic validation
+            if (imported.machineSettings && imported.macros && imported.toolLibrary) {
+                setMachineSettings(imported.machineSettings);
+                setMacros(imported.macros);
+                setToolLibrary(imported.toolLibrary);
+                addNotification("Settings imported successfully!", 'success');
+            } else {
+                addNotification("Invalid settings file.", 'error');
+            }
         }
     }, [addNotification]);
 
@@ -1060,7 +1095,9 @@ const App = () => {
             onResetDialogs: () => {
                 localStorage.removeItem('cnc-app-skip-preflight');
                 addNotification("Dialog settings have been reset.", 'info');
-            }
+            },
+            onExport: handleExportSettings,
+            onImport: handleImportSettings,
         }),
         React.createElement(ToolLibraryModal, {
             isOpen: isToolLibraryModalOpen,

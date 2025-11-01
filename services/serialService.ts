@@ -213,6 +213,7 @@ export class SerialManager {
                     lines.forEach(line => {
                         const trimmedValue = line.trim();
                         if (trimmedValue.startsWith('<') && trimmedValue.endsWith('>')) {
+                            const previousStatus = this.lastStatus.status; // Capture state before processing new status
                             const statusUpdate = this.parseGrblStatus(trimmedValue, this.lastStatus);
                             if (statusUpdate) {
                                 // A more robust state update. Instead of merging with spread syntax,
@@ -238,6 +239,11 @@ export class SerialManager {
                         
                                 // Send a deep clone to React to ensure re-render
                                 this.callbacks.onStatus(JSON.parse(JSON.stringify(this.lastStatus)));
+
+                                // If a jog just completed, request another status update to ensure we have the final position.
+                                if (previousStatus === 'Jog' && this.lastStatus.status === 'Idle') {
+                                    this.requestStatusUpdate();
+                                }
                             }
                         } else if (trimmedValue) {
                             if (trimmedValue.startsWith('error:')) {
