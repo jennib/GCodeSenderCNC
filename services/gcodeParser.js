@@ -9,7 +9,7 @@ const getParam = (gcode, param) => {
 export const parseGCode = (gcodeLines) => {
     const segments = [];
     const bounds = {
-        minX: Infinity, maxX: -Infinity, 
+        minX: Infinity, maxX: -Infinity,
         minY: Infinity, maxY: -Infinity,
         minZ: Infinity, maxZ: -Infinity
     };
@@ -25,7 +25,7 @@ export const parseGCode = (gcodeLines) => {
         bounds.minZ = Math.min(bounds.minZ, p.z);
         bounds.maxZ = Math.max(bounds.maxZ, p.z);
     };
-    
+
     updateBounds(currentPos);
 
     gcodeLines.forEach((line, lineIndex) => {
@@ -50,13 +50,13 @@ export const parseGCode = (gcodeLines) => {
                 y: getParam(cleanLine, 'Y') ?? currentPos.y,
                 z: getParam(cleanLine, 'Z') ?? currentPos.z
             };
-            
+
             if (motionMode === 'G0' || motionMode === 'G1') {
                 segments.push({ type: motionMode, start, end, line: lineIndex });
             } else if (motionMode === 'G2' || motionMode === 'G3') {
                 const i = getParam(cleanLine, 'I') ?? 0;
                 const j = getParam(cleanLine, 'J') ?? 0;
-                // Arcs are in XY plane, Z is interpolated. The center point's Z is the same as the start point's.
+                // Arcs are in XY plane, Z is interpolated. The center is relative to start point.
                 const center = { x: start.x + i, y: start.y + j, z: start.z };
                 segments.push({ type: motionMode, start, end, center, clockwise: motionMode === 'G2', line: lineIndex });
             }
@@ -66,7 +66,7 @@ export const parseGCode = (gcodeLines) => {
             updateBounds(end);
         }
     });
-    
+
     if (segments.length === 0) {
       return { segments, bounds: { minX: -10, maxX: 10, minY: -10, maxY: 10, minZ: -2, maxZ: 2 }};
     }

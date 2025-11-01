@@ -1,5 +1,4 @@
 
-
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { SerialManager } from './services/serialService.js';
 import { SimulatedSerialManager } from './services/simulatedSerialService.js';
@@ -169,7 +168,7 @@ const App = () => {
     const [isGeneratorModalOpen, setIsGeneratorModalOpen] = useState(false);
     const [isWelcomeModalOpen, setIsWelcomeModalOpen] = useState(false);
     const [isToolChangeModalOpen, setIsToolChangeModalOpen] = useState(false);
-
+    
     const [toolChangeInfo, setToolChangeInfo] = useState({ toolNumber: null });
     const [selectedToolId, setSelectedToolId] = useState(null);
     const [isVerbose, setIsVerbose] = useState(false);
@@ -241,7 +240,7 @@ const App = () => {
     const audioContextRef = useRef(null);
     const audioBufferRef = useRef(null);
     const toolChangePromiseRef = useRef(null);
-
+    
     useEffect(() => {
         const hasSeenWelcome = localStorage.getItem('cnc-app-seen-welcome');
         if (!hasSeenWelcome) {
@@ -253,7 +252,7 @@ const App = () => {
         localStorage.setItem('cnc-app-seen-welcome', 'true');
         setIsWelcomeModalOpen(false);
     };
-    
+
     useEffect(() => {
         jobStatusRef.current = jobStatus;
     }, [jobStatus]);
@@ -556,7 +555,7 @@ const App = () => {
         setTimeEstimate(estimateGCodeTime(lines));
         addLog({ type: 'status', message: `Loaded ${name} (${lines.length} lines).` });
     };
-
+    
     const handleLoadGeneratedGCode = (gcode, name) => {
         handleFileLoad(gcode, name);
         setIsGeneratorModalOpen(false);
@@ -750,7 +749,7 @@ const App = () => {
     const handleHome = useCallback((axes) => {
         const manager = serialManagerRef.current;
         if (!manager) return;
-        setMachineState(prev => ({ ...(prev || { status: 'Idle', wpos:{}, mpos:{}, spindle:{}, ov:[] }), status: 'Home' }));
+        setMachineState(prev => ({ ...(prev || { status: 'Idle', code: null, wpos:{x:0,y:0,z:0}, mpos:{x:0,y:0,z:0}, spindle:{state: 'off', speed: 0}, ov:[100,100,100] }), status: 'Home' }));
         addLog({ type: 'status', message: `Starting homing cycle for: ${axes.toUpperCase()}...` });
         const commands = { all: ['$H'], x: ['$HX'], y: ['$HY'], z: ['$HZ'], xy: ['$HXY'] }[axes];
         if (commands) commands.forEach(cmd => manager.sendLine(cmd));
@@ -860,8 +859,8 @@ const App = () => {
         !isAudioUnlocked && h('div', { className: "bg-accent-yellow/20 text-accent-yellow text-center p-2 text-sm font-semibold animate-pulse" }, "Click anywhere or press any key to enable sound notifications"),
         h(NotificationContainer, { notifications, onDismiss: removeNotification }),
         h(ContactModal, { isOpen: isContactModalOpen, onClose: () => setIsContactModalOpen(false) }),
-        h(WelcomeModal, {
-            isOpen: isWelcomeModalOpen,
+        h(WelcomeModal, { 
+            isOpen: isWelcomeModalOpen, 
             onClose: handleCloseWelcome,
             onOpenSettings: () => { handleCloseWelcome(); setIsSettingsModalOpen(true); },
             onOpenToolLibrary: () => { handleCloseWelcome(); setIsToolLibraryModalOpen(true); },
@@ -886,6 +885,7 @@ const App = () => {
             },
             toolInfo: toolChangeInfo
         }),
+
         h('header', { className: "bg-surface shadow-md p-4 flex justify-between items-center z-10 flex-shrink-0 gap-4" },
             h('div', { className: "flex items-center gap-4" },
                 h('svg', { viewBox: '0 0 460 100', className: 'h-8 w-auto', 'aria-label': 'mycnc.app logo' },
@@ -910,8 +910,11 @@ const App = () => {
                 h(SerialConnector, { isConnected: isConnected, portInfo: portInfo, onConnect: handleConnect, onDisconnect: handleDisconnect, isApiSupported: isSerialApiSupported, isSimulated: isSimulatedConnection, useSimulator: useSimulator, onSimulatorChange: setUseSimulator })
             )
         ),
+
         h('div', { className: "bg-accent-yellow/20 text-accent-yellow text-center p-2 text-sm font-semibold flex items-center justify-center gap-2" }, h(AlertTriangle, { className: "w-4 h-4" }), "Work in Progress: This software is for demonstration purposes only. Use at your own risk."),
+
         h(StatusBar, { isConnected, machineState, unit, onEmergencyStop: handleEmergencyStop, flashingButton }),
+
         isAlarm && h('div', { className: "bg-accent-red/20 border-b-4 border-accent-red text-accent-red p-4 m-4 flex items-start", role: "alert" },
             h(OctagonAlert, { className: "h-8 w-8 mr-4 flex-shrink-0" }),
             h('div', { className: "flex-grow" },
@@ -920,7 +923,8 @@ const App = () => {
                 h('p', { className: "text-sm mt-2" }, h('strong', null, "Resolution: "), alarmInfo.resolution)
             ),
             h('button', { id: "unlock-button", title: "Unlock Machine (Hotkey: x)", onClick: () => handleManualCommand('$X'), className: `ml-4 flex items-center gap-2 px-4 py-2 bg-accent-red text-white font-semibold rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-background transition-all duration-100 ${flashingButton === 'unlock-button' ? 'ring-4 ring-white ring-inset' : ''}` },
-                h(Unlock, { className: "w-5 h-5" }), "Unlock ($X)"
+                h(Unlock, { className: "w-5 h-5" }),
+                "Unlock ($X)"
             )
         ),
         error && h('div', { className: "bg-accent-red/20 border-l-4 border-accent-red text-accent-red p-4 m-4 flex items-start", role: "alert" },
@@ -928,14 +932,58 @@ const App = () => {
             h('p', null, error),
             h('button', { onClick: () => setError(null), className: "ml-auto font-bold" }, "X")
         ),
+
         h('main', { className: "flex-grow p-4 grid grid-cols-1 lg:grid-cols-2 gap-4 min-h-0" },
             h('div', { className: "min-h-[60vh] lg:min-h-0" },
-                h(GCodePanel, { onFileLoad, fileName, gcodeLines, onJobControl, jobStatus, progress, isConnected, unit, onGCodeChange, machineState, onFeedOverride, timeEstimate, machineSettings, toolLibrary, selectedToolId, onToolSelect: setSelectedToolId, onOpenGenerator: () => setIsGeneratorModalOpen(true), onClearFile: handleClearFile })
+                h(GCodePanel, { 
+                    onFileLoad: handleFileLoad, 
+                    fileName, 
+                    gcodeLines, 
+                    onJobControl: handleJobControl, 
+                    jobStatus, 
+                    progress, 
+                    isConnected, 
+                    unit, 
+                    onGCodeChange: handleGCodeChange, 
+                    machineState, 
+                    onFeedOverride: handleFeedOverride, 
+                    timeEstimate, 
+                    machineSettings, 
+                    toolLibrary, 
+                    selectedToolId, 
+                    onToolSelect: setSelectedToolId, 
+                    onOpenGenerator: () => setIsGeneratorModalOpen(true), 
+                    onClearFile: handleClearFile 
+                })
             ),
             h('div', { className: "flex flex-col gap-4 overflow-hidden min-h-0" },
-                h(JogPanel, { isConnected, machineState, onJog, onHome, onSetZero, onSpindleCommand, onProbe, jogStep, onStepChange, flashingButton, onFlash: flashControl, unit, onUnitChange, isJobActive, isJogging, isMacroRunning }),
+                h(JogPanel, { 
+                    isConnected, 
+                    machineState, 
+                    onJog: handleJog, 
+                    onHome: handleHome, 
+                    onSetZero: handleSetZero, 
+                    onSpindleCommand: handleSpindleCommand, 
+                    onProbe: handleProbe, 
+                    jogStep, 
+                    onStepChange: setJogStep, 
+                    flashingButton, 
+                    onFlash: flashControl, 
+                    unit, 
+                    onUnitChange: handleUnitChange, 
+                    isJobActive, 
+                    isJogging, 
+                    isMacroRunning 
+                }),
                 h(WebcamPanel, {}),
-                h(MacrosPanel, { macros, onRunMacro, onOpenEditor: (index) => { setEditingMacroIndex(index); setIsMacroEditorOpen(true); }, isEditMode, onToggleEditMode: () => setIsMacroEditMode(prev => !prev), disabled: isAnyControlLocked }),
+                h(MacrosPanel, { 
+                    macros, 
+                    onRunMacro: handleRunMacro, 
+                    onOpenEditor: (index) => { setEditingMacroIndex(index); setIsMacroEditorOpen(true); }, 
+                    isEditMode, 
+                    onToggleEditMode: () => setIsMacroEditMode(prev => !prev), 
+                    disabled: isAnyControlLocked 
+                }),
                 h(Console, { logs: consoleLogs, onSendCommand: handleManualCommand, isConnected, isJobActive, isMacroRunning, isLightMode, isVerbose, onVerboseChange: setIsVerbose })
             )
         ),

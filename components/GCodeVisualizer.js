@@ -1,9 +1,11 @@
+
 import React, { useRef, useEffect, useState, useCallback, useImperativeHandle } from 'react';
 import { parseGCode } from '../services/gcodeParser.js';
 
 // --- WebGL Helper Functions ---
 const createShader = (gl, type, source) => {
     const shader = gl.createShader(type);
+    if (!shader) return null;
     gl.shaderSource(shader, source);
     gl.compileShader(shader);
     if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
@@ -16,6 +18,7 @@ const createShader = (gl, type, source) => {
 
 const createProgram = (gl, vertexShader, fragmentShader) => {
     const program = gl.createProgram();
+    if (!program) return null;
     gl.attachShader(program, vertexShader);
     gl.attachShader(program, fragmentShader);
     gl.linkProgram(program);
@@ -386,7 +389,7 @@ const GCodeVisualizer = React.forwardRef(({ gcodeLines, currentLine, hoveredLine
                 color = seg.type === 'G0' ? colorRapid : colorCut;
             }
 
-            if (seg.type === 'G2' || seg.type === 'G3') {
+            if ((seg.type === 'G2' || seg.type === 'G3') && seg.center) {
                 const arcPoints = 20;
                 const radius = Math.hypot(seg.start.x - seg.center.x, seg.start.y - seg.center.y);
                 let startAngle = Math.atan2(seg.start.y - seg.center.y, seg.start.x - seg.center.x);
@@ -482,13 +485,16 @@ const GCodeVisualizer = React.forwardRef(({ gcodeLines, currentLine, hoveredLine
     // The main setup and continuous render loop effect. Runs ONLY ONCE.
     useEffect(() => {
         const canvas = canvasRef.current;
+        if (!canvas) return;
         const gl = canvas.getContext('webgl', { antialias: true });
         if (!gl) { console.error("WebGL not supported"); return; }
         glRef.current = gl;
 
         const vs = createShader(gl, gl.VERTEX_SHADER, vertexShaderSource);
         const fs = createShader(gl, gl.FRAGMENT_SHADER, fragmentShaderSource);
+        if (!vs || !fs) return;
         const program = createProgram(gl, vs, fs);
+        if (!program) return;
 
         programInfoRef.current = {
             program: program,
@@ -515,10 +521,12 @@ const GCodeVisualizer = React.forwardRef(({ gcodeLines, currentLine, hoveredLine
 
             if (!gl || !programInfo) return;
             
-            // Handle canvas resizing within the loop
-            if (canvas.width !== canvas.clientWidth || canvas.height !== canvas.clientHeight) {
-                canvas.width = canvas.clientWidth;
-                canvas.height = canvas.clientHeight;
+            const canvasElement = gl.canvas;
+            if (canvasElement instanceof HTMLCanvasElement) {
+                if (canvasElement.width !== canvasElement.clientWidth || canvasElement.height !== canvasElement.clientHeight) {
+                    canvasElement.width = canvasElement.clientWidth;
+                    canvasElement.height = canvasElement.clientHeight;
+                }
             }
 
             gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
@@ -529,7 +537,8 @@ const GCodeVisualizer = React.forwardRef(({ gcodeLines, currentLine, hoveredLine
             if (!buffers || !camera) return;
 
             const projectionMatrix = mat4.create();
-            mat4.perspective(projectionMatrix, 45 * Math.PI / 180, gl.canvas.clientWidth / gl.canvas.clientHeight, 0.1, 10000);
+            const aspect = gl.canvas.width / gl.canvas.height;
+            mat4.perspective(projectionMatrix, 45 * Math.PI / 180, aspect, 0.1, 10000);
 
             const viewMatrix = mat4.create();
             
@@ -621,13 +630,14 @@ const GCodeVisualizer = React.forwardRef(({ gcodeLines, currentLine, hoveredLine
     // --- Mouse Controls ---
     useEffect(() => {
         const canvas = canvasRef.current;
-        const handleMouseDown = e => {
+        if (!canvas) return;
+        const handleMouseDown = (e) => {
             mouseState.current = { isDown: true, lastPos: { x: e.clientX, y: e.clientY }, button: e.button };
         };
         const handleMouseUp = () => {
             mouseState.current.isDown = false;
         };
-        const handleMouseMove = e => {
+        const handleMouseMove = (e) => {
             if (!mouseState.current.isDown) return;
             const dx = e.clientX - mouseState.current.lastPos.x;
             const dy = e.clientY - mouseState.current.lastPos.y;
@@ -669,12 +679,12 @@ const GCodeVisualizer = React.forwardRef(({ gcodeLines, currentLine, hoveredLine
 
             mouseState.current.lastPos = { x: e.clientX, y: e.clientY };
         };
-        const handleWheel = e => {
+        const handleWheel = (e) => {
             e.preventDefault();
             const scale = e.deltaY < 0 ? 0.8 : 1.2;
             setCamera(c => ({ ...c, distance: Math.max(1, c.distance * scale) }));
         };
-        const handleContextMenu = e => e.preventDefault();
+        const handleContextMenu = (e) => e.preventDefault();
         
         canvas.addEventListener('mousedown', handleMouseDown);
         canvas.addEventListener('mouseup', handleMouseUp);
@@ -693,9 +703,10 @@ const GCodeVisualizer = React.forwardRef(({ gcodeLines, currentLine, hoveredLine
         };
     }, []);
 
-
-    return React.createElement('div', { className: "w-full h-full bg-background rounded cursor-grab active:cursor-grabbing" },
-        React.createElement('canvas', { ref: canvasRef, className: "w-full h-full" })
+    return (
+        React.createElement('div', { className: "w-full h-full bg-background rounded cursor-grab active:cursor-grabbing" },
+            React.createElement('canvas', { ref: canvasRef, className: "w-full h-full" })
+        )
     );
 });
 

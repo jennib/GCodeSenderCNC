@@ -1,8 +1,7 @@
 
-
 import React, { useRef, useState, useEffect } from 'react';
 import { JobStatus } from '../types.js';
-import { Play, Pause, Square, Upload, FileText, Code, Eye, Maximize, Pencil, CheckCircle, X, Save, Plus, Minus, RefreshCw, Percent, ZoomIn, ZoomOut, Clock, BookOpen, Crosshair } from './Icons.js';
+import { Play, Pause, Square, Upload, FileText, Code, Eye, Maximize, Pencil, CheckCircle, X, Save, Plus, Minus, RefreshCw, Percent, ZoomIn, ZoomOut, Clock, BookOpen, Crosshair, Zap } from './Icons.js';
 import GCodeVisualizer from './GCodeVisualizer.js';
 import GCodeLine from './GCodeLine.js';
 
@@ -43,7 +42,8 @@ const GCodePanel = ({
     onFileLoad, fileName, gcodeLines, onJobControl, 
     jobStatus, progress, isConnected, unit, onGCodeChange, 
     machineState, onFeedOverride, timeEstimate, 
-    machineSettings, toolLibrary, selectedToolId, onToolSelect 
+    machineSettings, toolLibrary, selectedToolId, onToolSelect,
+    onOpenGenerator, onClearFile 
 }) => {
     const fileInputRef = useRef(null);
     const visualizerRef = useRef(null);
@@ -254,25 +254,27 @@ const GCodePanel = ({
                 ),
                 view === 'code' && gcodeLines.length > 0 && (isEditing ?
                     h('div', { className: 'flex items-center gap-2' },
-                        h('button', { onClick: handleSave, className: "flex items-center gap-2 px-3 py-1 bg-accent-green text-white font-semibold rounded-md hover:bg-green-600", title: "Save Changes" }, h(CheckCircle, {className: "w-4 h-4"}), "Save"),
-                        h('button', { onClick: handleSaveToDisk, className: "flex items-center gap-2 px-3 py-1 bg-primary text-white font-semibold rounded-md hover:bg-primary-focus", title: "Save to Disk" }, h(Save, {className: "w-4 h-4"}), "Save to Disk"),
-                        h('button', { onClick: handleCancel, className: "flex items-center gap-2 px-3 py-1 bg-secondary text-white font-semibold rounded-md hover:bg-secondary-focus", title: "Cancel" }, h(X, {className: "w-4 h-4"}), "Cancel")
+                        h('button', { onClick: handleSave, className: "flex items-center gap-2 px-3 py-1 bg-accent-green text-white font-semibold rounded-md hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-500 transition-colors", title: "Save Changes to Local Copy" }, h(CheckCircle, {className: "w-4 h-4"}), "Save"),
+                        h('button', { onClick: handleSaveToDisk, className: "flex items-center gap-2 px-3 py-1 bg-primary text-white font-semibold rounded-md hover:bg-primary-focus focus:outline-none focus:ring-2 focus:ring-primary transition-colors", title: "Save to Disk" }, h(Save, {className: "w-4 h-4"}), "Save to Disk"),
+                        h('button', { onClick: handleCancel, className: "flex items-center gap-2 px-3 py-1 bg-secondary text-white font-semibold rounded-md hover:bg-secondary-focus focus:outline-none focus:ring-2 focus:ring-secondary transition-colors", title: "Cancel" }, h(X, {className: "w-4 h-4"}), "Cancel")
                     ) :
-                    h('button', { onClick: () => setIsEditing(true), className: "flex items-center gap-2 px-3 py-1 bg-secondary text-white font-semibold rounded-md hover:bg-secondary-focus", title: "Edit G-Code" }, h(Pencil, {className: "w-4 h-4"}), "Edit")
+                    h('button', { onClick: () => setIsEditing(true), className: "flex items-center gap-2 px-3 py-1 bg-secondary text-white font-semibold rounded-md hover:bg-secondary-focus focus:outline-none focus:ring-2 focus:ring-secondary transition-colors", title: "Edit G-Code" }, h(Pencil, {className: "w-4 h-4"}), "Edit")
                 )
             ),
             h('div', { className: "flex items-center gap-2" },
+                h('button', { onClick: onOpenGenerator, disabled: isJobActive, className: "flex items-center gap-2 px-4 py-2 bg-primary text-white font-semibold rounded-md hover:bg-primary-focus focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-surface transition-colors disabled:opacity-50 disabled:cursor-not-allowed", title: "Generate G-Code" }, h(Zap, { className: "w-5 h-5" }), "Generate"),
                 h('input', { type: "file", ref: fileInputRef, onChange: handleFileChange, className: "hidden", accept: ".gcode,.nc,.txt" }),
-                h('button', { onClick: handleUploadClick, disabled: isJobActive, className: "flex items-center gap-2 px-4 py-2 bg-secondary text-white font-semibold rounded-md hover:bg-secondary-focus disabled:opacity-50" }, h(Upload, { className: "w-5 h-5" }), "Load File")
+                h('button', { onClick: handleUploadClick, disabled: isJobActive, className: "flex items-center gap-2 px-4 py-2 bg-secondary text-white font-semibold rounded-md hover:bg-secondary-focus focus:outline-none focus:ring-2 focus:ring-secondary focus:ring-offset-2 focus:ring-offset-surface transition-colors disabled:opacity-50 disabled:cursor-not-allowed" }, h(Upload, { className: "w-5 h-5" }), "Load File"),
+                h('button', { onClick: onClearFile, disabled: isJobActive || gcodeLines.length === 0, className: "p-2 bg-secondary text-text-primary rounded-md hover:bg-secondary-focus focus:outline-none focus:ring-2 focus:ring-secondary focus:ring-offset-2 focus:ring-offset-surface transition-colors disabled:opacity-50 disabled:cursor-not-allowed", title: "Clear G-Code" }, h(X, { className: "w-5 h-5" }))
             )
         ),
         fileName && h('div', { className: 'grid grid-cols-2 gap-4 mb-2' },
             h('p', { className: "text-sm text-text-secondary truncate", title: fileName }, h('strong', null, 'File: '), fileName),
             h('div', { className: 'flex items-center gap-2' },
                 h(BookOpen, { className: 'w-5 h-5 text-text-secondary flex-shrink-0' }),
-                h('select', { value: selectedToolId || '', onChange: e => onToolSelect(e.target.value ? parseInt(e.target.value, 10) : null), disabled: isJobActive || !toolLibrary || toolLibrary.length === 0, className: 'w-full bg-background border border-secondary rounded-md py-1 px-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50' },
-                    h('option', { value: '' }, toolLibrary && toolLibrary.length > 0 ? 'Select a tool...' : 'No tools in library'),
-                    toolLibrary && toolLibrary.map(tool => h('option', { key: tool.id, value: tool.id }, tool.name))
+                h('select', { value: selectedToolId || '', onChange: e => onToolSelect(e.target.value ? parseInt(e.target.value, 10) : null), disabled: isJobActive || toolLibrary.length === 0, className: 'w-full bg-background border border-secondary rounded-md py-1 px-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50' },
+                    h('option', { value: '' }, toolLibrary.length > 0 ? 'Select a tool...' : 'No tools in library'),
+                    toolLibrary.map(tool => h('option', { key: tool.id, value: tool.id }, tool.name))
                 )
             )
         ),

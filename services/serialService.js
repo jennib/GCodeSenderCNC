@@ -16,6 +16,7 @@ export class SerialManager {
     machineSettings = null;
     statusInterval = null;
     
+    // State is now managed within the service to handle partial updates correctly.
     spindleDirection = 'off';
     lastStatus = {
         status: 'Idle',
@@ -46,6 +47,7 @@ export class SerialManager {
             this.port = await navigator.serial.requestPort();
             await this.port.open({ baudRate });
             
+            // Reset state for new connection
             this.lastStatus = {
                 status: 'Idle',
                 code: null,
@@ -123,7 +125,7 @@ export class SerialManager {
             const rawStatus = statusPart.split(':')[0].toLowerCase();
             let status;
             
-            if (rawStatus.startsWith('home')) {
+            if (rawStatus.startsWith('home')) { // Catches 'home', 'homing', 'homing cycle', etc.
                 status = 'Home';
             } else if (rawStatus === 'idle') {
                 status = 'Idle';
@@ -142,6 +144,7 @@ export class SerialManager {
             } else if (rawStatus === 'sleep') {
                 status = 'Sleep';
             } else {
+                // Try to capitalize unknown states as a fallback
                 status = rawStatus.charAt(0).toUpperCase() + rawStatus.slice(1);
             }
 
@@ -153,6 +156,7 @@ export class SerialManager {
                 }
             }
             
+            // Always include status and code to ensure state is fully updated.
             parsed.status = status;
             parsed.code = code;
 
@@ -192,6 +196,7 @@ export class SerialManager {
                 }
             }
 
+            // If WPos wasn't in the status string, calculate it from MPos and WCO
             if (!parsed.wpos && parsed.mpos && (parsed.wco || lastStatus.wco)) {
                 const wcoToUse = parsed.wco || lastStatus.wco;
                 parsed.wpos = {
@@ -204,7 +209,7 @@ export class SerialManager {
             return parsed;
         } catch (e) {
             console.error("Failed to parse GRBL status:", statusStr, e);
-            return null;
+            return null; // Failed to parse
         }
     }
 
@@ -219,14 +224,17 @@ export class SerialManager {
                 if (value) {
                     buffer += value;
                     const lines = buffer.split('\n');
-                    buffer = lines.pop(); 
+                    buffer = lines.pop(); // Keep the last, possibly incomplete, line
 
                     lines.forEach(line => {
                         const trimmedValue = line.trim();
                         if (trimmedValue.startsWith('<') && trimmedValue.endsWith('>')) {
-                            const previousStatus = this.lastStatus.status;
+                            const previousStatus = this.lastStatus.status; // Capture state before processing new status
                             const statusUpdate = this.parseGrblStatus(trimmedValue, this.lastStatus);
                             if (statusUpdate) {
+                                // A more robust state update. Instead of merging with spread syntax,
+                                // we explicitly build the new state to prevent stale properties
+                                // (like an alarm 'code') from persisting incorrectly.
                                 this.lastStatus = {
                                     status: statusUpdate.status,
                                     code: statusUpdate.code,
@@ -240,19 +248,25 @@ export class SerialManager {
                                     }
                                 };
                         
+                                // This logic must run *after* the new state is built.
                                 if (this.lastStatus.spindle.speed === 0) {
                                     this.spindleDirection = 'off';
                                 }
                                 this.lastStatus.spindle.state = this.spindleDirection;
                         
+                                // Send a deep clone to React to ensure re-render
                                 this.callbacks.onStatus(JSON.parse(JSON.stringify(this.lastStatus)), trimmedValue);
 
+                                // If a jog just completed, request another status update to ensure we have the final position.
                                 if (previousStatus === 'Jog' && this.lastStatus.status === 'Idle') {
                                     this.requestStatusUpdate();
                                 }
                             }
                         } else if (trimmedValue) {
                             if (trimmedValue.startsWith('error:')) {
+                                // If a job is running (i.e., a promise is pending for an 'ok'),
+                                // reject the promise and let the job handler log the error contextually.
+                                // Otherwise, it's a manual command error, so report it directly.
                                 if (this.linePromiseReject) {
                                     this.linePromiseReject(new Error(trimmedValue));
                                     this.linePromiseResolve = null;
@@ -281,6 +295,7 @@ export class SerialManager {
                 }
                 const errorMessage = error instanceof Error ? error.message : "Unknown error";
                  if (this.isDisconnecting) {
+                    // Error is expected during a manual disconnect.
                 } else if (errorMessage.includes("device has been lost") || errorMessage.includes("The port is closed.")) {
                     this.callbacks.onError("Device disconnected unexpectedly. Please reconnect.");
                     this.disconnect();
@@ -295,6 +310,7 @@ export class SerialManager {
     async sendLineAndWaitForOk(line, log = true) {
         return new Promise((resolve, reject) => {
             if (this.linePromiseResolve) {
+                // This shouldn't happen with proper logic, but as a safeguard...
                 return reject(new Error("Cannot send new line while another is awaiting 'ok'."));
             }
             this.linePromiseResolve = resolve;
@@ -329,6 +345,7 @@ export class SerialManager {
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : "Unknown error";
             if (this.isDisconnecting) {
+                // Expected error during disconnect.
             } else if (errorMessage.includes("device has been lost") || errorMessage.includes("The port is closed.")) {
                 this.callbacks.onError("Device disconnected unexpectedly. Please reconnect.");
                 this.disconnect();
@@ -345,9 +362,11 @@ export class SerialManager {
         }
         try {
             await this.writer.write(command);
+            // Real-time commands are not logged to the console to avoid clutter.
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : "Unknown error";
             if (this.isDisconnecting) {
+                // Expected error during disconnect.
             } else if (errorMessage.includes("device has been lost") || errorMessage.includes("The port is closed.")) {
                 this.callbacks.onError("Device disconnected unexpectedly. Please reconnect.");
                 this.disconnect();
@@ -360,6 +379,7 @@ export class SerialManager {
 
     requestStatusUpdate() {
         if (this.writer) {
+            // This write is silent and doesn't need to be awaited
             this.writer.write('?').catch(() => {});
         }
     }
@@ -388,6 +408,7 @@ export class SerialManager {
         }
         this.callbacks.onLog({ type: 'status', message: logMessage });
         
+        // Fire initial progress update
         this.callbacks.onProgress({
             percentage: (this.currentLineIndex / this.totalLines) * 100,
             linesSent: this.currentLineIndex,
@@ -428,6 +449,7 @@ export class SerialManager {
             return;
         }
         
+        // --- Tool Change Logic ---
         if (upperLine.includes('M6') && this.machineSettings) {
             const tMatch = upperLine.match(/T(\d+)/);
             if (tMatch) {
@@ -444,7 +466,7 @@ export class SerialManager {
                         }
                     } else { // Manual Change
                         this.isPaused = true;
-                        this.sendRealtimeCommand('!');
+                        this.sendRealtimeCommand('!'); // Feed Hold
                         
                         this.callbacks.onLog({ type: 'status', message: `Executing pre-pause script for manual change to T${toolNumber}...` });
                         const script = this.machineSettings.scripts.manualToolChange.replace(/{T}/g, String(toolNumber));
@@ -455,11 +477,13 @@ export class SerialManager {
 
                         await this.callbacks.onManualToolChangeRequired(toolNumber);
                         
+                        // User has confirmed in the UI
                         this.isPaused = false;
                         this.callbacks.onLog({ type: 'status', message: 'Resuming job after tool change.' });
-                        this.sendRealtimeCommand('~');
+                        this.sendRealtimeCommand('~'); // Cycle Resume
                     }
                     
+                    // On success, skip the M6 line and continue the job
                     this.currentLineIndex++;
                     this.callbacks.onProgress({
                         percentage: (this.currentLineIndex / this.totalLines) * 100,
@@ -467,7 +491,7 @@ export class SerialManager {
                         totalLines: this.totalLines
                     });
                     setTimeout(() => this.sendNextLine(), 0);
-                    return;
+                    return; // IMPORTANT: exit this instance of the function
                 } catch (error) {
                      const errorMessage = error instanceof Error ? error.message : "Unknown error";
                     if (errorMessage.includes("Job stopped by user")) {
@@ -481,6 +505,7 @@ export class SerialManager {
                 }
             }
         }
+        // --- End Tool Change Logic ---
 
         try {
             await this.sendLineAndWaitForOk(line);
@@ -493,6 +518,7 @@ export class SerialManager {
                 totalLines: this.totalLines
             });
 
+            // Schedule the next line to be sent on the next frame to avoid deep call stacks.
             setTimeout(() => this.sendNextLine(), 0); 
         } catch (error) {
             this.isJobRunning = false;
@@ -511,7 +537,7 @@ export class SerialManager {
     pause() {
         if (this.isJobRunning && !this.isPaused) {
             this.isPaused = true;
-            this.sendRealtimeCommand('!');
+            this.sendRealtimeCommand('!'); // Feed Hold
             this.callbacks.onLog({ type: 'status', message: 'Job paused.' });
         }
     }
@@ -519,7 +545,7 @@ export class SerialManager {
     resume() {
         if (this.isJobRunning && this.isPaused) {
             this.isPaused = false;
-            this.sendRealtimeCommand('~');
+            this.sendRealtimeCommand('~'); // Cycle Resume
             this.callbacks.onLog({ type: 'status', message: 'Job resumed.' });
             this.sendNextLine();
         }
@@ -528,7 +554,7 @@ export class SerialManager {
     stopJob() {
         if (this.isJobRunning) {
             this.isStopped = true;
-            this.sendRealtimeCommand('\x18');
+            this.sendRealtimeCommand('\x18'); // Soft-reset
             if (this.linePromiseReject) {
                 this.linePromiseReject(new Error('Job stopped by user.'));
                 this.linePromiseResolve = null;
@@ -545,6 +571,6 @@ export class SerialManager {
             this.linePromiseResolve = null;
             this.linePromiseReject = null;
         }
-        this.sendRealtimeCommand('\x18');
+        this.sendRealtimeCommand('\x18'); // Soft Reset
     }
 }
