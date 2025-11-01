@@ -25,6 +25,8 @@ import Footer from './components/Footer.js';
 import ContactModal from './components/ContactModal.js';
 import UnsupportedBrowser from './components/UnsupportedBrowser.js';
 import ManualToolChangeModal from './components/ManualToolChangeModal.js';
+import GCodeGeneratorModal from './components/GCodeGeneratorModal.js';
+import WelcomeModal from './components/WelcomeModal.js';
 
 const h = React.createElement;
 
@@ -157,22 +159,20 @@ const App = () => {
     const [preflightWarnings, setPreflightWarnings] = useState([]);
     const [isFullscreen, setIsFullscreen] = useState(false);
 
-    // Macro Editing State
+    // Modal States
     const [isMacroEditorOpen, setIsMacroEditorOpen] = useState(false);
     const [editingMacroIndex, setEditingMacroIndex] = useState(null);
     const [isMacroEditMode, setIsMacroEditMode] = useState(false);
-
-    // Advanced Features State
     const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
     const [isToolLibraryModalOpen, setIsToolLibraryModalOpen] = useState(false);
     const [isContactModalOpen, setIsContactModalOpen] = useState(false);
+    const [isGeneratorModalOpen, setIsGeneratorModalOpen] = useState(false);
+    const [isWelcomeModalOpen, setIsWelcomeModalOpen] = useState(false);
+    const [isToolChangeModalOpen, setIsToolChangeModalOpen] = useState(false);
+
+    const [toolChangeInfo, setToolChangeInfo] = useState({ toolNumber: null });
     const [selectedToolId, setSelectedToolId] = useState(null);
     const [isVerbose, setIsVerbose] = useState(false);
-
-    // Manual Tool Change State
-    const [isToolChangeModalOpen, setIsToolChangeModalOpen] = useState(false);
-    const [toolChangeInfo, setToolChangeInfo] = useState({ toolNumber: null });
-
 
     // Persisted State
     const [jogStep, setJogStep] = useState(() => {
@@ -211,7 +211,6 @@ const App = () => {
             if (parsed.probe && typeof parsed.probe.feedRate === 'undefined') {
                 parsed.probe.feedRate = DEFAULT_SETTINGS.probe.feedRate;
             }
-            // Backwards compatibility for new tool change scripts
             if (!parsed.scripts) {
                 parsed.scripts = { ...DEFAULT_SETTINGS.scripts };
             } else {
@@ -242,6 +241,18 @@ const App = () => {
     const audioContextRef = useRef(null);
     const audioBufferRef = useRef(null);
     const toolChangePromiseRef = useRef(null);
+
+    useEffect(() => {
+        const hasSeenWelcome = localStorage.getItem('cnc-app-seen-welcome');
+        if (!hasSeenWelcome) {
+            setIsWelcomeModalOpen(true);
+        }
+    }, []);
+
+    const handleCloseWelcome = () => {
+        localStorage.setItem('cnc-app-seen-welcome', 'true');
+        setIsWelcomeModalOpen(false);
+    };
     
     useEffect(() => {
         jobStatusRef.current = jobStatus;
@@ -320,15 +331,11 @@ const App = () => {
 
         fetch('/completion-sound.mp3')
             .then(response => {
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
                 return response.arrayBuffer();
             })
             .then(arrayBuffer => context.decodeAudioData(arrayBuffer))
-            .then(decodedData => {
-                audioBufferRef.current = decodedData;
-            })
+            .then(decodedData => { audioBufferRef.current = decodedData; })
             .catch(error => {
                 console.error("Failed to load or decode completion sound:", error);
                 addNotification('Could not load notification sound.', 'error');
@@ -369,7 +376,6 @@ const App = () => {
     const playCompletionSound = useCallback(() => {
         const audioContext = audioContextRef.current;
         const audioBuffer = audioBufferRef.current;
-
         if (audioBuffer && audioContext && audioContext.state === 'running') {
             const source = audioContext.createBufferSource();
             source.buffer = audioBuffer;
@@ -396,10 +402,8 @@ const App = () => {
 
         setConsoleLogs(prev => {
             const trimmedMessage = processedLog.message.trim().toLowerCase();
-
             if (!isVerbose && processedLog.type === 'received' && trimmedMessage === 'ok') {
                 const lastLog = prev.length > 0 ? prev[prev.length - 1] : null;
-
                 if (lastLog && lastLog.type === 'received' && /^ok\.*$/.test(lastLog.message)) {
                     if (lastLog.message.length < 60) {
                         const newLogs = [...prev];
@@ -408,7 +412,6 @@ const App = () => {
                     } 
                 }
             }
-            
             return [...prev, processedLog].slice(-200);
         });
     }, [isVerbose]);
@@ -554,6 +557,20 @@ const App = () => {
         addLog({ type: 'status', message: `Loaded ${name} (${lines.length} lines).` });
     };
 
+    const handleLoadGeneratedGCode = (gcode, name) => {
+        handleFileLoad(gcode, name);
+        setIsGeneratorModalOpen(false);
+    };
+
+    const handleClearFile = () => {
+        setGcodeLines([]);
+        setFileName('');
+        setProgress(0);
+        setJobStatus(JobStatus.Idle);
+        setTimeEstimate({ totalSeconds: 0, cumulativeSeconds: [] });
+        addLog({ type: 'status', message: 'G-code cleared.' });
+    };
+
     const handleGCodeChange = (content) => {
         const lines = content.split('\n')
             .map(l => l.replace(/\(.*\)/g, ''))
@@ -599,22 +616,10 @@ const App = () => {
                 }
                 break;
             case 'pause':
-                setJobStatus(currentStatus => {
-                    if (currentStatus === JobStatus.Running) {
-                        manager.pause();
-                        return JobStatus.Paused;
-                    }
-                    return currentStatus;
-                });
+                setJobStatus(currentStatus => (currentStatus === JobStatus.Running) ? (manager.pause(), JobStatus.Paused) : currentStatus);
                 break;
             case 'resume':
-                setJobStatus(currentStatus => {
-                    if (currentStatus === JobStatus.Paused) {
-                        manager.resume();
-                        return JobStatus.Running;
-                    }
-                    return currentStatus;
-                });
+                setJobStatus(currentStatus => (currentStatus === JobStatus.Paused) ? (manager.resume(), JobStatus.Running) : currentStatus);
                 break;
             case 'stop':
                 setJobStatus(currentStatus => {
@@ -635,34 +640,21 @@ const App = () => {
 
     const handleJog = (axis, direction, step) => {
         if (!serialManagerRef.current) return;
-
-        if (axis === 'Z' && unit === 'mm' && step > 10) {
-            addLog({ type: 'error', message: 'Z-axis jog step cannot exceed 10mm.' });
-            return;
-        }
-        if (axis === 'Z' && unit === 'in' && step > 1) {
-            addLog({ type: 'error', message: 'Z-axis jog step cannot exceed 1in.' });
-            return;
-        }
-
+        if (axis === 'Z' && unit === 'mm' && step > 10) { addLog({ type: 'error', message: 'Z-axis jog step cannot exceed 10mm.' }); return; }
+        if (axis === 'Z' && unit === 'in' && step > 1) { addLog({ type: 'error', message: 'Z-axis jog step cannot exceed 1in.' }); return; }
         const feedRate = 1000;
         const command = `$J=G91 ${axis}${step * direction} F${feedRate}`;
-        
         setIsJogging(true); 
         serialManagerRef.current.sendLineAndWaitForOk(command).catch((err) => {
             const errorMessage = err instanceof Error ? err.message : "An error occurred during jog.";
-            if (!errorMessage.includes('Cannot send new line')) {
-                addLog({ type: 'error', message: `Jog failed: ${errorMessage}` });
-            }
+            if (!errorMessage.includes('Cannot send new line')) { addLog({ type: 'error', message: `Jog failed: ${errorMessage}` }); }
             setIsJogging(false);
         });
     };
 
     const flashControl = useCallback((buttonId) => {
         setFlashingButton(buttonId);
-        setTimeout(() => {
-            setFlashingButton(null);
-        }, 200);
+        setTimeout(() => setFlashingButton(null), 200);
     }, []);
     
     const handleEmergencyStop = useCallback(() => {
@@ -675,75 +667,36 @@ const App = () => {
     const handleSpindleCommand = useCallback((command, speed) => {
         const manager = serialManagerRef.current;
         if (!manager || !isConnected) return;
-
-        let gcode = '';
-        switch (command) {
-            case 'cw':
-                gcode = `M3 S${speed}`;
-                break;
-            case 'ccw':
-                gcode = `M4 S${speed}`;
-                break;
-            case 'off':
-                gcode = 'M5';
-                break;
-            default:
-                return;
-        }
-
+        let gcode = command === 'cw' ? `M3 S${speed}` : command === 'ccw' ? `M4 S${speed}` : 'M5';
         manager.sendLine(gcode);
     }, [isConnected]);
     
     const handleFeedOverride = useCallback((command) => {
         const manager = serialManagerRef.current;
         if (!manager) return;
-
-        const commandMap = {
-            'reset': '\x90', // Set to 100%
-            'inc10': '\x91', // Increase 10%
-            'dec10': '\x92', // Decrease 10%
-            'inc1': '\x93',  // Increase 1%
-            'dec1': '\x94',  // Decrease 1%
-        };
-
-        if (commandMap[command]) {
-            manager.sendRealtimeCommand(commandMap[command]);
-        }
+        const commandMap = { 'reset': '\x90', 'inc10': '\x91', 'dec10': '\x92', 'inc1': '\x93', 'dec1': '\x94' };
+        if (commandMap[command]) manager.sendRealtimeCommand(commandMap[command]);
     }, []);
 
     const isAlarm = machineState?.status === 'Alarm';
 
     const handleUnitChange = useCallback((newUnit) => {
         if (newUnit === unit || !serialManagerRef.current) return;
-
         const command = newUnit === 'mm' ? 'G21' : 'G20';
         serialManagerRef.current.sendLine(command);
         setUnit(newUnit);
         addLog({ type: 'status', message: `Units set to ${newUnit === 'mm' ? 'millimeters' : 'inches'}.` });
-        
         setJogStep(newUnit === 'mm' ? 1 : 0.1);
-
     }, [unit, addLog]);
 
     const handleProbe = useCallback(async (axes) => {
         const manager = serialManagerRef.current;
-        if (!manager || !isConnected) {
-            addLog({ type: 'error', message: 'Cannot probe while disconnected.' });
-            return;
-        }
-        
-        const offsets = {
-            x: machineSettings.probe.xOffset,
-            y: machineSettings.probe.yOffset,
-            z: machineSettings.probe.zOffset,
-        };
-    
+        if (!manager || !isConnected) { addLog({ type: 'error', message: 'Cannot probe while disconnected.' }); return; }
+        const offsets = { x: machineSettings.probe.xOffset, y: machineSettings.probe.yOffset, z: machineSettings.probe.zOffset };
         const probeTravel = unit === 'mm' ? -25 : -1.0;
         const probeFeed = machineSettings.probe.feedRate || 25;
         const retractDist = unit === 'mm' ? 5 : 0.2;
-    
         addLog({ type: 'status', message: `Starting ${axes.toUpperCase()}-Probe cycle...` });
-    
         try {
             const probeAxis = async (axis, offset, travelDir = -1) => {
                 const travel = probeTravel * travelDir;
@@ -755,94 +708,41 @@ const App = () => {
                 await manager.sendLineAndWaitForOk(`G0 ${axis}${retractDist * -travelDir}`);
                 await manager.sendLineAndWaitForOk('G90');
             };
-
-            if (axes.includes('X') && offsets.x !== undefined) {
-                await probeAxis('X', offsets.x);
-            }
-            if (axes.includes('Y') && offsets.y !== undefined) {
-                await probeAxis('Y', offsets.y);
-            }
-            if (axes.includes('Z') && offsets.z !== undefined) {
-                await probeAxis('Z', offsets.z);
-            }
-    
+            if (axes.includes('X') && offsets.x !== undefined) await probeAxis('X', offsets.x);
+            if (axes.includes('Y') && offsets.y !== undefined) await probeAxis('Y', offsets.y);
+            if (axes.includes('Z') && offsets.z !== undefined) await probeAxis('Z', offsets.z);
             addLog({ type: 'status', message: 'Probe cycle complete.' });
             addNotification(`${axes.toUpperCase()}-Probe cycle complete.`, 'success');
-    
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : "Unknown error";
             addLog({ type: 'error', message: `Probe cycle failed: ${errorMessage}` });
             setError(`Probe cycle failed: ${errorMessage}`);
             manager.sendLine('\x18', false);
         }
-    
     }, [isConnected, addLog, addNotification, unit, setError, machineSettings.probe]);
 
     useEffect(() => {
         const handleKeyDown = (e) => {
-            if (!isConnected) return;
-            if (document.activeElement && ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName)) {
-                return;
-            }
-
+            if (!isConnected || (document.activeElement && ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName))) return;
             let handled = true;
             switch (e.key.toLowerCase()) {
-                case 'arrowup':
-                    handleJog('Y', 1, jogStep);
-                    flashControl('jog-y-plus');
-                    break;
-                case 'arrowdown':
-                    handleJog('Y', -1, jogStep);
-                    flashControl('jog-y-minus');
-                    break;
-                case 'arrowleft':
-                    handleJog('X', -1, jogStep);
-                    flashControl('jog-x-minus');
-                    break;
-                case 'arrowright':
-                    handleJog('X', 1, jogStep);
-                    flashControl('jog-x-plus');
-                    break;
-                case 'pageup':
-                    handleJog('Z', 1, jogStep);
-                    flashControl('jog-z-plus');
-                    break;
-                case 'pagedown':
-                    handleJog('Z', -1, jogStep);
-                    flashControl('jog-z-minus');
-                    break;
-                case 'escape':
-                    handleEmergencyStop();
-                    flashControl('estop');
-                    break;
-
-                case 'x':
-                    if (isAlarm) {
-                        handleManualCommand('$X');
-                        flashControl('unlock-button');
-                    } else {
-                        handled = false;
-                    }
-                    break;
+                case 'arrowup': handleJog('Y', 1, jogStep); flashControl('jog-y-plus'); break;
+                case 'arrowdown': handleJog('Y', -1, jogStep); flashControl('jog-y-minus'); break;
+                case 'arrowleft': handleJog('X', -1, jogStep); flashControl('jog-x-minus'); break;
+                case 'arrowright': handleJog('X', 1, jogStep); flashControl('jog-x-plus'); break;
+                case 'pageup': handleJog('Z', 1, jogStep); flashControl('jog-z-plus'); break;
+                case 'pagedown': handleJog('Z', -1, jogStep); flashControl('jog-z-minus'); break;
+                case 'escape': handleEmergencyStop(); flashControl('estop'); break;
+                case 'x': if (isAlarm) { handleManualCommand('$X'); flashControl('unlock-button'); } else { handled = false; } break;
                 case '1': case '2': case '3': case '4': case '5':
                     const stepSizes = unit === 'mm' ? [0.01, 0.1, 1, 10, 50] : [0.001, 0.01, 0.1, 1, 2];
-                    const stepIndex = parseInt(e.key) - 1;
-                    if (stepIndex < stepSizes.length) {
-                        const newStep = stepSizes[stepIndex];
-                        setJogStep(newStep);
-                        flashControl(`step-${newStep}`);
-                    }
+                    const newStep = stepSizes[parseInt(e.key) - 1];
+                    if (newStep) { setJogStep(newStep); flashControl(`step-${newStep}`); }
                     break;
-                default:
-                    handled = false;
-                    break;
+                default: handled = false; break;
             }
-
-            if (handled) {
-                e.preventDefault();
-            }
+            if (handled) e.preventDefault();
         };
-
         document.addEventListener('keydown', handleKeyDown);
         return () => document.removeEventListener('keydown', handleKeyDown);
     }, [isConnected, jogStep, handleJog, flashControl, handleEmergencyStop, isAlarm, handleManualCommand, unit]);
@@ -850,45 +750,17 @@ const App = () => {
     const handleHome = useCallback((axes) => {
         const manager = serialManagerRef.current;
         if (!manager) return;
-
-        setMachineState(prev => {
-            const newPrev = prev || {
-                status: 'Idle', code: null, wpos: { x: 0, y: 0, z: 0 }, mpos: { x: 0, y: 0, z: 0 },
-                spindle: { state: 'off', speed: 0 }, ov: [100, 100, 100]
-            };
-            return { ...newPrev, status: 'Home' };
-        });
-
+        setMachineState(prev => ({ ...(prev || { status: 'Idle', wpos:{}, mpos:{}, spindle:{}, ov:[] }), status: 'Home' }));
         addLog({ type: 'status', message: `Starting homing cycle for: ${axes.toUpperCase()}...` });
-
-        const commandMap = {
-            all: ['$H'],
-            x: ['$HX'],
-            y: ['$HY'],
-            z: ['$HZ'],
-            xy: ['$HXY']
-        };
-
-        const commands = commandMap[axes];
-        if (!commands) {
-            addLog({ type: 'error', message: `Unknown homing command: ${axes}` });
-            return;
-        }
-
-        for (const cmd of commands) {
-            manager.sendLine(cmd);
-        }
+        const commands = { all: ['$H'], x: ['$HX'], y: ['$HY'], z: ['$HZ'], xy: ['$HXY'] }[axes];
+        if (commands) commands.forEach(cmd => manager.sendLine(cmd));
     }, [addLog]);
 
     const handleSetZero = useCallback((axes) => {
         let command = 'G10 L20 P1';
-        switch (axes) {
-            case 'all': command += ' X0 Y0 Z0'; break;
-            case 'x':   command += ' X0'; break;
-            case 'y':   command += ' Y0'; break;
-            case 'z':   command += ' Z0'; break;
-            case 'xy':  command += ' X0 Y0'; break;
-        }
+        if (axes === 'all') command += ' X0 Y0 Z0';
+        else if (axes === 'xy') command += ' X0 Y0';
+        else command += ` ${axes.toUpperCase()}0`;
         serialManagerRef.current?.sendLine(command);
         addLog({type: 'status', message: `Work coordinate origin set for ${axes.toUpperCase()}.`});
     }, [addLog]);
@@ -896,18 +768,11 @@ const App = () => {
     const handleRunMacro = useCallback(async (commands) => {
         const manager = serialManagerRef.current;
         if (!manager) return;
-
-        const processedCommands = commands.map(cmd => 
-            cmd.replace(/{unit}/g, unit)
-               .replace(/{safe_z}/g, unit === 'mm' ? '10' : '0.4')
-        );
-
+        const processedCommands = commands.map(cmd => cmd.replace(/{unit}/g, unit).replace(/{safe_z}/g, unit === 'mm' ? '10' : '0.4'));
         setIsMacroRunning(true);
         addLog({ type: 'status', message: `Running macro: ${processedCommands.join('; ')}` });
         try {
-            for (const command of processedCommands) {
-                await manager.sendLineAndWaitForOk(command);
-            }
+            for (const command of processedCommands) await manager.sendLineAndWaitForOk(command);
             addLog({ type: 'status', message: 'Macro finished.' });
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : "Unknown error";
@@ -920,44 +785,27 @@ const App = () => {
     
     const handleToggleFullscreen = () => {
         if (!document.fullscreenElement) {
-            document.documentElement.requestFullscreen().catch(err => {
-                alert(`Error attempting to enable full-screen mode: ${err.message} (${err.name})`);
-            });
+            document.documentElement.requestFullscreen().catch(err => alert(`Error: ${err.message}`));
         } else {
-            if (document.exitFullscreen) {
-                document.exitFullscreen();
-            }
+            if (document.exitFullscreen) document.exitFullscreen();
         }
     };
 
     const isJobActive = jobStatus === JobStatus.Running || jobStatus === JobStatus.Paused;
     const isMobile = typeof window.orientation !== 'undefined' || navigator.userAgent.indexOf('IEMobile') !== -1;
 
-    if (!isSerialApiSupported || isMobile) {
-        return h(UnsupportedBrowser, null);
-    }
+    if (!isSerialApiSupported || isMobile) return h(UnsupportedBrowser, null);
     
     const alarmInfo = isAlarm ? (GRBL_ALARM_CODES[machineState.code] || GRBL_ALARM_CODES.default) : null;
     const isAnyControlLocked = !isConnected || isJobActive || isJogging || isMacroRunning || (machineState?.status && ['Alarm', 'Home'].includes(machineState.status));
     
-    const handleSaveSettings = (newSettings) => {
-        setMachineSettings(newSettings);
-        setIsSettingsModalOpen(false);
-    };
-
-    const handleSaveToolLibrary = (newLibrary) => {
-        setToolLibrary(newLibrary);
-        setIsToolLibraryModalOpen(false);
-    };
+    const handleSaveSettings = (newSettings) => { setMachineSettings(newSettings); setIsSettingsModalOpen(false); };
+    const handleSaveToolLibrary = (newLibrary) => { setToolLibrary(newLibrary); setIsToolLibraryModalOpen(false); };
     
     const handleSaveMacro = useCallback((macro, index) => {
         setMacros(prevMacros => {
             const newMacros = [...prevMacros];
-            if (index !== null && index >= 0) {
-                newMacros[index] = macro;
-            } else {
-                newMacros.push(macro);
-            }
+            if (index !== null && index >= 0) newMacros[index] = macro; else newMacros.push(macro);
             return newMacros;
         });
         addNotification('Macro saved!', 'success');
@@ -987,30 +835,18 @@ const App = () => {
     const handleImportSettings = useCallback((imported) => {
         if (window.confirm("This will overwrite your current macros, settings, and tool library. Are you sure?")) {
             if (imported.machineSettings && imported.macros && imported.toolLibrary) {
-                if (!imported.machineSettings.probe) {
-                    imported.machineSettings.probe = { ...DEFAULT_SETTINGS.probe };
+                if (!imported.machineSettings.probe) imported.machineSettings.probe = { ...DEFAULT_SETTINGS.probe };
+                if (imported.machineSettings.probe && typeof imported.machineSettings.probe.feedRate === 'undefined') imported.machineSettings.probe.feedRate = DEFAULT_SETTINGS.probe.feedRate;
+                if (!imported.machineSettings.scripts) imported.machineSettings.scripts = { ...DEFAULT_SETTINGS.scripts };
+                else {
+                    if (typeof imported.machineSettings.scripts.automaticToolChange === 'undefined') imported.machineSettings.scripts.automaticToolChange = DEFAULT_SETTINGS.scripts.automaticToolChange;
+                    if (typeof imported.machineSettings.scripts.manualToolChange === 'undefined') imported.machineSettings.scripts.manualToolChange = DEFAULT_SETTINGS.scripts.manualToolChange;
                 }
-                if (imported.machineSettings.probe && typeof imported.machineSettings.probe.feedRate === 'undefined') {
-                    imported.machineSettings.probe.feedRate = DEFAULT_SETTINGS.probe.feedRate;
-                }
-                if (!imported.machineSettings.scripts) {
-                    imported.machineSettings.scripts = { ...DEFAULT_SETTINGS.scripts };
-                } else {
-                    if (typeof imported.machineSettings.scripts.automaticToolChange === 'undefined') {
-                        imported.machineSettings.scripts.automaticToolChange = DEFAULT_SETTINGS.scripts.automaticToolChange;
-                    }
-                    if (typeof imported.machineSettings.scripts.manualToolChange === 'undefined') {
-                        imported.machineSettings.scripts.manualToolChange = DEFAULT_SETTINGS.scripts.manualToolChange;
-                    }
-                }
-                
                 setMachineSettings(imported.machineSettings);
                 setMacros(imported.macros);
                 setToolLibrary(imported.toolLibrary);
                 addNotification("Settings imported successfully!", 'success');
-            } else {
-                addNotification("Invalid settings file.", 'error');
-            }
+            } else { addNotification("Invalid settings file.", 'error'); }
         }
     }, [addNotification]);
 
@@ -1019,45 +855,37 @@ const App = () => {
         addNotification("Dialog settings have been reset.", 'info');
     }, [addNotification]);
 
-
     return h('div', { className: "min-h-screen bg-background font-sans text-text-primary flex flex-col" },
         h(Analytics, null),
         !isAudioUnlocked && h('div', { className: "bg-accent-yellow/20 text-accent-yellow text-center p-2 text-sm font-semibold animate-pulse" }, "Click anywhere or press any key to enable sound notifications"),
-        h(NotificationContainer, { notifications: notifications, onDismiss: removeNotification }),
+        h(NotificationContainer, { notifications, onDismiss: removeNotification }),
         h(ContactModal, { isOpen: isContactModalOpen, onClose: () => setIsContactModalOpen(false) }),
+        h(WelcomeModal, {
+            isOpen: isWelcomeModalOpen,
+            onClose: handleCloseWelcome,
+            onOpenSettings: () => { handleCloseWelcome(); setIsSettingsModalOpen(true); },
+            onOpenToolLibrary: () => { handleCloseWelcome(); setIsToolLibraryModalOpen(true); },
+            isMachineSetupComplete: JSON.stringify(machineSettings) !== JSON.stringify(DEFAULT_SETTINGS),
+            isToolLibrarySetupComplete: toolLibrary.length > 0
+        }),
+        h(GCodeGeneratorModal, { isOpen: isGeneratorModalOpen, onCancel: () => setIsGeneratorModalOpen(false), onLoadGCode: handleLoadGeneratedGCode, unit, settings: machineSettings, toolLibrary }),
         h(PreflightChecklistModal, { isOpen: isPreflightModalOpen, onCancel: () => setIsPreflightModalOpen(false), onConfirm: handleStartJobConfirmed, jobInfo: { fileName, gcodeLines, timeEstimate, startLine: jobStartOptions.startLine }, isHomed: isHomedSinceConnect, warnings: preflightWarnings, selectedTool: toolLibrary.find(t => t.id === selectedToolId) || null }),
         h(MacroEditorModal, { isOpen: isMacroEditorOpen, onCancel: () => setIsMacroEditorOpen(false), onSave: handleSaveMacro, onDelete: handleDeleteMacro, macro: editingMacroIndex !== null ? macros[editingMacroIndex] : null, index: editingMacroIndex }),
-        h(SettingsModal, { 
-            isOpen: isSettingsModalOpen, 
-            onCancel: () => setIsSettingsModalOpen(false), 
-            onSave: handleSaveSettings, 
-            settings: machineSettings, 
-            onExport: handleExportSettings,
-            onImport: handleImportSettings,
-            onResetDialogs: handleResetDialogs
-        }),
+        h(SettingsModal, { isOpen: isSettingsModalOpen, onCancel: () => setIsSettingsModalOpen(false), onSave: handleSaveSettings, settings: machineSettings, onExport: handleExportSettings, onImport: handleImportSettings, onResetDialogs: handleResetDialogs }),
         h(ToolLibraryModal, { isOpen: isToolLibraryModalOpen, onCancel: () => setIsToolLibraryModalOpen(false), onSave: handleSaveToolLibrary, library: toolLibrary }),
-        
         h(ManualToolChangeModal, {
             isOpen: isToolChangeModalOpen,
             onContinue: () => {
                 setIsToolChangeModalOpen(false);
-                if (toolChangePromiseRef.current) {
-                    toolChangePromiseRef.current.resolve();
-                    toolChangePromiseRef.current = null;
-                }
+                if (toolChangePromiseRef.current) { toolChangePromiseRef.current.resolve(); toolChangePromiseRef.current = null; }
             },
             onStop: () => {
                 setIsToolChangeModalOpen(false);
-                if (toolChangePromiseRef.current) {
-                    toolChangePromiseRef.current.reject(new Error("Job stopped by user during tool change."));
-                    toolChangePromiseRef.current = null;
-                }
+                if (toolChangePromiseRef.current) { toolChangePromiseRef.current.reject(new Error("Job stopped by user during tool change.")); toolChangePromiseRef.current = null; }
                 handleJobControl('stop');
             },
             toolInfo: toolChangeInfo
         }),
-
         h('header', { className: "bg-surface shadow-md p-4 flex justify-between items-center z-10 flex-shrink-0 gap-4" },
             h('div', { className: "flex items-center gap-4" },
                 h('svg', { viewBox: '0 0 460 100', className: 'h-8 w-auto', 'aria-label': 'mycnc.app logo' },
@@ -1082,14 +910,8 @@ const App = () => {
                 h(SerialConnector, { isConnected: isConnected, portInfo: portInfo, onConnect: handleConnect, onDisconnect: handleDisconnect, isApiSupported: isSerialApiSupported, isSimulated: isSimulatedConnection, useSimulator: useSimulator, onSimulatorChange: setUseSimulator })
             )
         ),
-
-        h('div', { className: "bg-accent-yellow/20 text-accent-yellow text-center p-2 text-sm font-semibold flex items-center justify-center gap-2" },
-            h(AlertTriangle, { className: "w-4 h-4" }),
-            "Work in Progress: This software is for demonstration purposes only. Use at your own risk."
-        ),
-
-        h(StatusBar, { isConnected: isConnected, machineState: machineState, unit: unit, onEmergencyStop: handleEmergencyStop, flashingButton: flashingButton }),
-
+        h('div', { className: "bg-accent-yellow/20 text-accent-yellow text-center p-2 text-sm font-semibold flex items-center justify-center gap-2" }, h(AlertTriangle, { className: "w-4 h-4" }), "Work in Progress: This software is for demonstration purposes only. Use at your own risk."),
+        h(StatusBar, { isConnected, machineState, unit, onEmergencyStop: handleEmergencyStop, flashingButton }),
         isAlarm && h('div', { className: "bg-accent-red/20 border-b-4 border-accent-red text-accent-red p-4 m-4 flex items-start", role: "alert" },
             h(OctagonAlert, { className: "h-8 w-8 mr-4 flex-shrink-0" }),
             h('div', { className: "flex-grow" },
@@ -1098,8 +920,7 @@ const App = () => {
                 h('p', { className: "text-sm mt-2" }, h('strong', null, "Resolution: "), alarmInfo.resolution)
             ),
             h('button', { id: "unlock-button", title: "Unlock Machine (Hotkey: x)", onClick: () => handleManualCommand('$X'), className: `ml-4 flex items-center gap-2 px-4 py-2 bg-accent-red text-white font-semibold rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-background transition-all duration-100 ${flashingButton === 'unlock-button' ? 'ring-4 ring-white ring-inset' : ''}` },
-                h(Unlock, { className: "w-5 h-5" }),
-                "Unlock ($X)"
+                h(Unlock, { className: "w-5 h-5" }), "Unlock ($X)"
             )
         ),
         error && h('div', { className: "bg-accent-red/20 border-l-4 border-accent-red text-accent-red p-4 m-4 flex items-start", role: "alert" },
@@ -1107,16 +928,15 @@ const App = () => {
             h('p', null, error),
             h('button', { onClick: () => setError(null), className: "ml-auto font-bold" }, "X")
         ),
-
         h('main', { className: "flex-grow p-4 grid grid-cols-1 lg:grid-cols-2 gap-4 min-h-0" },
             h('div', { className: "min-h-[60vh] lg:min-h-0" },
-                h(GCodePanel, { onFileLoad: handleFileLoad, fileName: fileName, gcodeLines: gcodeLines, onJobControl: handleJobControl, jobStatus: jobStatus, progress: progress, isConnected: isConnected, unit: unit, onGCodeChange: handleGCodeChange, machineState: machineState, onFeedOverride: handleFeedOverride, timeEstimate: timeEstimate, machineSettings: machineSettings, toolLibrary: toolLibrary, selectedToolId: selectedToolId, onToolSelect: setSelectedToolId })
+                h(GCodePanel, { onFileLoad, fileName, gcodeLines, onJobControl, jobStatus, progress, isConnected, unit, onGCodeChange, machineState, onFeedOverride, timeEstimate, machineSettings, toolLibrary, selectedToolId, onToolSelect: setSelectedToolId, onOpenGenerator: () => setIsGeneratorModalOpen(true), onClearFile: handleClearFile })
             ),
             h('div', { className: "flex flex-col gap-4 overflow-hidden min-h-0" },
-                h(JogPanel, { isConnected: isConnected, machineState: machineState, onJog: handleJog, onHome: handleHome, onSetZero: handleSetZero, onSpindleCommand: handleSpindleCommand, onProbe: handleProbe, jogStep: jogStep, onStepChange: setJogStep, flashingButton: flashingButton, onFlash: flashControl, unit: unit, onUnitChange: handleUnitChange, isJobActive: isJobActive, isJogging: isJogging, isMacroRunning: isMacroRunning }),
+                h(JogPanel, { isConnected, machineState, onJog, onHome, onSetZero, onSpindleCommand, onProbe, jogStep, onStepChange, flashingButton, onFlash: flashControl, unit, onUnitChange, isJobActive, isJogging, isMacroRunning }),
                 h(WebcamPanel, {}),
-                h(MacrosPanel, { macros: macros, onRunMacro: handleRunMacro, onOpenEditor: (index) => { setEditingMacroIndex(index); setIsMacroEditorOpen(true); }, isEditMode: isMacroEditMode, onToggleEditMode: () => setIsMacroEditMode(prev => !prev), disabled: isAnyControlLocked }),
-                h(Console, { logs: consoleLogs, onSendCommand: handleManualCommand, isConnected: isConnected, isJobActive: isJobActive, isMacroRunning: isMacroRunning, isLightMode: isLightMode, isVerbose: isVerbose, onVerboseChange: setIsVerbose })
+                h(MacrosPanel, { macros, onRunMacro, onOpenEditor: (index) => { setEditingMacroIndex(index); setIsMacroEditorOpen(true); }, isEditMode, onToggleEditMode: () => setIsMacroEditMode(prev => !prev), disabled: isAnyControlLocked }),
+                h(Console, { logs: consoleLogs, onSendCommand: handleManualCommand, isConnected, isJobActive, isMacroRunning, isLightMode, isVerbose, onVerboseChange: setIsVerbose })
             )
         ),
         h(Footer, { onContactClick: () => setIsContactModalOpen(true) })

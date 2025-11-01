@@ -1,8 +1,8 @@
 
 
 import React, { useRef, useState, useEffect, DragEvent } from 'react';
-import { JobStatus } from '../types.js';
-import { Play, Pause, Square, Upload, FileText, Code, Eye, Maximize, Pencil, CheckCircle, X, Save, Plus, Minus, RefreshCw, Percent, ZoomIn, ZoomOut, Clock, BookOpen, Crosshair } from './Icons';
+import { JobStatus } from '../types';
+import { Play, Pause, Square, Upload, FileText, Code, Eye, Maximize, Pencil, CheckCircle, X, Save, Plus, Minus, RefreshCw, Percent, ZoomIn, ZoomOut, Clock, BookOpen, Crosshair, Zap } from './Icons';
 import GCodeVisualizer from './GCodeVisualizer';
 import GCodeLine from './GCodeLine.js';
 
@@ -69,13 +69,16 @@ interface GCodePanelProps {
     toolLibrary: any[];
     selectedToolId: number | null;
     onToolSelect: (id: number | null) => void;
+    onOpenGenerator: () => void;
+    onClearFile: () => void;
 }
 
 const GCodePanel: React.FC<GCodePanelProps> = ({ 
     onFileLoad, fileName, gcodeLines, onJobControl, 
     jobStatus, progress, isConnected, unit, onGCodeChange, 
     machineState, onFeedOverride, timeEstimate, 
-    machineSettings, toolLibrary, selectedToolId, onToolSelect 
+    machineSettings, toolLibrary, selectedToolId, onToolSelect,
+    onOpenGenerator, onClearFile
 }) => {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const visualizerRef = useRef<GCodeVisualizerHandle>(null);
@@ -164,8 +167,6 @@ const GCodePanel: React.FC<GCodePanelProps> = ({
             const lineElement = container.children[lineIndexToScroll] as HTMLElement;
 
             if (lineElement) {
-                // Manually calculate the scroll position to center the element
-                // within the scrollable container.
                 const containerHeight = container.clientHeight;
                 const lineElementOffsetTop = lineElement.offsetTop;
                 const lineElementHeight = lineElement.offsetHeight;
@@ -299,7 +300,6 @@ const GCodePanel: React.FC<GCodePanelProps> = ({
         return null;
     };
 
-    // --- Dynamic Time Estimation Logic ---
     const { totalSeconds, cumulativeSeconds } = timeEstimate || { totalSeconds: 0, cumulativeSeconds: [] };
     let displayTime = totalSeconds;
     let timeLabel = "Est. Time";
@@ -320,7 +320,6 @@ const GCodePanel: React.FC<GCodePanelProps> = ({
             displayTime = Infinity;
         }
     }
-    // --- End of Logic ---
 
     return (
         <div 
@@ -410,6 +409,10 @@ const GCodePanel: React.FC<GCodePanelProps> = ({
                     )}
                 </div>
                 <div className="flex items-center gap-2">
+                     <button onClick={onOpenGenerator} disabled={isJobActive} className="flex items-center gap-2 px-4 py-2 bg-primary text-white font-semibold rounded-md hover:bg-primary-focus focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-surface transition-colors disabled:opacity-50 disabled:cursor-not-allowed" title="Generate G-Code">
+                        <Zap className="w-5 h-5" />
+                        Generate
+                    </button>
                     <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept=".gcode,.nc,.txt" />
                     <button 
                         onClick={handleUploadClick}
@@ -418,6 +421,9 @@ const GCodePanel: React.FC<GCodePanelProps> = ({
                     >
                         <Upload className="w-5 h-5" />
                         Load File
+                    </button>
+                    <button onClick={onClearFile} disabled={isJobActive || gcodeLines.length === 0} className="p-2 bg-secondary text-text-primary rounded-md hover:bg-secondary-focus focus:outline-none focus:ring-2 focus:ring-secondary focus:ring-offset-2 focus:ring-offset-surface transition-colors disabled:opacity-50 disabled:cursor-not-allowed" title="Clear G-Code">
+                        <X className="w-5 h-5" />
                     </button>
                 </div>
             </div>
