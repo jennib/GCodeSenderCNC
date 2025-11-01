@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Pin, RotateCw, RotateCcw, PowerOff, Probe } from './Icons.js';
 
@@ -9,7 +8,7 @@ interface JogPanelProps {
     onHome: (axes: 'all' | 'x' | 'y' | 'z' | 'xy') => void;
     onSetZero: (axes: 'all' | 'x' | 'y' | 'z' | 'xy') => void;
     onSpindleCommand: (command: 'cw' | 'ccw' | 'off', speed: number) => void;
-    onProbe: (axes: string, offsets: { x?: number, y?: number, z?: number }) => void;
+    onProbe: (axes: string) => void;
     jogStep: number;
     onStepChange: (step: number) => void;
     flashingButton: string | null;
@@ -40,16 +39,7 @@ const JogPanel: React.FC<JogPanelProps> = ({
     isMacroRunning,
 }) => {
     const [spindleSpeed, setSpindleSpeed] = useState(1000);
-    const [probeOffsetZ, setProbeOffsetZ] = useState(unit === 'mm' ? 15.0 : 0.59);
-    const [probeOffsetX, setProbeOffsetX] = useState(unit === 'mm' ? 3.0 : 0.12);
-    const [probeOffsetY, setProbeOffsetY] = useState(unit === 'mm' ? 3.0 : 0.12);
     
-    useEffect(() => {
-        setProbeOffsetZ(unit === 'mm' ? 15.0 : 0.59);
-        setProbeOffsetX(unit === 'mm' ? 3.0 : 0.12);
-        setProbeOffsetY(unit === 'mm' ? 3.0 : 0.12);
-    }, [unit]);
-
     const isControlDisabled = !isConnected || isJobActive || isJogging || isMacroRunning || ['Alarm', 'Home', 'Jog'].includes(machineState?.status || '');
     const isZJogDisabledForStep = (unit === 'mm' && jogStep > 10) || (unit === 'in' && jogStep > 1);
 
@@ -145,27 +135,11 @@ const JogPanel: React.FC<JogPanelProps> = ({
                     </div>
                     <div className='bg-background p-3 rounded-md'>
                         <h4 className='text-sm font-bold text-text-secondary mb-2'>Probe</h4>
-                        <div className='grid grid-cols-2 gap-4'>
-                             <div className='space-y-2'>
-                                <div className='flex items-center gap-2'>
-                                    <label htmlFor='probe-offset-x' className='w-4 text-sm font-bold text-red-400'>X</label>
-                                    <input id='probe-offset-x' type='number' step={unit === 'mm' ? '0.01' : '0.001'} value={probeOffsetX} onChange={e => setProbeOffsetX(parseFloat(e.target.value))} disabled={isControlDisabled} className='w-full bg-secondary border-secondary rounded-md py-1 px-2 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary disabled:opacity-50' aria-label='Probe X Offset' />
-                                </div>
-                                 <div className='flex items-center gap-2'>
-                                    <label htmlFor='probe-offset-y' className='w-4 text-sm font-bold text-green-400'>Y</label>
-                                    <input id='probe-offset-y' type='number' step={unit === 'mm' ? '0.01' : '0.001'} value={probeOffsetY} onChange={e => setProbeOffsetY(parseFloat(e.target.value))} disabled={isControlDisabled} className='w-full bg-secondary border-secondary rounded-md py-1 px-2 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary disabled:opacity-50' aria-label='Probe Y Offset' />
-                                </div>
-                                 <div className='flex items-center gap-2'>
-                                    <label htmlFor='probe-offset-z' className='w-4 text-sm font-bold text-blue-400'>Z</label>
-                                    <input id='probe-offset-z' type='number' step={unit === 'mm' ? '0.01' : '0.001'} value={probeOffsetZ} onChange={e => setProbeOffsetZ(parseFloat(e.target.value))} disabled={isControlDisabled} className='w-full bg-secondary border-secondary rounded-md py-1 px-2 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary disabled:opacity-50' aria-label='Probe Z Offset (Plate Thickness)' />
-                                </div>
-                            </div>
-                            <div className='grid grid-cols-2 gap-2 text-sm'>
-                                <button onClick={() => onProbe('X', { x: probeOffsetX })} disabled={isControlDisabled} className='p-2 bg-primary text-white font-semibold rounded hover:bg-primary-focus disabled:opacity-50'>Probe X</button>
-                                <button onClick={() => onProbe('Y', { y: probeOffsetY })} disabled={isControlDisabled} className='p-2 bg-primary text-white font-semibold rounded hover:bg-primary-focus disabled:opacity-50'>Probe Y</button>
-                                <button onClick={() => onProbe('Z', { z: probeOffsetZ })} disabled={isControlDisabled} className='p-2 bg-primary text-white font-semibold rounded hover:bg-primary-focus disabled:opacity-50 flex items-center justify-center gap-1'><Probe className='w-4 h-4' /> Probe Z</button>
-                                <button onClick={() => onProbe('XY', { x: probeOffsetX, y: probeOffsetY })} disabled={isControlDisabled} className='p-2 bg-primary text-white font-semibold rounded hover:bg-primary-focus disabled:opacity-50'>Probe XY</button>
-                            </div>
+                        <div className='grid grid-cols-2 gap-2 text-sm'>
+                            <button onClick={() => onProbe('X')} disabled={isControlDisabled} className='p-2 bg-primary text-white font-semibold rounded hover:bg-primary-focus disabled:opacity-50'>Probe X</button>
+                            <button onClick={() => onProbe('Y')} disabled={isControlDisabled} className='p-2 bg-primary text-white font-semibold rounded hover:bg-primary-focus disabled:opacity-50'>Probe Y</button>
+                            <button onClick={() => onProbe('Z')} disabled={isControlDisabled} className='p-2 bg-primary text-white font-semibold rounded hover:bg-primary-focus disabled:opacity-50 flex items-center justify-center gap-1'><Probe className='w-4 h-4' /> Probe Z</button>
+                            <button onClick={() => onProbe('XY')} disabled={isControlDisabled} className='p-2 bg-primary text-white font-semibold rounded hover:bg-primary-focus disabled:opacity-50'>Probe XY</button>
                         </div>
                     </div>
                     <div className='bg-background p-3 rounded-md'>

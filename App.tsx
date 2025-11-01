@@ -1,5 +1,6 @@
 
 
+
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { SerialManager } from './services/serialService.js';
 import { SimulatedSerialManager } from './services/simulatedSerialService.js';
@@ -668,12 +669,18 @@ const App: React.FC = () => {
 
     }, [unit, addLog]);
 
-    const handleProbe = useCallback(async (axes: string, offsets: { x?: number; y?: number; z?: number }) => {
+    const handleProbe = useCallback(async (axes: string) => {
         const manager = serialManagerRef.current;
         if (!manager || !isConnected) {
             addLog({ type: 'error', message: 'Cannot probe while disconnected.' });
             return;
         }
+        
+        const offsets = {
+            x: machineSettings.probe.xOffset,
+            y: machineSettings.probe.yOffset,
+            z: machineSettings.probe.zOffset,
+        };
     
         const probeTravel = unit === 'mm' ? -25 : -1.0;
         const probeFeed = unit === 'mm' ? 25 : 1;
@@ -714,7 +721,7 @@ const App: React.FC = () => {
             manager.sendLine('\x18', false);
         }
     
-    }, [isConnected, addLog, addNotification, unit, setError]);
+    }, [isConnected, addLog, addNotification, unit, setError, machineSettings.probe]);
 
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
@@ -893,16 +900,39 @@ const App: React.FC = () => {
         addNotification('Macro deleted!', 'success');
     }, [addNotification]);
 
-    /*
-    const handleImportSettings = useCallback((imported) => {
-        if(window.confirm("This will overwrite your current macros, settings, and tool library. Are you sure?")) {
-            setMacros(imported.macros);
-            setMachineSettings(imported.machineSettings);
-            setToolLibrary(imported.toolLibrary);
-            addNotification("Settings imported successfully!", 'success');
+    // FIX: Add handlers for importing and exporting settings to resolve missing props on SettingsModal.
+    const handleExportSettings = useCallback(() => {
+        const settingsToExport = {
+            machineSettings,
+            macros,
+            toolLibrary,
+        };
+        const blob = new Blob([JSON.stringify(settingsToExport, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `mycnc-app-settings-${new Date().toISOString().slice(0,10)}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        addNotification('Settings exported successfully!', 'success');
+    }, [machineSettings, macros, toolLibrary, addNotification]);
+
+    const handleImportSettings = useCallback((imported: any) => {
+        if (window.confirm("This will overwrite your current macros, settings, and tool library. Are you sure?")) {
+            // Basic validation
+            if (imported.machineSettings && imported.macros && imported.toolLibrary) {
+                setMachineSettings(imported.machineSettings);
+                setMacros(imported.macros);
+                setToolLibrary(imported.toolLibrary);
+                addNotification("Settings imported successfully!", 'success');
+            } else {
+                addNotification("Invalid settings file.", 'error');
+            }
         }
     }, [addNotification]);
-    */
+
 
     const alarmInfo = isAlarm ? (GRBL_ALARM_CODES[machineState!.code!] || GRBL_ALARM_CODES.default) : null;
     const isJobActive = jobStatus === JobStatus.Running || jobStatus === JobStatus.Paused;
@@ -971,6 +1001,9 @@ const App: React.FC = () => {
                     localStorage.removeItem('cnc-app-skip-preflight');
                     addNotification("Dialog settings have been reset.", 'info');
                 }}
+                // FIX: Pass onExport and onImport handlers to SettingsModal to satisfy its prop requirements.
+                onExport={handleExportSettings}
+                onImport={handleImportSettings}
             />
             <ToolLibraryModal
                 isOpen={isToolLibraryModalOpen}

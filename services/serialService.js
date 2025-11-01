@@ -119,24 +119,28 @@ export class SerialManager {
 
             const rawStatus = statusPart.split(':')[0].toLowerCase();
             let status;
-            // Normalize all possible states to a consistent format.
-            switch(rawStatus) {
-                case 'idle': status = 'Idle'; break;
-                case 'run': status = 'Run'; break;
-                case 'hold': status = 'Hold'; break;
-                case 'jog': status = 'Jog'; break;
-                case 'alarm': status = 'Alarm'; break;
-                case 'door': status = 'Door'; break;
-                case 'check': status = 'Check'; break;
-                case 'home':
-                case 'homing': // Also catch 'homing' and normalize to 'Home'
-                    status = 'Home'; 
-                    break;
-                case 'sleep': status = 'Sleep'; break;
-                default:
-                    // Try to capitalize unknown states as a fallback
-                    status = rawStatus.charAt(0).toUpperCase() + rawStatus.slice(1);
-                    break;
+
+            if (rawStatus.startsWith('home')) { // Catches 'home', 'homing', 'homing cycle', etc.
+                status = 'Home';
+            } else if (rawStatus === 'idle') {
+                status = 'Idle';
+            } else if (rawStatus === 'run') {
+                status = 'Run';
+            } else if (rawStatus === 'hold') {
+                status = 'Hold';
+            } else if (rawStatus === 'jog') {
+                status = 'Jog';
+            } else if (rawStatus === 'alarm') {
+                status = 'Alarm';
+            } else if (rawStatus === 'door') {
+                status = 'Door';
+            } else if (rawStatus === 'check') {
+                status = 'Check';
+            } else if (rawStatus === 'sleep') {
+                status = 'Sleep';
+            } else {
+                // Try to capitalize unknown states as a fallback
+                status = rawStatus.charAt(0).toUpperCase() + rawStatus.slice(1);
             }
 
             let code = null;

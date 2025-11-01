@@ -31,20 +31,19 @@ const SettingsModal = ({ isOpen, onCancel, onSave, settings, onResetDialogs, onE
 
     useEffect(() => {
         if (isOpen) {
-            setLocalSettings(settings);
+            setLocalSettings(JSON.parse(JSON.stringify(settings)));
         }
     }, [isOpen, settings]);
 
     if (!isOpen) return null;
 
     const handleNestedNumericChange = (category, field, value) => {
-        const numValue = value === '' ? '' : parseFloat(value);
-        if(isNaN(numValue)) return;
+        // Keep the value as a string during editing to allow partial input like "1." or "-"
         setLocalSettings(prev => ({
             ...prev,
             [category]: {
                 ...prev[category],
-                [field]: numValue
+                [field]: value
             }
         }));
     };
@@ -60,7 +59,28 @@ const SettingsModal = ({ isOpen, onCancel, onSave, settings, onResetDialogs, onE
     };
     
     const handleSave = () => {
-        onSave(localSettings);
+        // Deep clone to avoid mutating state directly
+        const settingsToSave = JSON.parse(JSON.stringify(localSettings));
+        
+        // Define which fields need to be parsed to numbers
+        const numericFields = {
+            workArea: ['x', 'y', 'z'],
+            spindle: ['min', 'max'],
+            probe: ['xOffset', 'yOffset', 'zOffset']
+        };
+
+        // Iterate and parse string inputs back to numbers
+        for (const category in numericFields) {
+            if (settingsToSave[category]) {
+                for (const field of numericFields[category]) {
+                    const value = settingsToSave[category][field];
+                    // Coerce to number, default to 0 if invalid
+                    settingsToSave[category][field] = parseFloat(value) || 0;
+                }
+            }
+        }
+
+        onSave(settingsToSave);
         onCancel();
     };
 
