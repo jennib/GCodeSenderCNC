@@ -11,6 +11,7 @@ export class SerialManager {
     currentLineIndex = 0;
     totalLines = 0;
     gcode = [];
+    jobToolLibrary = [];
     statusInterval = null;
     
     // State is now managed within the service to handle partial updates correctly.
@@ -381,7 +382,7 @@ export class SerialManager {
         }
     }
 
-    sendGCode(gcodeLines, options = {}) {
+    sendGCode(gcodeLines, toolLibrary, options = {}) {
         if (this.isJobRunning) {
             this.callbacks.onError("A job is already running.");
             return;
@@ -390,6 +391,7 @@ export class SerialManager {
         const { startLine = 0, isDryRun = false } = options;
 
         this.gcode = gcodeLines;
+        this.jobToolLibrary = toolLibrary;
         this.totalLines = gcodeLines.length;
         this.currentLineIndex = startLine;
         this.isDryRun = isDryRun;
@@ -442,6 +444,43 @@ export class SerialManager {
             });
             setTimeout(() => this.sendNextLine(), 0);
             return;
+        }
+        
+        if (upperLine.includes('M6')) {
+            const tMatch = upperLine.match(/T(\d+)/);
+            if (tMatch) {
+                const toolNumber = parseInt(tMatch[1], 10);
+                const atcTool = this.jobToolLibrary.find(t => t.position === toolNumber);
+
+                if (!atcTool) { // Manual change required
+                    this.callbacks.onLog({ type: 'status', message: `Pausing for manual tool change to T${toolNumber}.` });
+                    this.isPaused = true;
+                    this.sendRealtimeCommand('!').catch(() => {}); // Feed Hold
+                    
+                    try {
+                        await this.callbacks.onManualToolChangeRequired(toolNumber);
+                        // User has confirmed
+                        this.isPaused = false;
+                        this.callbacks.onLog({ type: 'status', message: 'Job resumed after tool change.' });
+                        this.sendRealtimeCommand('~').catch(() => {}); // Cycle Resume
+
+                        // Skip this M6 line and move to the next
+                        this.currentLineIndex++;
+                        this.callbacks.onProgress({
+                            percentage: (this.currentLineIndex / this.totalLines) * 100,
+                            linesSent: this.currentLineIndex,
+                            totalLines: this.totalLines
+                        });
+                        setTimeout(() => this.sendNextLine(), 0);
+                        return; // IMPORTANT: exit this instance of the function
+                    } catch (jobStopError) {
+                        // User cancelled the modal
+                        this.callbacks.onLog({ type: 'error', message: `Job stopped by user during tool change.` });
+                        this.stopJob();
+                        return;
+                    }
+                }
+            }
         }
 
         try {

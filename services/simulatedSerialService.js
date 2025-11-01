@@ -25,6 +25,7 @@ export class SimulatedSerialManager {
     currentLineIndex = 0;
     totalLines = 0;
     gcode = [];
+    jobToolLibrary = [];
     positioningMode = 'absolute'; // 'absolute' (G90) or 'incremental' (G91)
     
     constructor(callbacks) {
@@ -219,7 +220,7 @@ export class SimulatedSerialManager {
         this.position.ov[0] = Math.max(25, Math.min(300, newFeed));
     }
 
-    sendGCode(gcodeLines, options = {}) {
+    sendGCode(gcodeLines, toolLibrary, options = {}) {
         if (this.isJobRunning) {
             this.callbacks.onError("A job is already running.");
             return;
@@ -228,6 +229,7 @@ export class SimulatedSerialManager {
         const { startLine = 0, isDryRun = false } = options;
 
         this.gcode = gcodeLines;
+        this.jobToolLibrary = toolLibrary;
         this.totalLines = gcodeLines.length;
         this.currentLineIndex = startLine;
         this.isDryRun = isDryRun;
@@ -284,6 +286,26 @@ export class SimulatedSerialManager {
             return;
         }
         
+        if (upperLine.includes('M6')) {
+            const tMatch = upperLine.match(/T(\d+)/);
+            if (tMatch) {
+                const toolNumber = parseInt(tMatch[1], 10);
+                const atcTool = this.jobToolLibrary.find(t => t.position === toolNumber);
+                if (!atcTool) {
+                    this.callbacks.onLog({ type: 'status', message: `(Simulated) Manual tool change for T${toolNumber}.` });
+                    // Skip the line and continue
+                    this.currentLineIndex++;
+                    this.callbacks.onProgress({
+                        percentage: (this.currentLineIndex / this.totalLines) * 100,
+                        linesSent: this.currentLineIndex,
+                        totalLines: this.totalLines
+                    });
+                    setTimeout(() => this.sendNextLine(), 50);
+                    return;
+                }
+            }
+        }
+
         await this.sendLine(line, false); // Rely on sendLine to update machine state
         this.currentLineIndex++;
         

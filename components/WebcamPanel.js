@@ -99,18 +99,8 @@ const WebcamPanel = () => {
         if (!isWebcamOn) {
             return null;
         }
-
-        if (isInPiP) {
-            return h('div', { className: 'relative aspect-video bg-background rounded-md' },
-                h('button', {
-                    onClick: handleTogglePiP,
-                    title: 'Dock to Panel',
-                    className: 'absolute top-2 right-2 flex items-center gap-2 p-2 bg-secondary text-white font-semibold rounded-md hover:bg-secondary-focus focus:outline-none focus:ring-2 focus:ring-primary'
-                }, h(Dock, { className: 'w-5 h-5' }))
-            );
-        }
-
-        return h('div', { className: 'aspect-video bg-background rounded-md overflow-hidden flex items-center justify-center' },
+    
+        return h('div', { className: 'relative aspect-video bg-background rounded-md overflow-hidden flex items-center justify-center' },
             error && h('div', { className: 'text-center text-accent-yellow p-4' },
                 h(AlertTriangle, { className: 'w-8 h-8 mx-auto mb-2' }),
                 h('p', { className: 'text-sm font-semibold' }, error)
@@ -120,8 +110,17 @@ const WebcamPanel = () => {
                 autoPlay: true,
                 playsInline: true,
                 muted: true,
-                className: 'w-full h-full object-cover'
-            })
+                className: `w-full h-full object-cover ${isInPiP ? 'invisible' : ''}`
+            }),
+            isInPiP && h('div', {
+                className: 'absolute inset-0 bg-background/80 flex items-center justify-center text-text-secondary'
+            },
+                h('button', {
+                    onClick: handleTogglePiP,
+                    title: 'Dock to Panel',
+                    className: 'absolute top-2 right-2 flex items-center gap-2 p-2 bg-secondary text-white font-semibold rounded-md hover:bg-secondary-focus focus:outline-none focus:ring-2 focus:ring-primary'
+                }, h(Dock, { className: 'w-5 h-5' }))
+            )
         );
     };
 

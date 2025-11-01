@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { SerialManager } from './services/serialService';
 import { SimulatedSerialManager } from './services/simulatedSerialService';
@@ -23,6 +24,8 @@ import { Analytics } from '@vercel/analytics/react';
 import Footer from './components/Footer.js';
 import ContactModal from './components/ContactModal';
 import UnsupportedBrowser from './components/UnsupportedBrowser.js';
+// FIX: Import ManualToolChangeModal to handle manual tool changes.
+import ManualToolChangeModal from './components/ManualToolChangeModal.js';
 
 const GRBL_ALARM_CODES: { [key: number | string]: { name: string; desc: string; resolution: string } } = {
     1: { name: 'Hard limit', desc: 'A limit switch was triggered. Usually due to machine travel limits.', resolution: 'Check for obstructions. The machine may need to be moved off the switch manually. Use the "$X" command to unlock after clearing the issue, then perform a homing cycle ($H).' },
@@ -146,6 +149,10 @@ const App: React.FC = () => {
     const [selectedToolId, setSelectedToolId] = useState<number | null>(null);
     const [isVerbose, setIsVerbose] = useState(false);
 
+    // FIX: Add state for manual tool change modal.
+    const [isToolChangeModalOpen, setIsToolChangeModalOpen] = useState(false);
+    const [toolChangeInfo, setToolChangeInfo] = useState<{ toolNumber: number | null }>({ toolNumber: null });
+
 
     // Persisted State
     const [jogStep, setJogStep] = useState(() => {
@@ -203,6 +210,8 @@ const App: React.FC = () => {
     const jobStatusRef = useRef(jobStatus);
     const audioContextRef = useRef<AudioContext | null>(null);
     const audioBufferRef = useRef<AudioBuffer | null>(null);
+    // FIX: Add ref to manage promise for manual tool change.
+    const toolChangePromiseRef = useRef<{ resolve: () => void; reject: (reason?: any) => void; } | null>(null);
     
     useEffect(() => {
         jobStatusRef.current = jobStatus;
@@ -450,7 +459,7 @@ const App: React.FC = () => {
                 setIsHomedSinceConnect(false);
             },
             onLog: addLog,
-            onProgress: (p: { percentage: number }) => {
+            onProgress: (p: { percentage: number; linesSent: number; totalLines: number; }) => {
                 setProgress(p.percentage);
                 if (p.percentage >= 100 && jobStatusRef.current !== JobStatus.Complete) {
                     setJobStatus(JobStatus.Complete);
@@ -471,10 +480,22 @@ const App: React.FC = () => {
             }
         };
 
+        // FIX: Add missing onManualToolChangeRequired callback to satisfy SerialManager's required callbacks.
+        const serialCallbacks = {
+            ...commonCallbacks,
+            onManualToolChangeRequired: (toolNumber: number) => {
+                return new Promise<void>((resolve, reject) => {
+                    setToolChangeInfo({ toolNumber });
+                    setIsToolChangeModalOpen(true);
+                    toolChangePromiseRef.current = { resolve, reject };
+                });
+            }
+        };
+
         try {
             const manager = useSimulator
                 ? new SimulatedSerialManager(commonCallbacks)
-                : new SerialManager(commonCallbacks);
+                : new SerialManager(serialCallbacks);
             
             serialManagerRef.current = manager; // Set ref before connect to use in onConnect
             await manager.connect(115200);
@@ -547,11 +568,11 @@ const App: React.FC = () => {
 
         setIsPreflightModalOpen(false);
         setJobStatus(JobStatus.Running);
-        manager.sendGCode(gcodeLines, {
+        manager.sendGCode(gcodeLines, toolLibrary, {
             startLine: jobStartOptions.startLine,
             isDryRun: options.isDryRun
         });
-    }, [isConnected, gcodeLines, jobStartOptions]);
+    }, [isConnected, gcodeLines, jobStartOptions, toolLibrary]);
 
     const handleJobControl = useCallback((action: 'start' | 'pause' | 'resume' | 'stop', options?: { startLine?: number }) => {
         const manager = serialManagerRef.current;
@@ -1061,10 +1082,29 @@ const App: React.FC = () => {
                 onSave={setToolLibrary}
                 library={toolLibrary}
             />
+            {/* FIX: Add ManualToolChangeModal to the DOM */}
+            <ManualToolChangeModal
+                isOpen={isToolChangeModalOpen}
+                onContinue={() => {
+                    setIsToolChangeModalOpen(false);
+                    if (toolChangePromiseRef.current) {
+                        toolChangePromiseRef.current.resolve();
+                        toolChangePromiseRef.current = null;
+                    }
+                }}
+                onStop={() => {
+                    setIsToolChangeModalOpen(false);
+                    if (toolChangePromiseRef.current) {
+                        toolChangePromiseRef.current.reject(new Error("Job stopped by user during tool change."));
+                        toolChangePromiseRef.current = null;
+                    }
+                }}
+                toolInfo={toolChangeInfo}
+            />
             <header className="bg-surface shadow-md p-4 flex justify-between items-center z-10 flex-shrink-0 gap-4">
                 <div className="flex items-center gap-4">
                     <svg
-                        viewBox="0 0 400 100"
+                        viewBox="0 0 460 100"
                         className="h-8 w-auto"
                         aria-label="mycnc.app logo"
                     >

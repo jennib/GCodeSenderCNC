@@ -57,6 +57,7 @@ export interface Tool {
     id: number;
     name: string;
     diameter: number;
+    position?: number;
 }
 
 export interface GCodeAnalysisWarning {
