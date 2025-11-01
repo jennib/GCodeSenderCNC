@@ -286,7 +286,7 @@ export class SimulatedSerialManager {
             setTimeout(() => this.sendNextLine(), 50); // Maintain job speed
             return;
         }
-        
+
         if (upperLine.includes('M6')) {
             const tMatch = upperLine.match(/T(\d+)/);
             if (tMatch) {
@@ -308,7 +308,7 @@ export class SimulatedSerialManager {
                 return;
             }
         }
-
+        
         await this.sendLine(line, false); // Rely on sendLine to update machine state
         this.currentLineIndex++;
         

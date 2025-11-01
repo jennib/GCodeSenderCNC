@@ -18,7 +18,7 @@ import WelcomeModal from './components/WelcomeModal.js';
 import { NotificationContainer } from './components/Notification.js';
 import ThemeToggle from './components/ThemeToggle.js';
 import StatusBar from './components/StatusBar.js';
-import { AlertTriangle, OctagonAlert, Unlock, Settings, Maximize, Minimize, BookOpen } from './Icons.js';
+import { AlertTriangle, OctagonAlert, Unlock, Settings, Maximize, Minimize, BookOpen } from './components/Icons.js';
 import { estimateGCodeTime } from './services/gcodeTimeEstimator.js';
 import { analyzeGCode } from './services/gcodeAnalyzer.js';
 import { Analytics } from '@vercel/analytics/react';
@@ -41,42 +41,64 @@ const GRBL_ALARM_CODES = {
 };
 
 const GRBL_ERROR_CODES = {
-    1: 'G-code words consist of a letter and a value. Letter was not found.',
-    2: 'Numeric value format is not valid or missing an expected value.',
-    3: "Grbl '$' system command was not recognized or supported.",
-    4: 'Negative value received for an expected positive value.',
-    5: 'Homing cycle is not enabled via settings.',
-    6: 'Minimum step pulse time must be greater than 3usec.',
-    7: 'EEPROM read failed. Reset and restore factory settings.',
-    8: 'Grbl not in idle state. Commands cannot be executed.',
-    9: 'G-code locked out during alarm or jog state.',
-    10: 'Soft limits cannot be enabled without homing being enabled.',
-    11: 'Max characters per line exceeded. Line was not processed.',
-    12: 'Grbl setting value exceeds the maximum step rate.',
-    13: 'Safety door was detected as opened and door state initiated.',
-    14: 'Build info or startup line exceeded EEPROM line length limit.',
-    15: 'Jog target exceeds machine travel. Command ignored.',
-    16: "Jog command with no '=' or contains prohibited g-code.",
-    17: 'Laser mode requires PWM output.',
-    20: 'Unsupported or invalid g-code command found in block.',
-    21: 'More than one g-code command from same modal group found in block.',
-    22: 'Feed rate has not been set or is undefined.',
-    23: 'G-code command in block requires an integer value.',
-    24: 'Two g-code commands that both require the use of the XYZ axis words were detected in the block.',
-    25: 'A G-code word was repeated in the block.',
-    26: 'A G-code command implicitly or explicitly requires XYZ axis words in the block, but none were detected.',
-    27: 'N-line number value is not within the valid range of 1 - 9,999,999.',
-    28: 'A G-code command was sent, but is missing some required P or L value words in the line.',
-    29: 'Grbl supports six work coordinate systems G54-G59. G59.1, G59.2, and G59.3 are not supported.',
-    30: 'The G53 G-code command requires either a G0 or G1 motion mode to be active. A different motion was active.',
-    31: 'There are unused axis words in the block and G80 motion mode cancel is active.',
-    32: 'A G2 or G3 arc was commanded but there is no XYZ axis word in the selected plane to trace the arc.',
-    33: 'The motion command has an invalid target. G2, G3, and G38.2 generates this error.',
-    34: 'A G2 or G3 arc, traced with the radius definition, had a mathematical error when computing the arc geometry. Try either breaking up the arc into multiple smaller arcs or turning on calculated arcs.',
-    35: 'A G2 or G3 arc, traced with the offset definition, is missing the I or J router words in the selected plane to trace the arc.',
-    36: 'There are unused axis words in the block and G80 motion mode cancel is active.',
-    37: 'The G43.1 dynamic tool length offset command cannot apply an offset to an axis other than its configured axis.',
-    38: 'Tool number greater than max supported value.',
+    0: "No error - Possible crash dump of your controller. Please seek advice from your controller vendor.",
+    1: "G-code words consist of a letter and a value. Letter was not found.",
+    2: "Numeric value format is not valid or missing an expected value.",
+    3: "Machine ‘$’ system command was not recognized or supported.",
+    4: "Negative value received for an expected positive value.",
+    5: "Homing cycle is not enabled via settings.",
+    6: "Minimum step pulse time must be greater than 3usec",
+    7: "EEPROM read failed. Reset and restored to default values.",
+    8: "Machine ‘$’ command cannot be used unless Machine is IDLE. Ensures smooth operation during a job.",
+    9: "G-code locked out during alarm or jog state",
+    10: "Soft limits cannot be enabled without homing also enabled.",
+    11: "Max characters per line exceeded. Line was not processed and executed.",
+    12: "‘$’ setting value exceeds the maximum step rate supported.",
+    13: "Safety door detected as opened and door state initiated.",
+    14: "(Machine-Mega Only) Build info or start up line exceeded EEPROM line length limit.",
+    15: "Jog target exceeds machine travel. Command ignored.",
+    16: "Jog command with no ‘=’ or contains prohibited g-code.",
+    17: "Laser mode requires PWM output. Your controller may not be suited to running this firmware or no pin is assigned to regulate laser power.",
+    18: "No homing cycle defined in settings, check peripherals tab to ensure you have at least one axis homing.",
+    20: "Unsupported or invalid g-code command found in block.",
+    21: "More than one g-code command from same modal group found in block.",
+    22: "Feed rate has not yet been set or is undefined.",
+    23: "G-code command in block requires an integer value.",
+    24: "Two G-code commands that both require the use of the XYZ axis words were detected in the block.",
+    25: "A G-code word was repeated in the block.",
+    26: "A G-code command implicitly or explicitly requires XYZ axis words in the block, but none were detected.",
+    27: "N line number value is not within the valid range of 1 – 9,999,999.",
+    28: "A G-code command was sent, but is missing some required P or L value words in the line.",
+    29: "Machine supports six work coordinate systems G54-G59. G59.1, G59.2, and G59.3 are not supported.",
+    30: "The G53 G-code command requires either a G0 seek or G1 feed motion mode to be active. A different motion was active.",
+    31: "There are unused axis words in the block and G80 motion mode cancel is active.",
+    32: "A G2 or G3 arc was commanded but there are no XYZ axis words in the selected plane to trace the arc.",
+    33: "The motion command has an invalid target. G2, G3, and G38.2 generates this error, if the arc is impossible to generate or if the probe target is the current position.",
+    34: "A G2 or G3 arc, traced with the radius definition, had a mathematical error when computing the arc geometry. Try either breaking up the arc into semi-circles or quadrants, or redefine them with the arc offset definition.",
+    35: "A G2 or G3 arc, traced with the offset definition, is missing the IJK offset word in the selected plane to trace the arc.",
+    36: "There are unused, leftover G-code words that aren’t used by any command in the block.",
+    37: "The G43.1 dynamic tool length offset command cannot apply an offset to an axis other than its configured axis. The Machine default axis is the Z-axis.",
+    38: "An invalid tool number sent to the parser",
+    39: "P parameter value is too large. P values are generally in seconds not milliseconds. Please adjust to a lower number.",
+    60: "SD card failed to initialize, Card is likely not inserted OR try ejecting and re-inserting your SD card.",
+    61: "SD card failed to read, the most common cause is special characters in your filename, please remove any non-letters or numbers. If this fails, try deleting and replacing your file or formatting your SD card.",
+    62: "SD card failed to open directory, the most common causes are: Controller has just connected to Commander, SD card not being inserted or special characters in your filename, please remove any non-letters or numbers. If this fails, try deleting and replacing your folder or formatting your SD card.",
+    63: "SD card directory not found. Likely the folder doesn't exist, check your SD card.",
+    64: "SD card file empty, you likely have uploaded a blank file by mistake. Please recompile your job and re-upload.",
+    65: "SD card file not found.  Likely the file doesn't exist, check your SD card.",
+    66: "SD card failed to open. Likely the SD card may need to be formatted. Please ensure to make any back ups before formatting!",
+    67: "SD card is busy. Likely the SD is doing something else right now. Please try again shortly or remove and re-insert your SD card.",
+    68: "SD failed to delete directory. Please try to delete the folder using your desktop PC.",
+    69: "SD failed to delete file. Please try to delete the file using your desktop PC.",
+    70: "Bluetooth failed to start. Try power-cycling your controller or seek advice from your controller vendor.",
+    71: "Wifi failed to start. Try power-cycling your controller or seek advice from your controller vendor.",
+    80: "Number is out of range for setting. Likely the setting you are trying to change does not exist.",
+    81: "Invalid value for setting, The value entered is either not in the right range or may not be the right value i.e: Letter entered when it must a number.",
+    90: "Failed to send message, seek advice from your controller vendor.",
+    100: "Failed to store setting, seek advice from your controller vendor.",
+    101: "Failed to get setting status, seek advice from your controller vendor.",
+    110: "Authentication failed. You may have a password required to access your controller.",
+    120: "Another interface is busy, Close out of any WebUI windows or wait until they finish uploading your job file before proceeding."
 };
 
 const DEFAULT_MACROS = [
@@ -94,7 +116,8 @@ const DEFAULT_SETTINGS = {
     probe: { xOffset: 3.0, yOffset: 3.0, zOffset: 15.0, feedRate: 25 },
     scripts: {
         startup: ['G21', 'G90'].join('\n'), // Set units to mm, absolute positioning
-        toolChange: ['M5', 'G0 Z10'].join('\n'), // Stop spindle, raise Z
+        automaticToolChange: 'M6 T{T}', // Standard ATC command
+        manualToolChange: ['M5', 'G0 Z10'].join('\n'), // Stop spindle, raise Z before pausing
         shutdown: ['M5', 'G0 X0 Y0'].join('\n') // Stop spindle, go to WCS zero
     }
 };
@@ -107,7 +130,7 @@ const usePrevious = (value) => {
     return ref.current;
 };
 
-const buildTimestamp = new Date().toISOString().replace('T', ' ').substring(0, 19);
+const buildTimestamp = 'v24.07.30.1'; // Static version identifier
 
 const App = () => {
     const [isConnected, setIsConnected] = useState(false);
@@ -187,17 +210,27 @@ const App = () => {
     const [machineSettings, setMachineSettings] = useState(() => {
         try {
             const saved = localStorage.getItem('cnc-app-settings');
-            let parsed = saved ? JSON.parse(saved) : DEFAULT_SETTINGS;
-            // Ensure probe settings exist from older configs
-            if (!parsed.probe) {
-                parsed.probe = DEFAULT_SETTINGS.probe;
+            let parsed = saved ? JSON.parse(saved) : { ...DEFAULT_SETTINGS };
+             if (!parsed.probe) {
+                parsed.probe = { ...DEFAULT_SETTINGS.probe };
             }
             if (parsed.probe && typeof parsed.probe.feedRate === 'undefined') {
                 parsed.probe.feedRate = DEFAULT_SETTINGS.probe.feedRate;
             }
+            // Backwards compatibility for new tool change scripts
+            if (!parsed.scripts) {
+                parsed.scripts = { ...DEFAULT_SETTINGS.scripts };
+            } else {
+                if (typeof parsed.scripts.automaticToolChange === 'undefined') {
+                    parsed.scripts.automaticToolChange = DEFAULT_SETTINGS.scripts.automaticToolChange;
+                }
+                if (typeof parsed.scripts.manualToolChange === 'undefined') {
+                    parsed.scripts.manualToolChange = DEFAULT_SETTINGS.scripts.manualToolChange;
+                }
+            }
             return parsed;
         } catch {
-            return DEFAULT_SETTINGS;
+            return { ...DEFAULT_SETTINGS };
         }
     });
     const [toolLibrary, setToolLibrary] = useState(() => {
@@ -355,28 +388,41 @@ const App = () => {
     }, []);
 
     const addLog = useCallback((log) => {
-        let processedLog = { ...log };
+        let processedLog = { ...log, timestamp: new Date() };
+
+        // Add explanation for GRBL errors, preserving the original message context.
         if (processedLog.type === 'error' && processedLog.message.includes('error:')) {
             const codeMatch = processedLog.message.match(/error:(\d+)/);
             if (codeMatch && codeMatch[1]) {
                 const code = parseInt(codeMatch[1], 10);
                 const explanation = GRBL_ERROR_CODES[code];
-                if (explanation) processedLog.message = `${processedLog.message} (${explanation})`;
+                if (explanation) {
+                    processedLog.message = `${processedLog.message} (${explanation})`;
+                }
             }
         }
+
         setConsoleLogs(prev => {
             const trimmedMessage = processedLog.message.trim().toLowerCase();
+
+            // Consolidate repeated 'ok' messages to prevent console spam.
             if (!isVerbose && processedLog.type === 'received' && trimmedMessage === 'ok') {
                 const lastLog = prev.length > 0 ? prev[prev.length - 1] : null;
+
+                // Check if the last log was also an 'ok' message that we can append to.
                 if (lastLog && lastLog.type === 'received' && /^ok\.*$/.test(lastLog.message)) {
+                    // If the line has space, append a dot.
                     if (lastLog.message.length < 60) {
                         const newLogs = [...prev];
                         newLogs[newLogs.length - 1] = { ...lastLog, message: lastLog.message + '.' };
                         return newLogs;
-                    }
+                    } 
+                    // If the line is full, we fall through to add a new 'ok' log on a new line.
                 }
             }
-            return [...prev, processedLog].slice(-200);
+            
+            // For any other message, or the first 'ok' in a sequence.
+            return [...prev, processedLog].slice(-200); // Keep last 200 logs
         });
     }, [isVerbose]);
     
@@ -495,18 +541,18 @@ const App = () => {
         setProgress(0); setJobStatus(JobStatus.Idle); setTimeEstimate(estimateGCodeTime(lines));
         addLog({ type: 'status', message: `G-code modified (${lines.length} lines).` });
     };
-    
-    const handleStartJob = useCallback((startLine, isDryRun) => {
-        const manager = serialManagerRef.current;
-        if (!manager || !isConnected || gcodeLines.length === 0) return;
-        setJobStatus(JobStatus.Running);
-        manager.sendGCode(gcodeLines, toolLibrary, { startLine, isDryRun });
-    }, [isConnected, gcodeLines, toolLibrary]);
 
     const handleStartJobConfirmed = useCallback((options) => {
+        const manager = serialManagerRef.current;
+        if (!manager || !isConnected || gcodeLines.length === 0) return;
+
         setIsPreflightModalOpen(false);
-        handleStartJob(jobStartOptions.startLine, options.isDryRun);
-    }, [jobStartOptions, handleStartJob]);
+        setJobStatus(JobStatus.Running);
+        manager.sendGCode(gcodeLines, toolLibrary, machineSettings, {
+            startLine: jobStartOptions.startLine,
+            isDryRun: options.isDryRun
+        });
+    }, [isConnected, gcodeLines, toolLibrary, machineSettings, jobStartOptions]);
 
     const handleJobControl = useCallback((action, options) => {
         const manager = serialManagerRef.current;
@@ -524,8 +570,11 @@ const App = () => {
                         setIsPreflightModalOpen(true); return;
                     }
                     const skipPreflight = localStorage.getItem('cnc-app-skip-preflight') === 'true';
-                    if (skipPreflight) handleStartJob(startLine, false);
-                    else setIsPreflightModalOpen(true);
+                    if (skipPreflight) {
+                         handleStartJobConfirmed({ isDryRun: false });
+                    } else {
+                        setIsPreflightModalOpen(true);
+                    }
                 }
                 break;
             case 'pause':
@@ -535,7 +584,7 @@ const App = () => {
             case 'stop':
                 setJobStatus(cs => (cs === JobStatus.Running || cs === JobStatus.Paused ? (manager.stopJob(), setProgress(0), JobStatus.Stopped) : cs)); break;
         }
-    }, [isConnected, gcodeLines, machineSettings, handleStartJob, addNotification]);
+    }, [isConnected, gcodeLines, machineSettings, addNotification, handleStartJobConfirmed]);
     
     const handleManualCommand = useCallback((command) => serialManagerRef.current?.sendLine(command), []);
 
@@ -719,6 +768,16 @@ const App = () => {
         if (window.confirm("This will overwrite your current macros, settings, and tool library. Are you sure?")) {
             if (imported.machineSettings && imported.macros && imported.toolLibrary) {
                 if (!imported.machineSettings.probe) imported.machineSettings.probe = DEFAULT_SETTINGS.probe;
+                 if (!imported.machineSettings.scripts) {
+                    imported.machineSettings.scripts = { ...DEFAULT_SETTINGS.scripts };
+                } else {
+                    if (typeof imported.machineSettings.scripts.automaticToolChange === 'undefined') {
+                        imported.machineSettings.scripts.automaticToolChange = DEFAULT_SETTINGS.scripts.automaticToolChange;
+                    }
+                    if (typeof imported.machineSettings.scripts.manualToolChange === 'undefined') {
+                        imported.machineSettings.scripts.manualToolChange = DEFAULT_SETTINGS.scripts.manualToolChange;
+                    }
+                }
                 setMachineSettings(imported.machineSettings);
                 setMacros(imported.macros);
                 setToolLibrary(imported.toolLibrary);

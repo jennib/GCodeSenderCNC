@@ -1,5 +1,6 @@
 
 
+
 import React, { useRef, useState, useEffect } from 'react';
 import { JobStatus } from '../types.js';
 import { Play, Pause, Square, Upload, FileText, Code, Eye, Maximize, Pencil, CheckCircle, X, Save, Plus, Minus, RefreshCw, Percent, ZoomIn, ZoomOut, Clock, BookOpen, Crosshair, Zap } from './Icons.js';
@@ -274,9 +275,9 @@ const GCodePanel = ({
             h('p', { className: "text-sm text-text-secondary truncate", title: fileName }, h('strong', null, 'File: '), fileName),
             h('div', { className: 'flex items-center gap-2' },
                 h(BookOpen, { className: 'w-5 h-5 text-text-secondary flex-shrink-0' }),
-                h('select', { value: selectedToolId || '', onChange: e => onToolSelect(e.target.value ? parseInt(e.target.value, 10) : null), disabled: isJobActive || toolLibrary.length === 0, className: 'w-full bg-background border border-secondary rounded-md py-1 px-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50' },
-                    h('option', { value: '' }, toolLibrary.length > 0 ? 'Select a tool...' : 'No tools in library'),
-                    toolLibrary.map(tool => h('option', { key: tool.id, value: tool.id }, tool.name))
+                h('select', { value: selectedToolId || '', onChange: e => onToolSelect(e.target.value ? parseInt(e.target.value, 10) : null), disabled: isJobActive || !toolLibrary || toolLibrary.length === 0, className: 'w-full bg-background border border-secondary rounded-md py-1 px-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50' },
+                    h('option', { value: '' }, toolLibrary && toolLibrary.length > 0 ? 'Select a tool...' : 'No tools in library'),
+                    toolLibrary && toolLibrary.map(tool => h('option', { key: tool.id, value: tool.id }, tool.name))
                 )
             )
         ),

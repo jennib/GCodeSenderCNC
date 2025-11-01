@@ -1,3 +1,4 @@
+
 export class SerialManager {
     port = null;
     reader = null;

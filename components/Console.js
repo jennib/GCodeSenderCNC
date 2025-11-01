@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, ChevronRight, ChevronsLeft, ChevronsRight, Info, AlertTriangle, Maximize, Minimize } from './Icons.js';
 
@@ -77,7 +78,7 @@ const Console = ({ logs, onSendCommand, isConnected, isJobActive, isMacroRunning
                     : React.createElement(Maximize, { className: "w-5 h-5" })
             )
         ),
-        React.createElement('div', { ref: logContainerRef, className: "h-40 bg-background rounded p-2 overflow-y-auto mb-4 font-mono text-sm" },
+        React.createElement('div', { ref: logContainerRef, className: "flex-grow bg-background rounded p-2 overflow-y-auto mb-4 font-mono text-sm min-h-[5rem]" },
             logs.map((log, index) =>
                 React.createElement('div', { key: index, className: `flex items-start ${getLogColor(log.type)}` },
                     getLogIcon(log.type),
