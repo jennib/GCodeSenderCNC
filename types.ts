@@ -1,3 +1,4 @@
+
 export enum JobStatus {
     Idle = 'idle',
     Running = 'running',
@@ -48,7 +49,10 @@ export interface MachineSettings {
     probe: { xOffset: number; yOffset: number; zOffset: number; feedRate: number; };
     scripts: {
         startup: string;
-        toolChange: string;
+        /** G-code to execute for an automatic tool change. Use {T} as a placeholder for the tool number. */
+        automaticToolChange: string;
+        /** G-code to execute before pausing for a manual tool change (e.g., raise Z, stop spindle). Use {T} as a placeholder for the tool number. Do not include M0. */
+        manualToolChange: string;
         shutdown: string;
     };
 }

@@ -1,4 +1,5 @@
-import { ConsoleLog, MachineState, PortInfo, Tool } from '../types';
+
+import { ConsoleLog, MachineState, PortInfo, Tool, MachineSettings } from '../types';
 
 const getParam = (gcode: string, param: string): number | null => {
     // Allows for optional whitespace between parameter and value
@@ -231,7 +232,7 @@ export class SimulatedSerialManager {
         this.position.ov[0] = Math.max(25, Math.min(300, newFeed));
     }
 
-    sendGCode(gcodeLines: string[], toolLibrary: Tool[], options: { startLine?: number; isDryRun?: boolean; } = {}) {
+    sendGCode(gcodeLines: string[], toolLibrary: Tool[], machineSettings: MachineSettings, options: { startLine?: number; isDryRun?: boolean; } = {}) {
         if (this.isJobRunning) {
             this.callbacks.onError("A job is already running.");
             return;
@@ -302,18 +303,20 @@ export class SimulatedSerialManager {
             if (tMatch) {
                 const toolNumber = parseInt(tMatch[1], 10);
                 const atcTool = this.jobToolLibrary.find(t => t.position === toolNumber);
-                if (!atcTool) {
+                if (atcTool) {
+                    this.callbacks.onLog({ type: 'status', message: `(Simulated) ATC change for T${toolNumber}.` });
+                } else {
                     this.callbacks.onLog({ type: 'status', message: `(Simulated) Manual tool change for T${toolNumber}.` });
-                    // Skip the line and continue
-                    this.currentLineIndex++;
-                    this.callbacks.onProgress({
-                        percentage: (this.currentLineIndex / this.totalLines) * 100,
-                        linesSent: this.currentLineIndex,
-                        totalLines: this.totalLines
-                    });
-                    setTimeout(() => this.sendNextLine(), 50);
-                    return;
                 }
+                // Skip the line and continue
+                this.currentLineIndex++;
+                this.callbacks.onProgress({
+                    percentage: (this.currentLineIndex / this.totalLines) * 100,
+                    linesSent: this.currentLineIndex,
+                    totalLines: this.totalLines
+                });
+                setTimeout(() => this.sendNextLine(), 50);
+                return;
             }
         }
         

@@ -1,25 +1,26 @@
 
 
-
 import React, { useRef, useState, useEffect } from 'react';
 import { JobStatus } from '../types.js';
 import { Play, Pause, Square, Upload, FileText, Code, Eye, Maximize, Pencil, CheckCircle, X, Save, Plus, Minus, RefreshCw, Percent, ZoomIn, ZoomOut, Clock, BookOpen, Crosshair, Zap } from './Icons.js';
 import GCodeVisualizer from './GCodeVisualizer.js';
 import GCodeLine from './GCodeLine.js';
 
+const h = React.createElement;
+
 const FeedrateOverrideControl = ({ onFeedOverride, currentFeedrate, className = '' }) => {
-    return React.createElement('div', { className: `bg-background p-3 rounded-md ${className}` },
-        React.createElement('h4', { className: 'text-sm font-bold text-text-secondary mb-2 text-center' }, 'Feed Rate Override'),
-        React.createElement('div', { className: 'flex items-center justify-center gap-4 mb-3' },
-            React.createElement(Percent, { className: 'w-8 h-8 text-primary' }),
-            React.createElement('span', { className: 'text-4xl font-mono font-bold' }, currentFeedrate),
+    return h('div', { className: `bg-background p-3 rounded-md ${className}` },
+        h('h4', { className: 'text-sm font-bold text-text-secondary mb-2 text-center' }, 'Feed Rate Override'),
+        h('div', { className: 'flex items-center justify-center gap-4 mb-3' },
+            h(Percent, { className: 'w-8 h-8 text-primary' }),
+            h('span', { className: 'text-4xl font-mono font-bold' }, currentFeedrate),
         ),
-        React.createElement('div', { className: 'grid grid-cols-5 gap-2 text-sm' },
-            React.createElement('button', { title: 'Decrease Feed Rate by 10%', onClick: () => onFeedOverride('dec10'), className: 'p-2 bg-secondary rounded hover:bg-secondary-focus flex items-center justify-center font-bold' }, React.createElement(Minus, { className: 'w-4 h-4 mr-1' }), '10%'),
-            React.createElement('button', { title: 'Decrease Feed Rate by 1%', onClick: () => onFeedOverride('dec1'), className: 'p-2 bg-secondary rounded hover:bg-secondary-focus flex items-center justify-center font-bold' }, React.createElement(Minus, { className: 'w-4 h-4 mr-1' }), '1%'),
-            React.createElement('button', { title: 'Reset Feed Rate to 100%', onClick: () => onFeedOverride('reset'), className: 'p-2 bg-primary rounded hover:bg-primary-focus flex items-center justify-center' }, React.createElement(RefreshCw, { className: 'w-5 h-5' })),
-            React.createElement('button', { title: 'Increase Feed Rate by 1%', onClick: () => onFeedOverride('inc1'), className: 'p-2 bg-secondary rounded hover:bg-secondary-focus flex items-center justify-center font-bold' }, React.createElement(Plus, { className: 'w-4 h-4 mr-1' }), '1%'),
-            React.createElement('button', { title: 'Increase Feed Rate by 10%', onClick: () => onFeedOverride('inc10'), className: 'p-2 bg-secondary rounded hover:bg-secondary-focus flex items-center justify-center font-bold' }, React.createElement(Plus, { className: 'w-4 h-4 mr-1' }), '10%'),
+        h('div', { className: 'grid grid-cols-5 gap-2 text-sm' },
+            h('button', { title: 'Decrease Feed Rate by 10%', onClick: () => onFeedOverride('dec10'), className: 'p-2 bg-secondary rounded hover:bg-secondary-focus flex items-center justify-center font-bold' }, h(Minus, { className: 'w-4 h-4 mr-1' }), '10%'),
+            h('button', { title: 'Decrease Feed Rate by 1%', onClick: () => onFeedOverride('dec1'), className: 'p-2 bg-secondary rounded hover:bg-secondary-focus flex items-center justify-center font-bold' }, h(Minus, { className: 'w-4 h-4 mr-1' }), '1%'),
+            h('button', { title: 'Reset Feed Rate to 100%', onClick: () => onFeedOverride('reset'), className: 'p-2 bg-primary rounded hover:bg-primary-focus flex items-center justify-center' }, h(RefreshCw, { className: 'w-5 h-5' })),
+            h('button', { title: 'Increase Feed Rate by 1%', onClick: () => onFeedOverride('inc1'), className: 'p-2 bg-secondary rounded hover:bg-secondary-focus flex items-center justify-center font-bold' }, h(Plus, { className: 'w-4 h-4 mr-1' }), '1%'),
+            h('button', { title: 'Increase Feed Rate by 10%', onClick: () => onFeedOverride('inc10'), className: 'p-2 bg-secondary rounded hover:bg-secondary-focus flex items-center justify-center font-bold' }, h(Plus, { className: 'w-4 h-4 mr-1' }), '10%'),
         )
     );
 };
@@ -133,18 +134,11 @@ const GCodePanel = ({
             const lineElement = container.children[lineIndexToScroll];
 
             if (lineElement) {
-                // Manually calculate the scroll position to center the element
-                // within the scrollable container.
                 const containerHeight = container.clientHeight;
                 const lineElementOffsetTop = lineElement.offsetTop;
                 const lineElementHeight = lineElement.offsetHeight;
-
                 const scrollTop = lineElementOffsetTop - (containerHeight / 2) + (lineElementHeight / 2);
-
-                container.scrollTo({
-                    top: scrollTop,
-                    behavior: 'smooth',
-                });
+                container.scrollTo({ top: scrollTop, behavior: 'smooth' });
             }
         }
     }, [currentLine, jobStatus, view, gcodeLines.length]);
@@ -166,34 +160,24 @@ const GCodePanel = ({
         }
     };
 
-
     const renderContent = () => {
         if (gcodeLines.length > 0) {
             if (view === 'visualizer') {
-                return React.createElement(GCodeVisualizer, { 
-                    ref: visualizerRef, 
-                    gcodeLines, 
-                    currentLine, 
-                    unit: unit,
-                    hoveredLineIndex: hoveredLineIndex,
-                    machineSettings: machineSettings,
-                });
+                return h(GCodeVisualizer, { ref: visualizerRef, gcodeLines, currentLine, unit, hoveredLineIndex, machineSettings });
             }
             if (view === 'code') {
                 if (isEditing) {
-                    return React.createElement('textarea', {
+                    return h('textarea', {
                         className: "w-full h-full absolute inset-0 bg-background font-mono text-sm p-2 rounded border border-secondary focus:ring-primary focus:border-primary",
                         value: editedGCode,
                         onChange: (e) => setEditedGCode(e.target.value),
                         spellCheck: "false"
                     });
                 }
-                return React.createElement('div', { ref: codeContainerRef, className: "absolute inset-0 bg-background rounded p-2 overflow-y-auto font-mono text-sm" },
+                return h('div', { ref: codeContainerRef, className: "absolute inset-0 bg-background rounded p-2 overflow-y-auto font-mono text-sm" },
                     gcodeLines.map((line, index) =>
-                        React.createElement(GCodeLine, {
-                            key: index,
-                            line: line,
-                            lineNumber: index + 1,
+                        h(GCodeLine, {
+                            key: index, line, lineNumber: index + 1,
                             isExecuted: index < currentLine,
                             isCurrent: isJobActive && (index === currentLine),
                             isHovered: index === hoveredLineIndex,
@@ -206,237 +190,112 @@ const GCodePanel = ({
                 );
             }
         }
-        return React.createElement('div', { className: "flex flex-col items-center justify-center h-full text-text-secondary" },
-            React.createElement(FileText, { className: "w-16 h-16 mb-4" }),
-            React.createElement('p', null, "No G-code file loaded."),
-            React.createElement('p', null, "Click \"Load File\" or drag and drop here to begin.")
+        return h('div', { className: "flex flex-col items-center justify-center h-full text-text-secondary" },
+            h(FileText, { className: "w-16 h-16 mb-4" }),
+            h('p', null, "No G-code file loaded."),
+            h('p', null, "Click \"Load File\" or drag and drop here to begin.")
         );
     };
 
     const renderJobControls = () => {
         if (isReadyToStart) {
-            return React.createElement('button', {
-                onClick: () => onJobControl('start', { startLine: 0 }),
-                disabled: !isReadyToStart,
-                className: "col-span-3 flex items-center justify-center gap-3 p-5 bg-accent-green text-white font-bold rounded-md hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 focus:ring-offset-surface transition-colors disabled:bg-secondary disabled:cursor-not-allowed text-xl"
-            },
-                React.createElement(Play, { className: "w-8 h-8" }),
-                "Start Job"
+            return h('button', { onClick: () => onJobControl('start', { startLine: 0 }), disabled: !isReadyToStart, className: "col-span-3 flex items-center justify-center gap-3 p-5 bg-accent-green text-white font-bold rounded-md hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 focus:ring-offset-surface transition-colors disabled:bg-secondary disabled:cursor-not-allowed text-xl" },
+                h(Play, { className: "w-8 h-8" }), "Start Job"
             );
         }
-
         if (jobStatus === JobStatus.Running) {
             return [
-                React.createElement('button', { key: 'pause', onClick: () => onJobControl('pause'), disabled: isHoming, className: "flex items-center justify-center gap-3 p-5 bg-accent-yellow text-white font-bold rounded-md hover:bg-yellow-600 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2 focus:ring-offset-surface transition-colors text-xl disabled:bg-secondary disabled:cursor-not-allowed" },
-                    React.createElement(Pause, { className: "w-8 h-8" }),
-                    "Pause"
+                h('button', { key: 'pause', onClick: () => onJobControl('pause'), disabled: isHoming, className: "flex items-center justify-center gap-3 p-5 bg-accent-yellow text-white font-bold rounded-md hover:bg-yellow-600 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2 focus:ring-offset-surface transition-colors text-xl disabled:bg-secondary disabled:cursor-not-allowed" },
+                    h(Pause, { className: "w-8 h-8" }), "Pause"
                 ),
-                React.createElement('button', { key: 'stop', onClick: () => onJobControl('stop'), disabled: isHoming, className: "col-span-2 flex items-center justify-center gap-3 p-5 bg-accent-red text-white font-bold rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-surface transition-colors text-xl disabled:bg-secondary disabled:cursor-not-allowed" },
-                    React.createElement(Square, { className: "w-8 h-8" }),
-                    "Stop Job"
+                h('button', { key: 'stop', onClick: () => onJobControl('stop'), disabled: isHoming, className: "col-span-2 flex items-center justify-center gap-3 p-5 bg-accent-red text-white font-bold rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-surface transition-colors text-xl disabled:bg-secondary disabled:cursor-not-allowed" },
+                    h(Square, { className: "w-8 h-8" }), "Stop Job"
                 )
             ];
         }
-
         if (jobStatus === JobStatus.Paused) {
             return [
-                 React.createElement('button', { key: 'resume', onClick: () => onJobControl('resume'), disabled: isHoming, className: "flex items-center justify-center gap-3 p-5 bg-accent-green text-white font-bold rounded-md hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 focus:ring-offset-surface transition-colors text-xl disabled:bg-secondary disabled:cursor-not-allowed" },
-                    React.createElement(Play, { className: "w-8 h-8" }),
-                    "Resume"
+                 h('button', { key: 'resume', onClick: () => onJobControl('resume'), disabled: isHoming, className: "flex items-center justify-center gap-3 p-5 bg-accent-green text-white font-bold rounded-md hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 focus:ring-offset-surface transition-colors text-xl disabled:bg-secondary disabled:cursor-not-allowed" },
+                    h(Play, { className: "w-8 h-8" }), "Resume"
                 ),
-                React.createElement('button', { key: 'stop', onClick: () => onJobControl('stop'), disabled: isHoming, className: "col-span-2 flex items-center justify-center gap-3 p-5 bg-accent-red text-white font-bold rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-surface transition-colors text-xl disabled:bg-secondary disabled:cursor-not-allowed" },
-                    React.createElement(Square, { className: "w-8 h-8" }),
-                    "Stop Job"
+                h('button', { key: 'stop', onClick: () => onJobControl('stop'), disabled: isHoming, className: "col-span-2 flex items-center justify-center gap-3 p-5 bg-accent-red text-white font-bold rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-surface transition-colors text-xl disabled:bg-secondary disabled:cursor-not-allowed" },
+                    h(Square, { className: "w-8 h-8" }), "Stop Job"
                 )
             ];
         }
-
         return null;
     };
 
-    // --- Dynamic Time Estimation Logic ---
     const { totalSeconds, cumulativeSeconds } = timeEstimate || { totalSeconds: 0, cumulativeSeconds: [] };
-    let displayTime = totalSeconds;
-    let timeLabel = "Est. Time";
-    let timeTitle = "Estimated Job Time";
-
+    let displayTime = totalSeconds, timeLabel = "Est. Time", timeTitle = "Estimated Job Time";
     if (isJobActive && totalSeconds > 0 && cumulativeSeconds) {
         const feedMultiplier = (machineState?.ov?.[0] ?? 100) / 100;
-        
-        timeLabel = "Time Rem.";
-        timeTitle = "Estimated Time Remaining";
-        
+        timeLabel = "Time Rem."; timeTitle = "Estimated Time Remaining";
         if (feedMultiplier > 0) {
             const timeElapsedAt100 = (currentLine > 0 && cumulativeSeconds[currentLine - 1]) ? cumulativeSeconds[currentLine - 1] : 0;
             const timeRemainingAt100 = totalSeconds - timeElapsedAt100;
-            const adjustedRemainingTime = timeRemainingAt100 / feedMultiplier;
-            displayTime = adjustedRemainingTime;
+            displayTime = timeRemainingAt100 / feedMultiplier;
         } else {
             displayTime = Infinity;
         }
     }
-    // --- End of Logic ---
 
-    return React.createElement('div', { 
-        className: "bg-surface rounded-lg shadow-lg flex flex-col p-4 h-full relative",
-        onDragEnter: handleDragEnter,
-        onDragOver: handleDragOver,
-        onDragLeave: handleDragLeave,
-        onDrop: handleDrop
-     },
-        React.createElement('div', { className: "flex justify-between items-center mb-2 pb-4 border-b border-secondary" },
-            React.createElement('div', { className: "flex items-center gap-4" },
-                React.createElement('h2', { className: "text-lg font-bold" }, "G-Code"),
-                React.createElement('div', { className: "flex items-center bg-background rounded-md p-1" },
-                    React.createElement('button', { onClick: () => setView('visualizer'), title: "Visualizer View", className: `p-1 rounded transition-colors ${view === 'visualizer' ? 'bg-primary text-white' : 'hover:bg-secondary'}` },
-                        React.createElement(Eye, { className: "w-5 h-5" })
-                    ),
-                    React.createElement('button', { onClick: () => setView('code'), title: "Code View", className: `p-1 rounded transition-colors ${view === 'code' ? 'bg-primary text-white' : 'hover:bg-secondary'}` },
-                        React.createElement(Code, { className: "w-5 h-5" })
-                    ),
-                    view === 'visualizer' && gcodeLines.length > 0 && React.createElement(React.Fragment, null,
-                        React.createElement('button', {
-                            onClick: () => visualizerRef.current?.resetView(),
-                            title: "Reset to Top-Down View",
-                            className: "p-1 rounded transition-colors hover:bg-secondary"
-                        },
-                            React.createElement(Crosshair, { className: "w-5 h-5" })
-                        ),
-                        React.createElement('button', {
-                            onClick: () => visualizerRef.current?.fitView(),
-                            title: "Fit to View",
-                            className: "p-1 rounded transition-colors hover:bg-secondary"
-                        },
-                            React.createElement(Maximize, { className: "w-5 h-5" })
-                        ),
-                        React.createElement('button', {
-                            onClick: () => visualizerRef.current?.zoomIn(),
-                            title: "Zoom In",
-                            className: "p-1 rounded transition-colors hover:bg-secondary"
-                        },
-                            React.createElement(ZoomIn, { className: "w-5 h-5" })
-                        ),
-                        React.createElement('button', {
-                            onClick: () => visualizerRef.current?.zoomOut(),
-                            title: "Zoom Out",
-                            className: "p-1 rounded transition-colors hover:bg-secondary"
-                        },
-                            React.createElement(ZoomOut, { className: "w-5 h-5" })
-                        )
+    return h('div', { className: "bg-surface rounded-lg shadow-lg flex flex-col p-4 h-full relative", onDragEnter: handleDragEnter, onDragOver: handleDragOver, onDragLeave: handleDragLeave, onDrop: handleDrop },
+        h('div', { className: "flex justify-between items-center mb-2 pb-4 border-b border-secondary" },
+            h('div', { className: "flex items-center gap-4" },
+                h('h2', { className: "text-lg font-bold" }, "G-Code"),
+                h('div', { className: "flex items-center bg-background rounded-md p-1" },
+                    h('button', { onClick: () => setView('visualizer'), title: "Visualizer View", className: `p-1 rounded transition-colors ${view === 'visualizer' ? 'bg-primary text-white' : 'hover:bg-secondary'}` }, h(Eye, { className: "w-5 h-5" })),
+                    h('button', { onClick: () => setView('code'), title: "Code View", className: `p-1 rounded transition-colors ${view === 'code' ? 'bg-primary text-white' : 'hover:bg-secondary'}` }, h(Code, { className: "w-5 h-5" })),
+                    view === 'visualizer' && gcodeLines.length > 0 && h(React.Fragment, null,
+                        h('button', { onClick: () => visualizerRef.current?.resetView(), title: "Reset to Top-Down View", className: "p-1 rounded transition-colors hover:bg-secondary" }, h(Crosshair, { className: "w-5 h-5" })),
+                        h('button', { onClick: () => visualizerRef.current?.fitView(), title: "Fit to View", className: "p-1 rounded transition-colors hover:bg-secondary" }, h(Maximize, { className: "w-5 h-5" })),
+                        h('button', { onClick: () => visualizerRef.current?.zoomIn(), title: "Zoom In", className: "p-1 rounded transition-colors hover:bg-secondary" }, h(ZoomIn, { className: "w-5 h-5" })),
+                        h('button', { onClick: () => visualizerRef.current?.zoomOut(), title: "Zoom Out", className: "p-1 rounded transition-colors hover:bg-secondary" }, h(ZoomOut, { className: "w-5 h-5" }))
                     )
                 ),
-                view === 'code' && gcodeLines.length > 0 && (
-                    isEditing ? (
-                        React.createElement('div', { className: 'flex items-center gap-2' },
-                            React.createElement('button', { 
-                                onClick: handleSave, 
-                                className: "flex items-center gap-2 px-3 py-1 bg-accent-green text-white font-semibold rounded-md hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-500 transition-colors",
-                                title: "Save Changes to Local Copy"
-                            }, React.createElement(CheckCircle, {className: "w-4 h-4"}), "Save"),
-                            React.createElement('button', { 
-                                onClick: handleSaveToDisk, 
-                                className: "flex items-center gap-2 px-3 py-1 bg-primary text-white font-semibold rounded-md hover:bg-primary-focus focus:outline-none focus:ring-2 focus:ring-primary transition-colors",
-                                title: "Save to Disk"
-                            }, React.createElement(Save, {className: "w-4 h-4"}), "Save to Disk"),
-                            React.createElement('button', { 
-                                onClick: handleCancel, 
-                                className: "flex items-center gap-2 px-3 py-1 bg-secondary text-white font-semibold rounded-md hover:bg-secondary-focus focus:outline-none focus:ring-2 focus:ring-secondary transition-colors",
-                                title: "Cancel"
-                            }, React.createElement(X, {className: "w-4 h-4"}), "Cancel")
-                        )
-                    ) : (
-                        React.createElement('button', { 
-                            onClick: () => setIsEditing(true), 
-                            className: "flex items-center gap-2 px-3 py-1 bg-secondary text-white font-semibold rounded-md hover:bg-secondary-focus focus:outline-none focus:ring-2 focus:ring-secondary transition-colors",
-                            title: "Edit G-Code"
-                        }, React.createElement(Pencil, {className: "w-4 h-4"}), "Edit")
-                    )
+                view === 'code' && gcodeLines.length > 0 && (isEditing ?
+                    h('div', { className: 'flex items-center gap-2' },
+                        h('button', { onClick: handleSave, className: "flex items-center gap-2 px-3 py-1 bg-accent-green text-white font-semibold rounded-md hover:bg-green-600", title: "Save Changes" }, h(CheckCircle, {className: "w-4 h-4"}), "Save"),
+                        h('button', { onClick: handleSaveToDisk, className: "flex items-center gap-2 px-3 py-1 bg-primary text-white font-semibold rounded-md hover:bg-primary-focus", title: "Save to Disk" }, h(Save, {className: "w-4 h-4"}), "Save to Disk"),
+                        h('button', { onClick: handleCancel, className: "flex items-center gap-2 px-3 py-1 bg-secondary text-white font-semibold rounded-md hover:bg-secondary-focus", title: "Cancel" }, h(X, {className: "w-4 h-4"}), "Cancel")
+                    ) :
+                    h('button', { onClick: () => setIsEditing(true), className: "flex items-center gap-2 px-3 py-1 bg-secondary text-white font-semibold rounded-md hover:bg-secondary-focus", title: "Edit G-Code" }, h(Pencil, {className: "w-4 h-4"}), "Edit")
                 )
             ),
-            React.createElement('div', { className: "flex items-center gap-2" },
-                React.createElement('button', { 
-                    onClick: onOpenGenerator,
-                    disabled: isJobActive,
-                    className: "flex items-center gap-2 px-4 py-2 bg-primary text-white font-semibold rounded-md hover:bg-primary-focus focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-surface transition-colors disabled:opacity-50 disabled:cursor-not-allowed",
-                    title: "Generate G-Code"
-                },
-                    React.createElement(Zap, { className: "w-5 h-5" }),
-                    "Generate"
-                ),
-                React.createElement('input', { type: "file", ref: fileInputRef, onChange: handleFileChange, className: "hidden", accept: ".gcode,.nc,.txt" }),
-                React.createElement('button', { 
-                    onClick: handleUploadClick,
-                    disabled: isJobActive,
-                    className: "flex items-center gap-2 px-4 py-2 bg-secondary text-white font-semibold rounded-md hover:bg-secondary-focus focus:outline-none focus:ring-2 focus:ring-secondary focus:ring-offset-2 focus:ring-offset-surface transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                },
-                    React.createElement(Upload, { className: "w-5 h-5" }),
-                    "Load File"
-                ),
-                React.createElement('button', {
-                    onClick: onClearFile,
-                    disabled: isJobActive || gcodeLines.length === 0,
-                    className: "p-2 bg-secondary text-text-primary font-semibold rounded-md hover:bg-secondary-focus focus:outline-none focus:ring-2 focus:ring-secondary focus:ring-offset-2 focus:ring-offset-surface transition-colors disabled:opacity-50 disabled:cursor-not-allowed",
-                    title: "Clear G-Code & Preview"
-                },
-                    React.createElement(X, { className: "w-5 h-5" })
+            h('div', { className: "flex items-center gap-2" },
+                h('button', { onClick: onOpenGenerator, disabled: isJobActive, className: "flex items-center gap-2 px-4 py-2 bg-primary text-white font-semibold rounded-md hover:bg-primary-focus disabled:opacity-50", title: "Generate G-Code" }, h(Zap, { className: "w-5 h-5" }), "Generate"),
+                h('input', { type: "file", ref: fileInputRef, onChange: handleFileChange, className: "hidden", accept: ".gcode,.nc,.txt" }),
+                h('button', { onClick: handleUploadClick, disabled: isJobActive, className: "flex items-center gap-2 px-4 py-2 bg-secondary text-white font-semibold rounded-md hover:bg-secondary-focus disabled:opacity-50" }, h(Upload, { className: "w-5 h-5" }), "Load File"),
+                h('button', { onClick: onClearFile, disabled: isJobActive || gcodeLines.length === 0, className: "p-2 bg-secondary text-text-primary rounded-md hover:bg-secondary-focus disabled:opacity-50", title: "Clear G-Code" }, h(X, { className: "w-5 h-5" }))
+            )
+        ),
+        fileName && h('div', { className: 'grid grid-cols-2 gap-4 mb-2' },
+            h('p', { className: "text-sm text-text-secondary truncate", title: fileName }, h('strong', null, 'File: '), fileName),
+            h('div', { className: 'flex items-center gap-2' },
+                h(BookOpen, { className: 'w-5 h-5 text-text-secondary flex-shrink-0' }),
+                h('select', { value: selectedToolId || '', onChange: e => onToolSelect(e.target.value ? parseInt(e.target.value, 10) : null), disabled: isJobActive || toolLibrary.length === 0, className: 'w-full bg-background border border-secondary rounded-md py-1 px-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50' },
+                    h('option', { value: '' }, toolLibrary.length > 0 ? 'Select a tool...' : 'No tools in library'),
+                    toolLibrary.map(tool => h('option', { key: tool.id, value: tool.id }, tool.name))
                 )
             )
         ),
-        fileName && React.createElement('div', { className: 'grid grid-cols-2 gap-4 mb-2' },
-            React.createElement('p', { className: "text-sm text-text-secondary truncate", title: fileName }, React.createElement('strong', null, 'File: '), fileName),
-            React.createElement('div', { className: 'flex items-center gap-2' },
-                React.createElement(BookOpen, { className: 'w-5 h-5 text-text-secondary flex-shrink-0' }),
-                React.createElement('select', {
-                    value: selectedToolId || '',
-                    onChange: e => onToolSelect(e.target.value ? parseInt(e.target.value, 10) : null),
-                    disabled: isJobActive || toolLibrary.length === 0,
-                    className: 'w-full bg-background border border-secondary rounded-md py-1 px-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50'
-                },
-                    React.createElement('option', { value: '' }, toolLibrary.length > 0 ? 'Select a tool...' : 'No tools in library'),
-                    toolLibrary.map(tool => React.createElement('option', { key: tool.id, value: tool.id }, tool.name))
+        h('div', { className: "space-y-4 flex-shrink-0 mb-4" },
+            h('div', { className: "grid grid-cols-3 gap-4" }, renderJobControls()),
+            h('div', { className: "w-full bg-secondary rounded-full h-4" }, h('div', { className: "bg-primary h-4 rounded-full transition-all duration-300", style: { width: `${progress}%` } })),
+            h('div', { className: "flex justify-between items-center text-sm font-medium" },
+                h('p', null, "Status: ", h('span', { className: "font-bold capitalize" }, jobStatus), (isJobActive && totalLines > 0) && h('span', { className: 'ml-2 font-mono text-text-secondary bg-background px-2 py-0.5 rounded-md' }, `${currentLine} / ${totalLines}`)),
+                h('div', { className: "flex items-center gap-4" },
+                    (gcodeLines.length > 0 && totalSeconds > 0) && h('div', { title: timeTitle, className: 'flex items-center gap-1.5 text-text-secondary' }, h(Clock, { className: 'w-4 h-4' }), h('span', null, `${timeLabel}:`), h('span', { className: 'font-mono ml-1' }, formatTime(displayTime))),
+                    h('p', { className: "font-bold" }, `${progress.toFixed(1)}%`)
                 )
             )
         ),
-        
-        React.createElement('div', { className: "space-y-4 flex-shrink-0 mb-4" },
-            React.createElement('div', { className: "grid grid-cols-3 gap-4" },
-                renderJobControls()
-            ),
-            React.createElement('div', { className: "w-full bg-secondary rounded-full h-4" },
-                React.createElement('div', { className: "bg-primary h-4 rounded-full transition-all duration-300", style: { width: `${progress}%` } })
-            ),
-            React.createElement('div', { className: "flex justify-between items-center text-sm font-medium" },
-                React.createElement('p', null, 
-                    "Status: ", 
-                    React.createElement('span', { className: "font-bold capitalize" }, jobStatus),
-                    (isJobActive && totalLines > 0) && React.createElement('span', { className: 'ml-2 font-mono text-text-secondary bg-background px-2 py-0.5 rounded-md' }, `${currentLine} / ${totalLines}`)
-                ),
-                React.createElement('div', { className: "flex items-center gap-4" },
-                    (gcodeLines.length > 0 && totalSeconds > 0) && React.createElement('div', { title: timeTitle, className: 'flex items-center gap-1.5 text-text-secondary' },
-                        React.createElement(Clock, { className: 'w-4 h-4' }),
-                        React.createElement('span', null, `${timeLabel}:`),
-                        React.createElement('span', { className: 'font-mono ml-1' }, formatTime(displayTime))
-                    ),
-                    React.createElement('p', { className: "font-bold" }, `${progress.toFixed(1)}%`)
-                )
-            )
-        ),
-        
-        React.createElement('div', { className: "flex-grow relative min-h-0" },
+        h('div', { className: "flex-grow relative min-h-0" },
             renderContent(),
-            isDraggingOver && React.createElement('div', {
-                className: "absolute inset-0 bg-primary/70 border-4 border-dashed border-primary-focus rounded-lg flex flex-col items-center justify-center pointer-events-none"
-            },
-                React.createElement(Upload, { className: "w-24 h-24 text-white" }),
-                React.createElement('p', { className: "text-2xl font-bold text-white mt-4" }, "Drop G-code file here")
-            )
+            isDraggingOver && h('div', { className: "absolute inset-0 bg-primary/70 border-4 border-dashed border-primary-focus rounded-lg flex flex-col items-center justify-center pointer-events-none" }, h(Upload, { className: "w-24 h-24 text-white" }), h('p', { className: "text-2xl font-bold text-white mt-4" }, "Drop G-code file here"))
         ),
-
-        isJobActive && React.createElement(FeedrateOverrideControl, {
-            onFeedOverride: onFeedOverride,
-            currentFeedrate: machineState?.ov?.[0] ?? 100,
-            className: 'mt-4 flex-shrink-0'
-        })
+        isJobActive && h(FeedrateOverrideControl, { onFeedOverride, currentFeedrate: machineState?.ov?.[0] ?? 100, className: 'mt-4 flex-shrink-0' })
     );
 };
 

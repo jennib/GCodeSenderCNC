@@ -1,4 +1,5 @@
-import { ConsoleLog, MachineState, PortInfo, MachinePosition, Tool } from '../types';
+
+import { ConsoleLog, MachineState, PortInfo, MachinePosition, Tool, MachineSettings } from '../types';
 
 interface SerialManagerCallbacks {
     onConnect: (info: PortInfo) => void;
@@ -24,6 +25,7 @@ export class SerialManager {
     totalLines = 0;
     gcode: string[] = [];
     jobToolLibrary: Tool[] = [];
+    machineSettings: MachineSettings | null = null;
     statusInterval: number | null = null;
     
     // State is now managed within the service to handle partial updates correctly.
@@ -394,7 +396,7 @@ export class SerialManager {
         }
     }
 
-    sendGCode(gcodeLines: string[], toolLibrary: Tool[], options: { startLine?: number; isDryRun?: boolean } = {}) {
+    sendGCode(gcodeLines: string[], toolLibrary: Tool[], machineSettings: MachineSettings, options: { startLine?: number; isDryRun?: boolean } = {}) {
         if (this.isJobRunning) {
             this.callbacks.onError("A job is already running.");
             return;
@@ -404,6 +406,7 @@ export class SerialManager {
 
         this.gcode = gcodeLines;
         this.jobToolLibrary = toolLibrary;
+        this.machineSettings = machineSettings;
         this.totalLines = gcodeLines.length;
         this.currentLineIndex = startLine;
         this.isDryRun = isDryRun;
@@ -458,42 +461,63 @@ export class SerialManager {
             return;
         }
         
-        if (upperLine.includes('M6')) {
+        // --- Tool Change Logic ---
+        if (upperLine.includes('M6') && this.machineSettings) {
             const tMatch = upperLine.match(/T(\d+)/);
             if (tMatch) {
                 const toolNumber = parseInt(tMatch[1], 10);
                 const atcTool = this.jobToolLibrary.find(t => t.position === toolNumber);
 
-                if (!atcTool) { // Manual change required
-                    this.callbacks.onLog({ type: 'status', message: `Pausing for manual tool change to T${toolNumber}.` });
-                    this.isPaused = true;
-                    this.sendRealtimeCommand('!').catch(() => {}); // Feed Hold
-                    
-                    try {
-                        await this.callbacks.onManualToolChangeRequired(toolNumber);
-                        // User has confirmed
-                        this.isPaused = false;
-                        this.callbacks.onLog({ type: 'status', message: 'Job resumed after tool change.' });
-                        this.sendRealtimeCommand('~').catch(() => {}); // Cycle Resume
+                try {
+                    if (atcTool) { // ATC Change
+                        this.callbacks.onLog({ type: 'status', message: `Executing ATC change for T${toolNumber}...` });
+                        const script = this.machineSettings.scripts.automaticToolChange.replace(/{T}/g, String(toolNumber));
+                        const commands = script.split('\n').filter(cmd => cmd.trim() !== '');
+                        for (const command of commands) {
+                            await this.sendLineAndWaitForOk(command);
+                        }
+                    } else { // Manual Change
+                        this.isPaused = true;
+                        this.sendRealtimeCommand('!'); // Feed Hold
+                        
+                        this.callbacks.onLog({ type: 'status', message: `Executing pre-pause script for manual change to T${toolNumber}...` });
+                        const script = this.machineSettings.scripts.manualToolChange.replace(/{T}/g, String(toolNumber));
+                        const commands = script.split('\n').filter(cmd => cmd.trim() !== '');
+                        for (const command of commands) {
+                            await this.sendLineAndWaitForOk(command);
+                        }
 
-                        // Skip this M6 line and move to the next
-                        this.currentLineIndex++;
-                        this.callbacks.onProgress({
-                            percentage: (this.currentLineIndex / this.totalLines) * 100,
-                            linesSent: this.currentLineIndex,
-                            totalLines: this.totalLines
-                        });
-                        setTimeout(() => this.sendNextLine(), 0);
-                        return; // IMPORTANT: exit this instance of the function
-                    } catch (jobStopError) {
-                        // User cancelled the modal
-                        this.callbacks.onLog({ type: 'error', message: `Job stopped by user during tool change.` });
-                        this.stopJob();
-                        return;
+                        await this.callbacks.onManualToolChangeRequired(toolNumber);
+                        
+                        // User has confirmed in the UI
+                        this.isPaused = false;
+                        this.callbacks.onLog({ type: 'status', message: 'Resuming job after tool change.' });
+                        this.sendRealtimeCommand('~'); // Cycle Resume
                     }
+                    
+                    // On success, skip the M6 line and continue the job
+                    this.currentLineIndex++;
+                    this.callbacks.onProgress({
+                        percentage: (this.currentLineIndex / this.totalLines) * 100,
+                        linesSent: this.currentLineIndex,
+                        totalLines: this.totalLines
+                    });
+                    setTimeout(() => this.sendNextLine(), 0);
+                    return; // IMPORTANT: exit this instance of the function
+                } catch (error) {
+                     const errorMessage = error instanceof Error ? error.message : "Unknown error";
+                    if (errorMessage.includes("Job stopped by user")) {
+                         this.callbacks.onLog({ type: 'error', message: errorMessage });
+                         this.stopJob();
+                    } else {
+                         this.callbacks.onError(`Error during tool change: ${errorMessage}`);
+                         this.stopJob();
+                    }
+                    return;
                 }
             }
         }
+        // --- End Tool Change Logic ---
 
         try {
             await this.sendLineAndWaitForOk(line);

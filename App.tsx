@@ -92,7 +92,8 @@ const DEFAULT_SETTINGS = {
     probe: { xOffset: 3.0, yOffset: 3.0, zOffset: 15.0, feedRate: 25 },
     scripts: {
         startup: ['G21', 'G90'].join('\n'), // Set units to mm, absolute positioning
-        toolChange: ['M5', 'G0 Z10'].join('\n'), // Stop spindle, raise Z
+        automaticToolChange: 'M6 T{T}', // Standard ATC command
+        manualToolChange: ['M5', 'G0 Z10'].join('\n'), // Stop spindle, raise Z before pausing
         shutdown: ['M5', 'G0 X0 Y0'].join('\n') // Stop spindle, go to WCS zero
     }
 };
@@ -184,16 +185,27 @@ const App: React.FC = () => {
     const [machineSettings, setMachineSettings] = useState(() => {
         try {
             const saved = localStorage.getItem('cnc-app-settings');
-            let parsed = saved ? JSON.parse(saved) : DEFAULT_SETTINGS;
+            let parsed = saved ? JSON.parse(saved) : { ...DEFAULT_SETTINGS };
              if (!parsed.probe) {
-                parsed.probe = DEFAULT_SETTINGS.probe;
+                parsed.probe = { ...DEFAULT_SETTINGS.probe };
             }
             if (parsed.probe && typeof parsed.probe.feedRate === 'undefined') {
                 parsed.probe.feedRate = DEFAULT_SETTINGS.probe.feedRate;
             }
+            // Backwards compatibility for new tool change scripts
+            if (!parsed.scripts) {
+                parsed.scripts = { ...DEFAULT_SETTINGS.scripts };
+            } else {
+                if (typeof parsed.scripts.automaticToolChange === 'undefined') {
+                    parsed.scripts.automaticToolChange = DEFAULT_SETTINGS.scripts.automaticToolChange;
+                }
+                if (typeof parsed.scripts.manualToolChange === 'undefined') {
+                    parsed.scripts.manualToolChange = DEFAULT_SETTINGS.scripts.manualToolChange;
+                }
+            }
             return parsed;
         } catch {
-            return DEFAULT_SETTINGS;
+            return { ...DEFAULT_SETTINGS };
         }
     });
     const [toolLibrary, setToolLibrary] = useState(() => {
@@ -505,7 +517,7 @@ const App: React.FC = () => {
             setError(`Failed to connect: ${errorMessage}`);
             addLog({ type: 'error', message: `Failed to connect: ${errorMessage}` });
         }
-    }, [addLog, isSerialApiSupported, useSimulator, addNotification, playCompletionSound, machineSettings.scripts.startup, isVerbose]);
+    }, [addLog, isSerialApiSupported, useSimulator, addNotification, playCompletionSound, machineSettings.scripts, isVerbose]);
 
     const handleDisconnect = useCallback(async () => {
         if (jobStatus === JobStatus.Running || jobStatus === JobStatus.Paused) {
@@ -568,11 +580,11 @@ const App: React.FC = () => {
 
         setIsPreflightModalOpen(false);
         setJobStatus(JobStatus.Running);
-        manager.sendGCode(gcodeLines, toolLibrary, {
+        manager.sendGCode(gcodeLines, toolLibrary, machineSettings, {
             startLine: jobStartOptions.startLine,
             isDryRun: options.isDryRun
         });
-    }, [isConnected, gcodeLines, jobStartOptions, toolLibrary]);
+    }, [isConnected, gcodeLines, jobStartOptions, toolLibrary, machineSettings]);
 
     const handleJobControl = useCallback((action: 'start' | 'pause' | 'resume' | 'stop', options?: { startLine?: number }) => {
         const manager = serialManagerRef.current;

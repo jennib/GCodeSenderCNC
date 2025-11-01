@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { SerialManager } from './services/serialService.js';
 import { SimulatedSerialManager } from './services/simulatedSerialService.js';
@@ -17,13 +18,16 @@ import WelcomeModal from './components/WelcomeModal.js';
 import { NotificationContainer } from './components/Notification.js';
 import ThemeToggle from './components/ThemeToggle.js';
 import StatusBar from './components/StatusBar.js';
-import { AlertTriangle, OctagonAlert, Unlock, Settings, Maximize, Minimize, BookOpen } from './components/Icons.js';
+import { AlertTriangle, OctagonAlert, Unlock, Settings, Maximize, Minimize, BookOpen } from './Icons.js';
 import { estimateGCodeTime } from './services/gcodeTimeEstimator.js';
 import { analyzeGCode } from './services/gcodeAnalyzer.js';
 import { Analytics } from '@vercel/analytics/react';
 import Footer from './components/Footer.js';
 import ContactModal from './components/ContactModal.js';
 import UnsupportedBrowser from './components/UnsupportedBrowser.js';
+import ManualToolChangeModal from './components/ManualToolChangeModal.js';
+
+const h = React.createElement;
 
 const GRBL_ALARM_CODES = {
     1: { name: 'Hard limit', desc: 'A limit switch was triggered. Usually due to machine travel limits.', resolution: 'Check for obstructions. The machine may need to be moved off the switch manually. Use the "$X" command to unlock after clearing the issue, then perform a homing cycle ($H).' },
@@ -148,7 +152,10 @@ const App = () => {
     const [isGCodeGeneratorModalOpen, setIsGCodeGeneratorModalOpen] = useState(false);
     const [selectedToolId, setSelectedToolId] = useState(null);
     const [isVerbose, setIsVerbose] = useState(false);
-
+    
+    // Manual Tool Change State
+    const [isToolChangeModalOpen, setIsToolChangeModalOpen] = useState(false);
+    const [toolChangeInfo, setToolChangeInfo] = useState({ toolNumber: null });
 
     // Persisted State
     const [jogStep, setJogStep] = useState(() => {
@@ -207,6 +214,7 @@ const App = () => {
     const jobStatusRef = useRef(jobStatus);
     const audioContextRef = useRef(null);
     const audioBufferRef = useRef(null);
+    const toolChangePromiseRef = useRef(null);
     
     useEffect(() => {
         const onboardingComplete = localStorage.getItem('cnc-app-onboarding-complete');
@@ -283,22 +291,21 @@ const App = () => {
     }, [removeNotification]);
 
     useEffect(() => {
-        // This effect runs once on mount to initialize the audio system.
-        const context = new (window.AudioContext || window.webkitAudioContext)();
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContext) {
+            console.error("AudioContext not supported by this browser.");
+            return;
+        }
+        const context = new AudioContext();
         audioContextRef.current = context;
 
-        // Pre-load the audio file to be ready for playback.
         fetch('/completion-sound.mp3')
             .then(response => {
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
                 return response.arrayBuffer();
             })
             .then(arrayBuffer => context.decodeAudioData(arrayBuffer))
-            .then(decodedData => {
-                audioBufferRef.current = decodedData;
-            })
+            .then(decodedData => { audioBufferRef.current = decodedData; })
             .catch(error => {
                 console.error("Failed to load or decode completion sound:", error);
                 addNotification('Could not load notification sound.', 'error');
@@ -308,25 +315,20 @@ const App = () => {
             if (context.state === 'suspended') {
                 context.resume().then(() => {
                     setIsAudioUnlocked(true);
-                    // Clean up listeners once the context is unlocked.
                     document.removeEventListener('click', unlockAudio);
                     document.removeEventListener('keydown', unlockAudio);
                 });
             } else {
-                // If it's already running, we can just clean up.
                 setIsAudioUnlocked(true);
                 document.removeEventListener('click', unlockAudio);
                 document.removeEventListener('keydown', unlockAudio);
             }
         };
 
-        // Browsers require a user gesture to start AudioContext.
-        // We listen for the first click or keydown anywhere.
         document.addEventListener('click', unlockAudio);
         document.addEventListener('keydown', unlockAudio);
 
         return () => {
-            // Cleanup on unmount
             document.removeEventListener('click', unlockAudio);
             document.removeEventListener('keydown', unlockAudio);
             context.close();
@@ -334,9 +336,7 @@ const App = () => {
     }, [addNotification]);
 
     useEffect(() => {
-        const onFullscreenChange = () => {
-            setIsFullscreen(!!document.fullscreenElement);
-        };
+        const onFullscreenChange = () => setIsFullscreen(!!document.fullscreenElement);
         document.addEventListener('fullscreenchange', onFullscreenChange);
         return () => document.removeEventListener('fullscreenchange', onFullscreenChange);
     }, []);
@@ -344,7 +344,6 @@ const App = () => {
     const playCompletionSound = useCallback(() => {
         const audioContext = audioContextRef.current;
         const audioBuffer = audioBufferRef.current;
-
         if (audioBuffer && audioContext && audioContext.state === 'running') {
             const source = audioContext.createBufferSource();
             source.buffer = audioBuffer;
@@ -357,40 +356,27 @@ const App = () => {
 
     const addLog = useCallback((log) => {
         let processedLog = { ...log };
-
-        // Add explanation for GRBL errors, preserving the original message context.
         if (processedLog.type === 'error' && processedLog.message.includes('error:')) {
             const codeMatch = processedLog.message.match(/error:(\d+)/);
             if (codeMatch && codeMatch[1]) {
                 const code = parseInt(codeMatch[1], 10);
                 const explanation = GRBL_ERROR_CODES[code];
-                if (explanation) {
-                    processedLog.message = `${processedLog.message} (${explanation})`;
-                }
+                if (explanation) processedLog.message = `${processedLog.message} (${explanation})`;
             }
         }
-
         setConsoleLogs(prev => {
             const trimmedMessage = processedLog.message.trim().toLowerCase();
-
-            // Consolidate repeated 'ok' messages to prevent console spam.
             if (!isVerbose && processedLog.type === 'received' && trimmedMessage === 'ok') {
                 const lastLog = prev.length > 0 ? prev[prev.length - 1] : null;
-
-                // Check if the last log was also an 'ok' message that we can append to.
                 if (lastLog && lastLog.type === 'received' && /^ok\.*$/.test(lastLog.message)) {
-                    // If the line has space, append a dot.
                     if (lastLog.message.length < 60) {
                         const newLogs = [...prev];
                         newLogs[newLogs.length - 1] = { ...lastLog, message: lastLog.message + '.' };
                         return newLogs;
-                    } 
-                    // If the line is full, we fall through to add a new 'ok' log on a new line.
+                    }
                 }
             }
-            
-            // For any other message, or the first 'ok' in a sequence.
-            return [...prev, processedLog].slice(-200); // Keep last 200 logs
+            return [...prev, processedLog].slice(-200);
         });
     }, [isVerbose]);
     
@@ -406,15 +392,15 @@ const App = () => {
             setJobStatus(JobStatus.Stopped);
             setProgress(0);
             const alarmInfo = GRBL_ALARM_CODES[machineState.code] || GRBL_ALARM_CODES.default;
-            addLog({ 
-                type: 'error', 
-                message: `Job aborted due to Alarm ${machineState.code}: ${alarmInfo.name}.`
-            });
+            addLog({ type: 'error', message: `Job aborted due to Alarm ${machineState.code}: ${alarmInfo.name}.` });
         }
     }, [machineState, jobStatus, addLog]);
 
     useEffect(() => {
-        setIsSerialApiSupported('serial' in navigator);
+        if (!('serial' in navigator)) {
+            setIsSerialApiSupported(false);
+            setError("Web Serial API is not supported by your browser. Please use a compatible browser like Chrome, Edge, or enable it in Firefox (dom.w3c_serial.enabled).");
+        }
     }, []);
 
     const handleConnect = useCallback(async () => {
@@ -422,63 +408,51 @@ const App = () => {
 
         const commonCallbacks = {
             onConnect: async (info) => {
-                setIsConnected(true);
-                setPortInfo(info);
+                setIsConnected(true); setPortInfo(info);
                 addLog({ type: 'status', message: `Connected to ${useSimulator ? 'simulator' : 'port'} at 115200 baud.` });
-                setError(null);
-                setIsSimulatedConnection(useSimulator);
-                setIsHomedSinceConnect(false); // Reset homing status on new connection
-                
-                // Run startup script
+                setError(null); setIsSimulatedConnection(useSimulator); setIsHomedSinceConnect(false);
                 if (machineSettings.scripts.startup && serialManagerRef.current) {
                     addLog({ type: 'status', message: 'Running startup script...' });
                     const startupCommands = machineSettings.scripts.startup.split('\n').filter(cmd => cmd.trim() !== '');
-                    for (const command of startupCommands) {
-                        await serialManagerRef.current.sendLineAndWaitForOk(command);
-                    }
+                    for (const command of startupCommands) await serialManagerRef.current.sendLineAndWaitForOk(command);
                 }
             },
             onDisconnect: () => {
-                setIsConnected(false);
-                setPortInfo(null);
-                setJobStatus(JobStatus.Idle);
-                setProgress(0);
-                setMachineState(null);
+                setIsConnected(false); setPortInfo(null); setJobStatus(JobStatus.Idle);
+                setProgress(0); setMachineState(null);
                 addLog({ type: 'status', message: 'Disconnected.' });
-                serialManagerRef.current = null;
-                setIsSimulatedConnection(false);
-                setIsHomedSinceConnect(false);
+                serialManagerRef.current = null; setIsSimulatedConnection(false); setIsHomedSinceConnect(false);
             },
             onLog: addLog,
             onProgress: (p) => {
                 setProgress(p.percentage);
                 if (p.percentage >= 100 && jobStatusRef.current !== JobStatus.Complete) {
-                    setJobStatus(JobStatus.Complete);
-                    addLog({type: 'status', message: 'Job complete!'});
-                    addNotification('Job complete!', 'success');
-                    playCompletionSound();
+                    setJobStatus(JobStatus.Complete); addLog({type: 'status', message: 'Job complete!'});
+                    addNotification('Job complete!', 'success'); playCompletionSound();
                 }
             },
-            onError: (message) => {
-                setError(message);
-                addLog({ type: 'error', message });
-            },
+            onError: (message) => { setError(message); addLog({ type: 'error', message }); },
             onStatus: (status, rawStatus) => {
                 setMachineState(status);
-                if (isVerbose && rawStatus) {
-                    addLog({ type: 'status', message: rawStatus });
-                }
+                if (isVerbose && rawStatus) addLog({ type: 'status', message: rawStatus });
+            }
+        };
+
+        const serialCallbacks = {
+            ...commonCallbacks,
+            onManualToolChangeRequired: (toolNumber) => {
+                return new Promise((resolve, reject) => {
+                    setToolChangeInfo({ toolNumber });
+                    setIsToolChangeModalOpen(true);
+                    toolChangePromiseRef.current = { resolve, reject };
+                });
             }
         };
 
         try {
-            const manager = useSimulator
-                ? new SimulatedSerialManager(commonCallbacks)
-                : new SerialManager(commonCallbacks);
-            
-            serialManagerRef.current = manager; // Set ref before connect to use in onConnect
+            const manager = useSimulator ? new SimulatedSerialManager(serialCallbacks) : new SerialManager(serialCallbacks);
+            serialManagerRef.current = manager;
             await manager.connect(115200);
-            
         } catch (err) {
             const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred.';
             setError(`Failed to connect: ${errorMessage}`);
@@ -487,72 +461,38 @@ const App = () => {
     }, [addLog, isSerialApiSupported, useSimulator, addNotification, playCompletionSound, machineSettings.scripts.startup, isVerbose]);
 
     const handleDisconnect = useCallback(async () => {
-        if (jobStatus === JobStatus.Running || jobStatus === JobStatus.Paused) {
-            if (!window.confirm("A job is currently running or paused. Are you sure you want to disconnect? This will stop the job.")) {
-                return; // User cancelled the disconnect
-            }
-        }
-        
-        // Run shutdown script before disconnecting
+        if ((jobStatus === JobStatus.Running || jobStatus === JobStatus.Paused) && !window.confirm("A job is currently running or paused. Are you sure you want to disconnect? This will stop the job.")) return;
         if (isConnected && machineSettings.scripts.shutdown && serialManagerRef.current) {
             addLog({ type: 'status', message: 'Running shutdown script...' });
             const shutdownCommands = machineSettings.scripts.shutdown.split('\n').filter(cmd => cmd.trim() !== '');
-            for (const command of shutdownCommands) {
-                await serialManagerRef.current.sendLineAndWaitForOk(command);
-            }
+            for (const command of shutdownCommands) await serialManagerRef.current.sendLineAndWaitForOk(command);
         }
-
         await serialManagerRef.current?.disconnect();
     }, [jobStatus, isConnected, machineSettings.scripts.shutdown, addLog]);
 
     const handleFileLoad = (content, name) => {
-        // More robustly clean and filter g-code lines
-        const lines = content.split('\n')
-            .map(l => l.replace(/\(.*\)/g, '')) // Remove parenthetical comments
-            .map(l => l.split(';')[0]) // Remove semicolon comments
-            .map(l => l.trim())
-            .filter(l => l && l !== '%'); // Filter empty lines and program start/end markers
-
-        setGcodeLines(lines);
-        setFileName(name);
-        setProgress(0);
-        setJobStatus(JobStatus.Idle);
-        setSelectedToolId(null);
-        setTimeEstimate(estimateGCodeTime(lines));
+        const lines = content.split('\n').map(l => l.replace(/\(.*\)/g, '').split(';')[0].trim()).filter(l => l && l !== '%');
+        setGcodeLines(lines); setFileName(name); setProgress(0); setJobStatus(JobStatus.Idle);
+        setSelectedToolId(null); setTimeEstimate(estimateGCodeTime(lines));
         addLog({ type: 'status', message: `Loaded ${name} (${lines.length} lines).` });
     };
 
     const handleClearFile = useCallback(() => {
-        setGcodeLines([]);
-        setFileName('');
-        setProgress(0);
-        setJobStatus(JobStatus.Idle);
-        setSelectedToolId(null);
-        setTimeEstimate({ totalSeconds: 0, cumulativeSeconds: [] });
+        setGcodeLines([]); setFileName(''); setProgress(0); setJobStatus(JobStatus.Idle);
+        setSelectedToolId(null); setTimeEstimate({ totalSeconds: 0, cumulativeSeconds: [] });
         addLog({ type: 'status', message: 'G-code cleared from preview.' });
     }, [addLog]);
     
     const handleGeneratedGCodeLoad = (gcode, name) => {
-        handleFileLoad(gcode, name);
-        setIsGCodeGeneratorModalOpen(false);
+        handleFileLoad(gcode, name); setIsGCodeGeneratorModalOpen(false);
     };
 
     const handleGCodeChange = (content) => {
-        const lines = content.split('\n')
-            .map(l => l.replace(/\(.*\)/g, ''))
-            .map(l => l.split(';')[0])
-            .map(l => l.trim())
-            .filter(l => l && l !== '%');
-
+        const lines = content.split('\n').map(l => l.replace(/\(.*\)/g, '').split(';')[0].trim()).filter(l => l && l !== '%');
         setGcodeLines(lines);
-        if (fileName && !fileName.endsWith(' (edited)')) {
-            setFileName(`${fileName} (edited)`);
-        } else if (!fileName) {
-            setFileName('untitled.gcode (edited)');
-        }
-        setProgress(0);
-        setJobStatus(JobStatus.Idle);
-        setTimeEstimate(estimateGCodeTime(lines));
+        if (fileName && !fileName.endsWith(' (edited)')) setFileName(`${fileName} (edited)`);
+        else if (!fileName) setFileName('untitled.gcode (edited)');
+        setProgress(0); setJobStatus(JobStatus.Idle); setTimeEstimate(estimateGCodeTime(lines));
         addLog({ type: 'status', message: `G-code modified (${lines.length} lines).` });
     };
     
@@ -560,191 +500,105 @@ const App = () => {
         const manager = serialManagerRef.current;
         if (!manager || !isConnected || gcodeLines.length === 0) return;
         setJobStatus(JobStatus.Running);
-        manager.sendGCode(gcodeLines, { startLine, isDryRun });
-    }, [isConnected, gcodeLines]);
+        manager.sendGCode(gcodeLines, toolLibrary, { startLine, isDryRun });
+    }, [isConnected, gcodeLines, toolLibrary]);
 
     const handleStartJobConfirmed = useCallback((options) => {
         setIsPreflightModalOpen(false);
         handleStartJob(jobStartOptions.startLine, options.isDryRun);
     }, [jobStartOptions, handleStartJob]);
 
-
     const handleJobControl = useCallback((action, options) => {
         const manager = serialManagerRef.current;
         if (!manager || !isConnected) return;
-
         switch (action) {
             case 'start':
                 if (gcodeLines.length > 0) {
                     const startLine = options?.startLine ?? 0;
                     setJobStartOptions({ startLine, isDryRun: false });
-
                     const warnings = analyzeGCode(gcodeLines, machineSettings);
                     setPreflightWarnings(warnings);
                     const hasErrors = warnings.some(w => w.type === 'error');
-
                     if (hasErrors) {
                         addNotification('Job has critical errors! Review in pre-flight check.', 'error');
-                        setIsPreflightModalOpen(true);
-                        return;
+                        setIsPreflightModalOpen(true); return;
                     }
-                    
                     const skipPreflight = localStorage.getItem('cnc-app-skip-preflight') === 'true';
-                    if (skipPreflight) {
-                        handleStartJob(startLine, false);
-                    } else {
-                        setIsPreflightModalOpen(true);
-                    }
+                    if (skipPreflight) handleStartJob(startLine, false);
+                    else setIsPreflightModalOpen(true);
                 }
                 break;
             case 'pause':
-                setJobStatus(currentStatus => {
-                    if (currentStatus === JobStatus.Running) {
-                        manager.pause();
-                        return JobStatus.Paused;
-                    }
-                    return currentStatus;
-                });
-                break;
+                setJobStatus(cs => (cs === JobStatus.Running ? (manager.pause(), JobStatus.Paused) : cs)); break;
             case 'resume':
-                setJobStatus(currentStatus => {
-                    if (currentStatus === JobStatus.Paused) {
-                        manager.resume();
-                        return JobStatus.Running;
-                    }
-                    return currentStatus;
-                });
-                break;
+                setJobStatus(cs => (cs === JobStatus.Paused ? (manager.resume(), JobStatus.Running) : cs)); break;
             case 'stop':
-                setJobStatus(currentStatus => {
-                    if (currentStatus === JobStatus.Running || currentStatus === JobStatus.Paused) {
-                        manager.stopJob();
-                        setProgress(0);
-                        return JobStatus.Stopped;
-                    }
-                    return currentStatus;
-                });
-                break;
+                setJobStatus(cs => (cs === JobStatus.Running || cs === JobStatus.Paused ? (manager.stopJob(), setProgress(0), JobStatus.Stopped) : cs)); break;
         }
     }, [isConnected, gcodeLines, machineSettings, handleStartJob, addNotification]);
     
-    const handleManualCommand = useCallback((command) => {
-        serialManagerRef.current?.sendLine(command);
-    }, []);
+    const handleManualCommand = useCallback((command) => serialManagerRef.current?.sendLine(command), []);
 
     const handleJog = (axis, direction, step) => {
         if (!serialManagerRef.current) return;
-
-        if (axis === 'Z' && unit === 'mm' && step > 10) {
-            addLog({ type: 'error', message: 'Z-axis jog step cannot exceed 10mm.' });
-            return;
-        }
-        if (axis === 'Z' && unit === 'in' && step > 1) {
-            addLog({ type: 'error', message: 'Z-axis jog step cannot exceed 1in.' });
-            return;
-        }
-
+        if (axis === 'Z' && unit === 'mm' && step > 10) { addLog({ type: 'error', message: 'Z-axis jog step cannot exceed 10mm.' }); return; }
+        if (axis === 'Z' && unit === 'in' && step > 1) { addLog({ type: 'error', message: 'Z-axis jog step cannot exceed 1in.' }); return; }
         const feedRate = 1000;
         const command = `$J=G91 ${axis}${step * direction} F${feedRate}`;
-        
         setIsJogging(true); 
         serialManagerRef.current.sendLineAndWaitForOk(command).catch((err) => {
             const errorMessage = err instanceof Error ? err.message : "An error occurred during jog.";
-            // Don't spam console with errors from rapid clicking
-            if (!errorMessage.includes('Cannot send new line')) {
-                addLog({ type: 'error', message: `Jog failed: ${errorMessage}` });
-            }
+            if (!errorMessage.includes('Cannot send new line')) addLog({ type: 'error', message: `Jog failed: ${errorMessage}` });
             setIsJogging(false);
         });
     };
 
     const flashControl = useCallback((buttonId) => {
-        setFlashingButton(buttonId);
-        setTimeout(() => {
-            setFlashingButton(null);
-        }, 200);
+        setFlashingButton(buttonId); setTimeout(() => setFlashingButton(null), 200);
     }, []);
     
     const handleEmergencyStop = useCallback(() => {
-        serialManagerRef.current?.emergencyStop();
-        setJobStatus(JobStatus.Stopped);
-        setProgress(0);
-        addLog({type: 'error', message: 'EMERGENCY STOP TRIGGERED (Soft Reset)'});
+        serialManagerRef.current?.emergencyStop(); setJobStatus(JobStatus.Stopped);
+        setProgress(0); addLog({type: 'error', message: 'EMERGENCY STOP TRIGGERED (Soft Reset)'});
     }, [addLog]);
 
     const handleSpindleCommand = useCallback((command, speed) => {
-        const manager = serialManagerRef.current;
-        if (!manager || !isConnected) return;
-
+        const manager = serialManagerRef.current; if (!manager || !isConnected) return;
         let gcode = '';
         switch (command) {
-            case 'cw':
-                gcode = `M3 S${speed}`;
-                break;
-            case 'ccw':
-                gcode = `M4 S${speed}`;
-                break;
-            case 'off':
-                gcode = 'M5';
-                break;
-            default:
-                return;
+            case 'cw': gcode = `M3 S${speed}`; break;
+            case 'ccw': gcode = `M4 S${speed}`; break;
+            case 'off': gcode = 'M5'; break;
+            default: return;
         }
-
         manager.sendLine(gcode);
     }, [isConnected]);
     
     const handleFeedOverride = useCallback((command) => {
-        const manager = serialManagerRef.current;
-        if (!manager) return;
-
-        const commandMap = {
-            'reset': '\x90', // Set to 100%
-            'inc10': '\x91', // Increase 10%
-            'dec10': '\x92', // Decrease 10%
-            'inc1': '\x93',  // Increase 1%
-            'dec1': '\x94',  // Decrease 1%
-        };
-
-        if (commandMap[command]) {
-            manager.sendRealtimeCommand(commandMap[command]);
-        }
+        const manager = serialManagerRef.current; if (!manager) return;
+        const commandMap = {'reset': '\x90', 'inc10': '\x91', 'dec10': '\x92', 'inc1': '\x93', 'dec1': '\x94'};
+        if (commandMap[command]) manager.sendRealtimeCommand(commandMap[command]);
     }, []);
 
     const isAlarm = machineState?.status === 'Alarm';
 
     const handleUnitChange = useCallback((newUnit) => {
         if (newUnit === unit || !serialManagerRef.current) return;
-
         const command = newUnit === 'mm' ? 'G21' : 'G20';
         serialManagerRef.current.sendLine(command);
         setUnit(newUnit);
         addLog({ type: 'status', message: `Units set to ${newUnit === 'mm' ? 'millimeters' : 'inches'}.` });
-        
-        // Reset jog step to a sensible default for the new unit
         setJogStep(newUnit === 'mm' ? 1 : 0.1);
-
     }, [unit, addLog]);
 
     const handleProbe = useCallback(async (axes) => {
         const manager = serialManagerRef.current;
-        if (!manager || !isConnected) {
-            addLog({ type: 'error', message: 'Cannot probe while disconnected.' });
-            return;
-        }
-
-        const offsets = {
-            x: machineSettings.probe.xOffset,
-            y: machineSettings.probe.yOffset,
-            z: machineSettings.probe.zOffset,
-        };
-    
-        const probeTravel = unit === 'mm' ? 25 : 1.0;
+        if (!manager || !isConnected) { addLog({ type: 'error', message: 'Cannot probe while disconnected.' }); return; }
+        const offsets = { x: machineSettings.probe.xOffset, y: machineSettings.probe.yOffset, z: machineSettings.probe.zOffset };
+        const probeTravel = unit === 'mm' ? -25 : -1.0;
         const probeFeed = machineSettings.probe.feedRate || 25;
         const retractDist = unit === 'mm' ? 5 : 0.2;
-    
         addLog({ type: 'status', message: `Starting ${axes.toUpperCase()}-Probe cycle...` });
-    
         try {
             const probeAxis = async (axis, offset, travelDir = -1) => {
                 const travel = probeTravel * travelDir;
@@ -756,172 +610,75 @@ const App = () => {
                 await manager.sendLineAndWaitForOk(`G0 ${axis}${retractDist * -travelDir}`);
                 await manager.sendLineAndWaitForOk('G90');
             };
-
-            if (axes.includes('X')) {
-                await probeAxis('X', offsets.x);
-            }
-            if (axes.includes('Y')) {
-                await probeAxis('Y', offsets.y);
-            }
-            if (axes.includes('Z')) {
-                await probeAxis('Z', offsets.z);
-            }
-    
+            if (axes.includes('X') && offsets.x !== undefined) await probeAxis('X', offsets.x);
+            if (axes.includes('Y') && offsets.y !== undefined) await probeAxis('Y', offsets.y);
+            if (axes.includes('Z') && offsets.z !== undefined) await probeAxis('Z', offsets.z);
             addLog({ type: 'status', message: 'Probe cycle complete.' });
             addNotification(`${axes.toUpperCase()}-Probe cycle complete.`, 'success');
-    
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : "Unknown error";
             addLog({ type: 'error', message: `Probe cycle failed: ${errorMessage}` });
             setError(`Probe cycle failed: ${errorMessage}`);
-            // It's good practice to send a soft-reset to clear any alarm state from a failed probe
             manager.sendLine('\x18', false);
         }
-    
     }, [isConnected, addLog, addNotification, unit, setError, machineSettings.probe]);
 
     useEffect(() => {
         const handleKeyDown = (e) => {
-            if (!isConnected) return;
-            if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName)) {
-                return;
-            }
-
+            if (!isConnected || ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName)) return;
             let handled = true;
             switch (e.key.toLowerCase()) {
-                // Jogging
-                case 'arrowup':
-                    handleJog('Y', 1, jogStep);
-                    flashControl('jog-y-plus');
-                    break;
-                case 'arrowdown':
-                    handleJog('Y', -1, jogStep);
-                    flashControl('jog-y-minus');
-                    break;
-                case 'arrowleft':
-                    handleJog('X', -1, jogStep);
-                    flashControl('jog-x-minus');
-                    break;
-                case 'arrowright':
-                    handleJog('X', 1, jogStep);
-                    flashControl('jog-x-plus');
-                    break;
-                case 'pageup':
-                    handleJog('Z', 1, jogStep);
-                    flashControl('jog-z-plus');
-                    break;
-                case 'pagedown':
-                    handleJog('Z', -1, jogStep);
-                    flashControl('jog-z-minus');
-                    break;
-                
-                // E-Stop
-                case 'escape':
-                    handleEmergencyStop();
-                    flashControl('estop');
-                    break;
-
-                // Unlock
-                case 'x':
-                    if (isAlarm) {
-                        handleManualCommand('$X');
-                        flashControl('unlock-button');
-                    } else {
-                        handled = false;
-                    }
-                    break;
-
-                // Step Size
+                case 'arrowup': handleJog('Y', 1, jogStep); flashControl('jog-y-plus'); break;
+                case 'arrowdown': handleJog('Y', -1, jogStep); flashControl('jog-y-minus'); break;
+                case 'arrowleft': handleJog('X', -1, jogStep); flashControl('jog-x-minus'); break;
+                case 'arrowright': handleJog('X', 1, jogStep); flashControl('jog-x-plus'); break;
+                case 'pageup': handleJog('Z', 1, jogStep); flashControl('jog-z-plus'); break;
+                case 'pagedown': handleJog('Z', -1, jogStep); flashControl('jog-z-minus'); break;
+                case 'escape': handleEmergencyStop(); flashControl('estop'); break;
+                case 'x': if (isAlarm) { handleManualCommand('$X'); flashControl('unlock-button'); } else handled = false; break;
                 case '1': case '2': case '3': case '4': case '5':
                     const stepSizes = unit === 'mm' ? [0.01, 0.1, 1, 10, 50] : [0.001, 0.01, 0.1, 1, 2];
                     const stepIndex = parseInt(e.key) - 1;
-                    if (stepIndex < stepSizes.length) {
-                        const newStep = stepSizes[stepIndex];
-                        setJogStep(newStep);
-                        flashControl(`step-${newStep}`);
-                    }
+                    if (stepIndex < stepSizes.length) { const newStep = stepSizes[stepIndex]; setJogStep(newStep); flashControl(`step-${newStep}`); }
                     break;
-
-                default:
-                    handled = false;
-                    break;
+                default: handled = false; break;
             }
-
-            if (handled) {
-                e.preventDefault();
-            }
+            if (handled) e.preventDefault();
         };
-
         document.addEventListener('keydown', handleKeyDown);
         return () => document.removeEventListener('keydown', handleKeyDown);
     }, [isConnected, jogStep, handleJog, flashControl, handleEmergencyStop, isAlarm, handleManualCommand, unit]);
 
     const handleHome = useCallback((axes) => {
-        const manager = serialManagerRef.current;
-        if (!manager) return;
-
-        // Optimistically set the machine state to 'Home' to immediately lock the UI.
-        // The regular status polling will then take over to keep the state in sync.
-        setMachineState(prev => {
-            const newPrev = prev || {
-                status: 'Idle', code: null, wpos: { x: 0, y: 0, z: 0 }, mpos: { x: 0, y: 0, z: 0 },
-                spindle: { state: 'off', speed: 0 }, ov: [100, 100, 100]
-            };
-            return { ...newPrev, status: 'Home' };
-        });
-
+        const manager = serialManagerRef.current; if (!manager) return;
+        setMachineState(prev => ({ ...(prev || { status: 'Idle', code: null, wpos: { x: 0, y: 0, z: 0 }, mpos: { x: 0, y: 0, z: 0 }, spindle: { state: 'off', speed: 0 }, ov: [100, 100, 100] }), status: 'Home' }));
         addLog({ type: 'status', message: `Starting homing cycle for: ${axes.toUpperCase()}...` });
-
-        const commandMap = {
-            all: ['$H'],
-            x: ['$HX'],
-            y: ['$HY'],
-            z: ['$HZ'],
-            xy: ['$HXY']
-        };
-
+        const commandMap = { all: ['$H'], x: ['$HX'], y: ['$HY'], z: ['$HZ'], xy: ['$HXY'] };
         const commands = commandMap[axes];
-        if (!commands) {
-            addLog({ type: 'error', message: `Unknown homing command: ${axes}` });
-            return;
-        }
-
-        for (const cmd of commands) {
-            // Homing is a long process. We send the command and rely on status updates 
-            // to manage the UI state, rather than waiting for an 'ok' that comes back immediately.
-            manager.sendLine(cmd);
-        }
+        if (!commands) { addLog({ type: 'error', message: `Unknown homing command: ${axes}` }); return; }
+        for (const cmd of commands) manager.sendLine(cmd);
     }, [addLog]);
 
     const handleSetZero = useCallback((axes) => {
         let command = 'G10 L20 P1';
         switch (axes) {
             case 'all': command += ' X0 Y0 Z0'; break;
-            case 'x':   command += ' X0'; break;
-            case 'y':   command += ' Y0'; break;
-            case 'z':   command += ' Z0'; break;
-            case 'xy':  command += ' X0 Y0'; break;
+            case 'x': command += ' X0'; break;
+            case 'y': command += ' Y0'; break;
+            case 'z': command += ' Z0'; break;
+            case 'xy': command += ' X0 Y0'; break;
         }
         serialManagerRef.current?.sendLine(command);
         addLog({type: 'status', message: `Work coordinate origin set for ${axes.toUpperCase()}.`});
     }, [addLog]);
 
     const handleRunMacro = useCallback(async (commands) => {
-        const manager = serialManagerRef.current;
-        if (!manager) return;
-
-        // Replace placeholders in commands
-        const processedCommands = commands.map(cmd => 
-            cmd.replace(/{unit}/g, unit)
-               .replace(/{safe_z}/g, unit === 'mm' ? '10' : '0.4')
-        );
-
+        const manager = serialManagerRef.current; if (!manager) return;
+        const processedCommands = commands.map(cmd => cmd.replace(/{unit}/g, unit).replace(/{safe_z}/g, unit === 'mm' ? '10' : '0.4'));
         setIsMacroRunning(true);
         addLog({ type: 'status', message: `Running macro: ${processedCommands.join('; ')}` });
         try {
-            for (const command of processedCommands) {
-                await manager.sendLineAndWaitForOk(command);
-            }
+            for (const command of processedCommands) await manager.sendLineAndWaitForOk(command);
             addLog({ type: 'status', message: 'Macro finished.' });
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : "Unknown error";
@@ -932,27 +689,12 @@ const App = () => {
         }
     }, [addLog, unit, setError]);
 
-    // --- Macro Editor Handlers ---
-    const handleOpenMacroEditor = useCallback((index) => {
-        setEditingMacroIndex(index);
-        setIsMacroEditorOpen(true);
-    }, []);
-
-    const handleCloseMacroEditor = useCallback(() => {
-        setIsMacroEditorOpen(false);
-        setEditingMacroIndex(null);
-    }, []);
-
+    const handleOpenMacroEditor = useCallback((index) => { setEditingMacroIndex(index); setIsMacroEditorOpen(true); }, []);
+    const handleCloseMacroEditor = useCallback(() => { setIsMacroEditorOpen(false); setEditingMacroIndex(null); }, []);
     const handleSaveMacro = useCallback((macro, index) => {
         setMacros(prevMacros => {
             const newMacros = [...prevMacros];
-            if (index !== null && index >= 0) {
-                // Editing existing macro
-                newMacros[index] = macro;
-            } else {
-                // Adding new macro
-                newMacros.push(macro);
-            }
+            if (index !== null && index >= 0) newMacros[index] = macro; else newMacros.push(macro);
             return newMacros;
         });
         addNotification('Macro saved!', 'success');
@@ -964,359 +706,151 @@ const App = () => {
     }, [addNotification]);
 
     const handleExportSettings = useCallback(() => {
-        const settingsToExport = {
-            machineSettings,
-            macros,
-            toolLibrary,
-        };
+        const settingsToExport = { machineSettings, macros, toolLibrary };
         const blob = new Blob([JSON.stringify(settingsToExport, null, 2)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
+        const a = document.createElement('a'); a.href = url;
         a.download = `mycnc-app-settings-${new Date().toISOString().slice(0,10)}.json`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
+        document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
         addNotification('Settings exported successfully!', 'success');
     }, [machineSettings, macros, toolLibrary, addNotification]);
     
     const handleImportSettings = useCallback((imported) => {
         if (window.confirm("This will overwrite your current macros, settings, and tool library. Are you sure?")) {
-            // Basic validation
             if (imported.machineSettings && imported.macros && imported.toolLibrary) {
+                if (!imported.machineSettings.probe) imported.machineSettings.probe = DEFAULT_SETTINGS.probe;
                 setMachineSettings(imported.machineSettings);
                 setMacros(imported.macros);
                 setToolLibrary(imported.toolLibrary);
                 addNotification("Settings imported successfully!", 'success');
-            } else {
-                addNotification("Invalid settings file.", 'error');
-            }
+            } else addNotification("Invalid settings file.", 'error');
         }
     }, [addNotification]);
     
     const handleToggleFullscreen = () => {
-        if (!document.fullscreenElement) {
-            document.documentElement.requestFullscreen().catch(err => {
-                alert(`Error attempting to enable full-screen mode: ${err.message} (${err.name})`);
-            });
-        } else {
-            if (document.exitFullscreen) {
-                document.exitFullscreen();
-            }
-        }
+        if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(err => alert(`Error: ${err.message}`));
+        else if (document.exitFullscreen) document.exitFullscreen();
     };
 
     const isMobile = /Mobi|Android/i.test(navigator.userAgent);
-    if (!isSerialApiSupported || isMobile) {
-        return React.createElement(UnsupportedBrowser, null);
-    }
+    if (!isSerialApiSupported || isMobile) return h(UnsupportedBrowser, null);
 
     const alarmInfo = isAlarm ? (GRBL_ALARM_CODES[machineState.code] || GRBL_ALARM_CODES.default) : null;
     const isJobActive = jobStatus === JobStatus.Running || jobStatus === JobStatus.Paused;
 
     useEffect(() => {
         const handleBeforeUnload = (event) => {
-            if (isJobActive) {
-                event.preventDefault();
-                event.returnValue = ''; // Required for Chrome
-                return ''; // For other browsers
-            }
+            if (isJobActive) { event.preventDefault(); event.returnValue = ''; return ''; }
         };
-
         window.addEventListener('beforeunload', handleBeforeUnload);
-
-        return () => {
-            window.removeEventListener('beforeunload', handleBeforeUnload);
-        };
+        return () => window.removeEventListener('beforeunload', handleBeforeUnload);
     }, [isJobActive]);
-
 
     const isAnyControlLocked = !isConnected || isJobActive || isJogging || isMacroRunning || (machineState?.status && ['Alarm', 'Home'].includes(machineState.status));
     const selectedTool = toolLibrary.find(t => t.id === selectedToolId) || null;
     
-    // --- Welcome & Onboarding Handlers ---
-    const handleCloseWelcomeModal = () => {
-        setIsWelcomeModalOpen(false);
-        localStorage.setItem('cnc-app-onboarding-complete', 'true');
-    };
-
-    const handleOpenSettingsFromWelcome = () => {
-        setIsWelcomeModalOpen(false);
-        setCameFromWelcome('settings');
-        setIsSettingsModalOpen(true);
-    };
-
-    const handleOpenToolsFromWelcome = () => {
-        setIsWelcomeModalOpen(false);
-        setCameFromWelcome('tools');
-        setIsToolLibraryModalOpen(true);
-    };
-    
+    const handleCloseWelcomeModal = () => { setIsWelcomeModalOpen(false); localStorage.setItem('cnc-app-onboarding-complete', 'true'); };
+    const handleOpenSettingsFromWelcome = () => { setIsWelcomeModalOpen(false); setCameFromWelcome('settings'); setIsSettingsModalOpen(true); };
+    const handleOpenToolsFromWelcome = () => { setIsWelcomeModalOpen(false); setCameFromWelcome('tools'); setIsToolLibraryModalOpen(true); };
     const handleSaveSettings = (newSettings) => {
-        setMachineSettings(newSettings);
-        setIsSettingsModalOpen(false);
-        if (cameFromWelcome === 'settings') {
-            setMachineSetupCompleted(true);
-            localStorage.setItem('cnc-app-machine-setup-complete', 'true');
-            setIsWelcomeModalOpen(true);
-            setCameFromWelcome(null);
-        }
+        setMachineSettings(newSettings); setIsSettingsModalOpen(false);
+        if (cameFromWelcome === 'settings') { setMachineSetupCompleted(true); localStorage.setItem('cnc-app-machine-setup-complete', 'true'); setIsWelcomeModalOpen(true); setCameFromWelcome(null); }
     };
-
     const handleCancelSettings = () => {
         setIsSettingsModalOpen(false);
-        if (cameFromWelcome === 'settings') {
-            setIsWelcomeModalOpen(true);
-            setCameFromWelcome(null);
-        }
+        if (cameFromWelcome === 'settings') { setIsWelcomeModalOpen(true); setCameFromWelcome(null); }
     };
-    
     const handleSaveToolLibrary = (newLibrary) => {
-        setToolLibrary(newLibrary);
-        setIsToolLibraryModalOpen(false);
-        if (cameFromWelcome === 'tools') {
-            setIsWelcomeModalOpen(true);
-            setCameFromWelcome(null);
-        }
+        setToolLibrary(newLibrary); setIsToolLibraryModalOpen(false);
+        if (cameFromWelcome === 'tools') { setIsWelcomeModalOpen(true); setCameFromWelcome(null); }
     };
-
     const handleCancelTools = () => {
         setIsToolLibraryModalOpen(false);
-        if (cameFromWelcome === 'tools') {
-            setIsWelcomeModalOpen(true);
-            setCameFromWelcome(null);
-        }
+        if (cameFromWelcome === 'tools') { setIsWelcomeModalOpen(true); setCameFromWelcome(null); }
     };
 
-
-    return React.createElement('div', { className: "min-h-screen bg-background font-sans text-text-primary flex flex-col" },
-        React.createElement(Analytics, null),
-        !isAudioUnlocked && React.createElement('div', { className: "bg-accent-yellow/20 text-accent-yellow text-center p-2 text-sm font-semibold animate-pulse" },
-            "Click anywhere or press any key to enable sound notifications"
-        ),
-        React.createElement(NotificationContainer, {
-            notifications: notifications,
-            onDismiss: removeNotification
-        }),
-        React.createElement(ContactModal, {
-            isOpen: isContactModalOpen,
-            onClose: () => setIsContactModalOpen(false)
-        }),
-        React.createElement(WelcomeModal, {
-            isOpen: isWelcomeModalOpen,
-            onClose: handleCloseWelcomeModal,
-            onOpenSettings: handleOpenSettingsFromWelcome,
-            onOpenToolLibrary: handleOpenToolsFromWelcome,
-            isMachineSetupComplete: machineSetupCompleted,
-            isToolLibrarySetupComplete: toolLibrary.length > 0
-        }),
-        React.createElement(PreflightChecklistModal, {
-            isOpen: isPreflightModalOpen,
-            onCancel: () => setIsPreflightModalOpen(false),
-            onConfirm: handleStartJobConfirmed,
-            jobInfo: { fileName, gcodeLines, timeEstimate, startLine: jobStartOptions.startLine },
-            isHomed: isHomedSinceConnect,
-            warnings: preflightWarnings,
-            selectedTool: selectedTool,
-        }),
-        React.createElement(MacroEditorModal, {
-            isOpen: isMacroEditorOpen,
-            onCancel: handleCloseMacroEditor,
-            onSave: handleSaveMacro,
-            onDelete: handleDeleteMacro,
-            macro: editingMacroIndex !== null ? macros[editingMacroIndex] : null,
-            index: editingMacroIndex
-        }),
-        React.createElement(SettingsModal, {
-            isOpen: isSettingsModalOpen,
-            onCancel: handleCancelSettings,
-            onSave: handleSaveSettings,
-            settings: machineSettings,
-            onResetDialogs: () => {
-                localStorage.removeItem('cnc-app-skip-preflight');
-                addNotification("Dialog settings have been reset.", 'info');
+    return h('div', { className: "min-h-screen bg-background font-sans text-text-primary flex flex-col" },
+        h(Analytics, null),
+        !isAudioUnlocked && h('div', { className: "bg-accent-yellow/20 text-accent-yellow text-center p-2 text-sm font-semibold animate-pulse" }, "Click anywhere or press any key to enable sound notifications"),
+        h(NotificationContainer, { notifications, onDismiss: removeNotification }),
+        h(ContactModal, { isOpen: isContactModalOpen, onClose: () => setIsContactModalOpen(false) }),
+        h(WelcomeModal, { isOpen: isWelcomeModalOpen, onClose: handleCloseWelcomeModal, onOpenSettings: handleOpenSettingsFromWelcome, onOpenToolLibrary: handleOpenToolsFromWelcome, isMachineSetupComplete: machineSetupCompleted, isToolLibrarySetupComplete: toolLibrary.length > 0 }),
+        h(PreflightChecklistModal, { isOpen: isPreflightModalOpen, onCancel: () => setIsPreflightModalOpen(false), onConfirm: handleStartJobConfirmed, jobInfo: { fileName, gcodeLines, timeEstimate, startLine: jobStartOptions.startLine }, isHomed: isHomedSinceConnect, warnings: preflightWarnings, selectedTool }),
+        h(MacroEditorModal, { isOpen: isMacroEditorOpen, onCancel: handleCloseMacroEditor, onSave: handleSaveMacro, onDelete: handleDeleteMacro, macro: editingMacroIndex !== null ? macros[editingMacroIndex] : null, index: editingMacroIndex }),
+        h(SettingsModal, { isOpen: isSettingsModalOpen, onCancel: handleCancelSettings, onSave: handleSaveSettings, settings: machineSettings, onResetDialogs: () => { localStorage.removeItem('cnc-app-skip-preflight'); addNotification("Dialog settings have been reset.", 'info'); }, onExport: handleExportSettings, onImport: handleImportSettings }),
+        h(ToolLibraryModal, { isOpen: isToolLibraryModalOpen, onCancel: handleCancelTools, onSave: handleSaveToolLibrary, library: toolLibrary }),
+        h(GCodeGeneratorModal, { isOpen: isGCodeGeneratorModalOpen, onCancel: () => setIsGCodeGeneratorModalOpen(false), onLoadGCode: handleGeneratedGCodeLoad, unit, settings: machineSettings, toolLibrary }),
+        h(ManualToolChangeModal, {
+            isOpen: isToolChangeModalOpen,
+            onContinue: () => {
+                setIsToolChangeModalOpen(false);
+                if (toolChangePromiseRef.current) {
+                    toolChangePromiseRef.current.resolve();
+                    toolChangePromiseRef.current = null;
+                }
             },
-            onExport: handleExportSettings,
-            onImport: handleImportSettings,
+            onStop: () => {
+                setIsToolChangeModalOpen(false);
+                if (toolChangePromiseRef.current) {
+                    toolChangePromiseRef.current.reject(new Error("Job stopped by user during tool change."));
+                    toolChangePromiseRef.current = null;
+                }
+                handleJobControl('stop');
+            },
+            toolInfo: toolChangeInfo
         }),
-        React.createElement(ToolLibraryModal, {
-            isOpen: isToolLibraryModalOpen,
-            onCancel: handleCancelTools,
-            onSave: handleSaveToolLibrary,
-            library: toolLibrary
-        }),
-        React.createElement(GCodeGeneratorModal, {
-            isOpen: isGCodeGeneratorModalOpen,
-            onCancel: () => setIsGCodeGeneratorModalOpen(false),
-            onLoadGCode: handleGeneratedGCodeLoad,
-            unit: unit,
-            settings: machineSettings,
-            toolLibrary: toolLibrary
-        }),
-        React.createElement('header', { className: "bg-surface shadow-md p-4 flex justify-between items-center z-10 flex-shrink-0 gap-4" },
-            React.createElement('div', { className: "flex items-center gap-4" },
-                React.createElement('svg', {
-                    viewBox: '0 0 460 100',
-                    className: 'h-8 w-auto',
-                    'aria-label': 'mycnc.app logo'
-                }, 
-                    React.createElement('g', {
-                        transform: 'translate(48,48)',
-                        fill: 'none',
-                        stroke: 'var(--color-text-primary)',
-                        strokeWidth: '4'
-                    },
-                        React.createElement('circle', { r: '48', cx: '0', cy: '0' }),
-                        React.createElement('path', { d: 'M 0,-48 A 48,48 0 0 1 30,16 L 10,6 A 12,12 0 0 0 0,-12 Z' }),
-                        React.createElement('path', { d: 'M 0,-48 A 48,48 0 0 1 30,16 L 10,6 A 12,12 0 0 0 0,-12 Z', transform: 'rotate(120)' }),
-                        React.createElement('path', { d: 'M 0,-48 A 48,48 0 0 1 30,16 L 10,6 A 12,12 0 0 0 0,-12 Z', transform: 'rotate(-120)' }),
-                        React.createElement('circle', { r: '12', cx: '0', cy: '0' })
+        h('header', { className: "bg-surface shadow-md p-4 flex justify-between items-center z-10 flex-shrink-0 gap-4" },
+            h('div', { className: "flex items-center gap-4" },
+                h('svg', { viewBox: '0 0 460 100', className: 'h-8 w-auto', 'aria-label': 'mycnc.app logo' }, 
+                    h('g', { transform: 'translate(48,48)', fill: 'none', stroke: 'var(--color-text-primary)', strokeWidth: '4' },
+                        h('circle', { r: '48', cx: '0', cy: '0' }),
+                        h('path', { d: 'M 0,-48 A 48,48 0 0 1 30,16 L 10,6 A 12,12 0 0 0 0,-12 Z' }),
+                        h('path', { d: 'M 0,-48 A 48,48 0 0 1 30,16 L 10,6 A 12,12 0 0 0 0,-12 Z', transform: 'rotate(120)' }),
+                        h('path', { d: 'M 0,-48 A 48,48 0 0 1 30,16 L 10,6 A 12,12 0 0 0 0,-12 Z', transform: 'rotate(-120)' }),
+                        h('circle', { r: '12', cx: '0', cy: '0' })
                     ),
-                    React.createElement('text', {
-                        x: '108',
-                        y: '66',
-                        fontFamily: "Inter, 'Segoe UI', Roboto, Arial, sans-serif",
-                        fontWeight: '700',
-                        fontSize: '64px',
-                        letterSpacing: '-0.02em',
-                        fill: 'var(--color-text-primary)'
-                    },
-                        React.createElement('tspan', { style: { fill: 'var(--color-primary)' } }, 'mycnc'),
-                        '.app'
+                    h('text', { x: '108', y: '66', fontFamily: "Inter, 'Segoe UI', Roboto, Arial, sans-serif", fontWeight: '700', fontSize: '64px', letterSpacing: '-0.02em', fill: 'var(--color-text-primary)' },
+                        h('tspan', { style: { fill: 'var(--color-primary)' } }, 'mycnc'), '.app'
                     )
                 ),
-                 React.createElement('span', { className: 'text-xs text-text-secondary font-mono pt-1' }, buildTimestamp)
+                h('span', { className: 'text-xs text-text-secondary font-mono pt-1' }, buildTimestamp)
             ),
-            React.createElement('div', { className: "flex items-center gap-4" },
-                 React.createElement('button', {
-                    onClick: handleToggleFullscreen,
-                    title: isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen",
-                    className: "p-2 rounded-md bg-secondary text-text-primary hover:bg-secondary-focus focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-surface"
-                }, isFullscreen ? React.createElement(Minimize, { className: 'w-5 h-5' }) : React.createElement(Maximize, { className: 'w-5 h-5' })),
-                React.createElement('button', {
-                    onClick: () => setIsToolLibraryModalOpen(true),
-                    title: "Tool Library",
-                    className: "p-2 rounded-md bg-secondary text-text-primary hover:bg-secondary-focus focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-surface"
-                }, React.createElement(BookOpen, { className: 'w-5 h-5' })),
-                React.createElement('button', {
-                    onClick: () => setIsSettingsModalOpen(true),
-                    title: "Machine Settings",
-                    className: "p-2 rounded-md bg-secondary text-text-primary hover:bg-secondary-focus focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-surface"
-                }, React.createElement(Settings, { className: 'w-5 h-5' })),
-                React.createElement(ThemeToggle, {
-                    isLightMode: isLightMode,
-                    onToggle: () => setIsLightMode(prev => !prev)
-                }),
-                React.createElement(SerialConnector, {
-                    isConnected: isConnected,
-                    portInfo: portInfo,
-                    onConnect: handleConnect,
-                    onDisconnect: handleDisconnect,
-                    isApiSupported: isSerialApiSupported,
-                    isSimulated: isSimulatedConnection,
-                    useSimulator: useSimulator,
-                    onSimulatorChange: setUseSimulator
-                })
+            h('div', { className: "flex items-center gap-4" },
+                h('button', { onClick: handleToggleFullscreen, title: isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen", className: "p-2 rounded-md bg-secondary text-text-primary hover:bg-secondary-focus focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-surface" }, isFullscreen ? h(Minimize, { className: 'w-5 h-5' }) : h(Maximize, { className: 'w-5 h-5' })),
+                h('button', { onClick: () => setIsToolLibraryModalOpen(true), title: "Tool Library", className: "p-2 rounded-md bg-secondary text-text-primary hover:bg-secondary-focus focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-surface" }, h(BookOpen, { className: 'w-5 h-5' })),
+                h('button', { onClick: () => setIsSettingsModalOpen(true), title: "Machine Settings", className: "p-2 rounded-md bg-secondary text-text-primary hover:bg-secondary-focus focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-surface" }, h(Settings, { className: 'w-5 h-5' })),
+                h(ThemeToggle, { isLightMode, onToggle: () => setIsLightMode(prev => !prev) }),
+                h(SerialConnector, { isConnected, portInfo, onConnect: handleConnect, onDisconnect: handleDisconnect, isApiSupported: isSerialApiSupported, isSimulated: isSimulatedConnection, useSimulator, onSimulatorChange: setUseSimulator })
             )
         ),
-        React.createElement('div', { className: "bg-accent-yellow/20 text-accent-yellow text-center p-2 text-sm font-semibold flex items-center justify-center gap-2" }, 
-            React.createElement(AlertTriangle, { className: "w-4 h-4" }),
-            "Work in Progress: This software is for demonstration purposes only. Use at your own risk."
-        ),
-        React.createElement(StatusBar, {
-            isConnected: isConnected,
-            machineState: machineState,
-            unit: unit,
-            onEmergencyStop: handleEmergencyStop,
-            flashingButton: flashingButton
-        }),
-        isAlarm && React.createElement('div', { className: "bg-accent-red/20 border-b-4 border-accent-red text-accent-red p-4 m-4 flex items-start", role: "alert" },
-             React.createElement(OctagonAlert, { className: "h-8 w-8 mr-4 flex-shrink-0" }),
-             React.createElement('div', { className: "flex-grow" },
-                React.createElement('h3', { className: "font-bold text-lg" }, `Machine Alarm: ${alarmInfo.name}`),
-                React.createElement('p', { className: "text-sm" }, alarmInfo.desc),
-                React.createElement('p', { className: "text-sm mt-2" }, React.createElement('strong', null, "Resolution: "), alarmInfo.resolution)
+        h('div', { className: "bg-accent-yellow/20 text-accent-yellow text-center p-2 text-sm font-semibold flex items-center justify-center gap-2" }, h(AlertTriangle, { className: "w-4 h-4" }), "Work in Progress: This software is for demonstration purposes only. Use at your own risk."),
+        h(StatusBar, { isConnected, machineState, unit, onEmergencyStop: handleEmergencyStop, flashingButton }),
+        isAlarm && h('div', { className: "bg-accent-red/20 border-b-4 border-accent-red text-accent-red p-4 m-4 flex items-start", role: "alert" },
+            h(OctagonAlert, { className: "h-8 w-8 mr-4 flex-shrink-0" }),
+            h('div', { className: "flex-grow" },
+                h('h3', { className: "font-bold text-lg" }, `Machine Alarm: ${alarmInfo.name}`),
+                h('p', { className: "text-sm" }, alarmInfo.desc),
+                h('p', { className: "text-sm mt-2" }, h('strong', null, "Resolution: "), alarmInfo.resolution)
             ),
-            React.createElement('button', {
-                id: 'unlock-button',
-                title: 'Unlock Machine (Hotkey: x)',
-                onClick: () => handleManualCommand('$X'),
-                className: `ml-4 flex items-center gap-2 px-4 py-2 bg-accent-red text-white font-semibold rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-background transition-all duration-100 ${flashingButton === 'unlock-button' ? 'ring-4 ring-white ring-inset' : ''}`
-            },
-                React.createElement(Unlock, { className: "w-5 h-5" }),
-                "Unlock ($X)"
+            h('button', { id: 'unlock-button', title: 'Unlock Machine (Hotkey: x)', onClick: () => handleManualCommand('$X'), className: `ml-4 flex items-center gap-2 px-4 py-2 bg-accent-red text-white font-semibold rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-background transition-all duration-100 ${flashingButton === 'unlock-button' ? 'ring-4 ring-white ring-inset' : ''}` }, h(Unlock, { className: "w-5 h-5" }), "Unlock ($X)")
+        ),
+        error && h('div', { className: "bg-accent-red/20 border-l-4 border-accent-red text-accent-red p-4 m-4 flex items-start", role: "alert" },
+            h(AlertTriangle, { className: "h-6 w-6 mr-3 flex-shrink-0" }),
+            h('p', null, error),
+            h('button', { onClick: () => setError(null), className: "ml-auto font-bold" }, "X")
+        ),
+        h('main', { className: "flex-grow p-4 grid grid-cols-1 lg:grid-cols-2 gap-4 min-h-0" },
+            h('div', { className: "min-h-[60vh] lg:min-h-0" },
+                h(GCodePanel, { onFileLoad, fileName, gcodeLines, onJobControl, jobStatus, progress, isConnected, unit, onGCodeChange, onClearFile: handleClearFile, machineState, onFeedOverride: handleFeedOverride, timeEstimate, machineSettings, toolLibrary, selectedToolId, onToolSelect: setSelectedToolId, onOpenGenerator: () => setIsGCodeGeneratorModalOpen(true) })
+            ),
+            h('div', { className: "flex flex-col gap-4 overflow-hidden min-h-0" },
+                h(JogPanel, { isConnected, machineState, onJog: handleJog, onHome: handleHome, onSetZero: handleSetZero, onSpindleCommand: handleSpindleCommand, onProbe: handleProbe, jogStep, onStepChange: setJogStep, flashingButton, onFlash: flashControl, unit, onUnitChange: handleUnitChange, isJobActive, isJogging, isMacroRunning }),
+                h(WebcamPanel, {}),
+                h(MacrosPanel, { macros, onRunMacro: handleRunMacro, onOpenEditor: handleOpenMacroEditor, isEditMode: isMacroEditMode, onToggleEditMode: () => setIsMacroEditMode(prev => !prev), disabled: isAnyControlLocked }),
+                h(Console, { logs: consoleLogs, onSendCommand: handleManualCommand, isConnected, isJobActive, isMacroRunning, isLightMode, isVerbose, onVerboseChange: setIsVerbose })
             )
         ),
-        error && React.createElement('div', { className: "bg-accent-red/20 border-l-4 border-accent-red text-accent-red p-4 m-4 flex items-start", role: "alert" },
-            React.createElement(AlertTriangle, { className: "h-6 w-6 mr-3 flex-shrink-0" }),
-            React.createElement('p', null, error),
-            React.createElement('button', { onClick: () => setError(null), className: "ml-auto font-bold" }, "X")
-        ),
-        React.createElement('main', { className: "flex-grow p-4 grid grid-cols-1 lg:grid-cols-2 gap-4 min-h-0" },
-            React.createElement('div', { className: "min-h-[60vh] lg:min-h-0" },
-                React.createElement(GCodePanel, {
-                    onFileLoad: handleFileLoad,
-                    fileName: fileName,
-                    gcodeLines: gcodeLines,
-                    onJobControl: handleJobControl,
-                    jobStatus: jobStatus,
-                    progress: progress,
-                    isConnected: isConnected,
-                    unit: unit,
-                    onGCodeChange: handleGCodeChange,
-                    onClearFile: handleClearFile,
-                    machineState: machineState,
-                    onFeedOverride: handleFeedOverride,
-                    timeEstimate: timeEstimate,
-                    machineSettings: machineSettings,
-                    toolLibrary: toolLibrary,
-                    selectedToolId: selectedToolId,
-                    onToolSelect: setSelectedToolId,
-                    onOpenGenerator: () => setIsGCodeGeneratorModalOpen(true),
-                })
-            ),
-            React.createElement('div', { className: "flex flex-col gap-4 overflow-hidden min-h-0" },
-                React.createElement(JogPanel, {
-                    isConnected: isConnected,
-                    machineState: machineState,
-                    onJog: handleJog,
-                    onHome: handleHome,
-                    onSetZero: handleSetZero,
-                    onSpindleCommand: handleSpindleCommand,
-                    onProbe: handleProbe,
-                    jogStep: jogStep,
-                    onStepChange: setJogStep,
-                    flashingButton: flashingButton,
-                    onFlash: flashControl,
-                    unit: unit,
-                    onUnitChange: handleUnitChange,
-                    isJobActive: isJobActive,
-                    isJogging: isJogging,
-                    isMacroRunning: isMacroRunning,
-                }),
-                 React.createElement(WebcamPanel, {}),
-                React.createElement(MacrosPanel, {
-                    macros: macros,
-                    onRunMacro: handleRunMacro,
-                    onOpenEditor: handleOpenMacroEditor,
-                    isEditMode: isMacroEditMode,
-                    onToggleEditMode: () => setIsMacroEditMode(prev => !prev),
-                    disabled: isAnyControlLocked
-                }),
-                React.createElement(Console, {
-                    logs: consoleLogs,
-                    onSendCommand: handleManualCommand,
-                    isConnected: isConnected,
-                    isJobActive: isJobActive,
-                    isMacroRunning: isMacroRunning,
-                    isLightMode: isLightMode,
-                    isVerbose: isVerbose,
-                    onVerboseChange: setIsVerbose,
-                })
-            )
-        ),
-        React.createElement(Footer, { onContactClick: () => setIsContactModalOpen(true) })
+        h(Footer, { onContactClick: () => setIsContactModalOpen(true) })
     );
 };
 

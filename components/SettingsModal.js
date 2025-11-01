@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Save, X, Upload, Download } from './Icons.js';
 
@@ -16,13 +17,14 @@ const NumberInput = ({ id, value, onChange, unit }) => h('div', { className: 're
     unit && h('span', { className: 'absolute right-3 top-1/2 -translate-y-1/2 text-sm text-text-secondary' }, unit)
 );
 
-const ScriptInput = ({ label, value, onChange, placeholder }) => h('div', null,
+const ScriptInput = ({ label, value, onChange, placeholder, help }) => h('div', null,
     h('label', { className: 'block text-sm font-medium text-text-secondary mb-1' }, label),
     h('textarea', {
-        value, onChange, rows: 4, placeholder,
+        value, onChange, rows: 3, placeholder,
         className: 'w-full bg-background border border-secondary rounded-md py-2 px-3 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary',
         spellCheck: 'false'
-    })
+    }),
+    help && h('p', { className: 'text-xs text-text-secondary mt-1' }, help)
 );
 
 const SettingsModal = ({ isOpen, onCancel, onSave, settings, onResetDialogs, onExport, onImport }) => {
@@ -139,7 +141,8 @@ const SettingsModal = ({ isOpen, onCancel, onSave, settings, onResetDialogs, onE
                     h('div', { className: 'space-y-4 bg-background p-4 rounded-md' },
                         h('h3', { className: 'text-sm font-bold text-text-secondary mb-2' }, 'Custom G-Code Scripts'),
                         h(ScriptInput, { label: 'Startup Script (on connect)', value: localSettings.scripts.startup, onChange: e => handleScriptChange('startup', e.target.value), placeholder: 'e.g., G21 G90' }),
-                        h(ScriptInput, { label: 'Tool Change Script', value: localSettings.scripts.toolChange, onChange: e => handleScriptChange('toolChange', e.target.value), placeholder: 'e.g., M5 G0 Z10' }),
+                        h(ScriptInput, { label: 'Automatic Tool Change Script', value: localSettings.scripts.automaticToolChange, onChange: e => handleScriptChange('automaticToolChange', e.target.value), placeholder: 'e.g., M6 T{T}', help: 'Use {T} for the tool number.' }),
+                        h(ScriptInput, { label: 'Manual Tool Change Script', value: localSettings.scripts.manualToolChange, onChange: e => handleScriptChange('manualToolChange', e.target.value), placeholder: 'e.g., M5 G0 Z10', help: 'Runs before the pause. Use {T} for tool number. Do not use M0.' }),
                         h(ScriptInput, { label: 'Shutdown Script (on disconnect)', value: localSettings.scripts.shutdown, onChange: e => handleScriptChange('shutdown', e.target.value), placeholder: 'e.g., M5 G0 X0 Y0' })
                     )
                 ),
