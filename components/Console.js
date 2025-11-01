@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, ChevronRight, ChevronsLeft, ChevronsRight, Info, AlertTriangle, Maximize, Minimize } from './Icons.js';
 
@@ -91,7 +90,7 @@ const Console = ({ logs, onSendCommand, isConnected, isJobActive, isMacroRunning
                 )
             )
         ),
-        h('div', { ref: logContainerRef, className: "flex-grow bg-background rounded p-2 overflow-y-auto mb-4 font-mono text-sm min-h-[5rem]" },
+        h('div', { ref: logContainerRef, className: "flex-grow bg-background rounded p-2 overflow-y-auto mb-4 font-mono text-sm min-h-[10rem]" },
             logs.map((log, index) =>
                 h('div', { key: index, className: `flex items-start ${getLogColor(log.type)}` },
                     getLogIcon(log.type),
