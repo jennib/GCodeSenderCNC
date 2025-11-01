@@ -52,6 +52,21 @@ const PARAMETER_DEFINITIONS = {
     'T': 'Tool Number (for M6)',
 };
 
+// FIX: Add JSDoc type definitions for props to allow TypeScript to correctly type-check this JavaScript component.
+/**
+ * @typedef {object} GCodeLineProps
+ * @property {string} line
+ * @property {number} lineNumber
+ * @property {boolean} isExecuted
+ * @property {boolean} isCurrent
+ * @property {boolean} isHovered
+ * @property {(lineNumber: number) => void} onRunFromHere
+ * @property {boolean} isActionable
+ * @property {() => void} onMouseEnter
+ * @property {() => void} onMouseLeave
+ */
+
+/** @type {React.FC<GCodeLineProps>} */
 const GCodeLine = ({ line, lineNumber, isExecuted, isCurrent, isHovered, onRunFromHere, isActionable, onMouseEnter, onMouseLeave }) => {
     const parts = [];
     let lastIndex = 0;

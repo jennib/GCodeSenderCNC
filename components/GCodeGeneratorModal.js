@@ -180,7 +180,7 @@ const GCodeGeneratorModal = ({ isOpen, onCancel, onLoadGCode, unit, settings, to
     const [surfaceParams, setSurfaceParams] = useState({
         width: 100, length: 100, depth: -1, stepover: 40,
         feed: 800, spindle: settings.spindle.max || 8000, safeZ: 5, startX: 0, startY: 0,
-        toolId: null,
+        toolId: null, direction: 'horizontal',
     });
 
     // --- Drilling State ---
@@ -336,14 +336,14 @@ const GCodeGeneratorModal = ({ isOpen, onCancel, onLoadGCode, unit, settings, to
         if (!selectedTool) return { error: "Please select a tool." };
         const toolDiameter = selectedTool.diameter;
 
-        const { width, length, depth, stepover, feed, spindle, safeZ, startX, startY } = surfaceParams;
+        const { width, length, depth, stepover, feed, spindle, safeZ, startX, startY, direction } = surfaceParams;
         if ([width, length, depth, stepover, feed, spindle, safeZ].some(p => p === '' || p === null)) return { error: "Please fill all required fields." };
         
         const code = [
             `(--- Surfacing Operation ---)`,
             `(Tool: ${selectedTool.name} - Ø${toolDiameter}${unit})`,
             `(Width: ${width}, Length: ${length}, Depth: ${depth})`,
-            `(Stepover: ${stepover}%)`,
+            `(Stepover: ${stepover}%, Direction: ${direction})`,
             `T${selectedTool.id} M6`,
             `G21 G90`, // mm, absolute
             `M3 S${spindle}`,
@@ -353,26 +353,47 @@ const GCodeGeneratorModal = ({ isOpen, onCancel, onLoadGCode, unit, settings, to
         
         const paths = [];
         const step = toolDiameter * (stepover / 100);
-        let y = startY;
-        let x = startX;
-        let direction = 1;
 
         code.push(`G1 Z${depth.toFixed(3)} F${Math.round(feed / 2)}`);
 
-        while (y <= length + startY) {
-            let lastX = x;
-            x = direction === 1 ? startX + width : startX;
-            code.push(`G1 X${x.toFixed(3)} F${feed}`);
-            paths.push({ d: `M${lastX} ${y} L${x} ${y}`, stroke: 'var(--color-primary)' });
-            
-            y += step;
-            if (y <= length + startY) {
-                code.push(`G1 Y${y.toFixed(3)}`);
-                paths.push({ d: `M${x} ${y-step} L${x} ${y}`, stroke: 'var(--color-text-secondary)' });
-            }
-            direction *= -1;
-        }
+        if (direction === 'horizontal') {
+            let y = startY;
+            let x = startX;
+            let x_direction = 1;
 
+            while (y <= length + startY) {
+                let lastX = x;
+                x = x_direction === 1 ? startX + width : startX;
+                code.push(`G1 X${x.toFixed(3)} F${feed}`);
+                paths.push({ d: `M${lastX} ${y} L${x} ${y}`, stroke: 'var(--color-primary)' });
+                
+                y += step;
+                if (y <= length + startY) {
+                    code.push(`G1 Y${y.toFixed(3)}`);
+                    paths.push({ d: `M${x} ${y-step} L${x} ${y}`, stroke: 'var(--color-text-secondary)' });
+                }
+                x_direction *= -1;
+            }
+        } else { // vertical
+            let x = startX;
+            let y = startY;
+            let y_direction = 1;
+            
+            while (x <= width + startX) {
+                let lastY = y;
+                y = y_direction === 1 ? startY + length : startY;
+                code.push(`G1 Y${y.toFixed(3)} F${feed}`);
+                paths.push({ d: `M${x} ${lastY} L${x} ${y}`, stroke: 'var(--color-primary)' });
+
+                x += step;
+                if (x <= width + startX) {
+                    code.push(`G1 X${x.toFixed(3)}`);
+                    paths.push({ d: `M${x-step} ${y} L${x} ${y}`, stroke: 'var(--color-text-secondary)' });
+                }
+                y_direction *= -1;
+            }
+        }
+        
         code.push(`G0 Z${safeZ}`, `M5`, `G0 X${startX.toFixed(3)} Y${startY.toFixed(3)}`);
         
         return { 
@@ -1056,6 +1077,15 @@ const GCodeGeneratorModal = ({ isOpen, onCancel, onLoadGCode, unit, settings, to
              h(Input, { label: `Width (X)`, value: surfaceParams.width, onChange: e => handleParamChange(setSurfaceParams, surfaceParams, 'width', e.target.value), unit }),
              h(Input, { label: `Length (Y)`, value: surfaceParams.length, onChange: e => handleParamChange(setSurfaceParams, surfaceParams, 'length', e.target.value), unit })
         ),
+        h(RadioGroup, {
+            label: 'Milling Direction',
+            options: [
+                { value: 'horizontal', label: 'Horizontal (X)' },
+                { value: 'vertical', label: 'Vertical (Y)' }
+            ],
+            selected: surfaceParams.direction,
+            onChange: val => setSurfaceParams(p => ({ ...p, direction: val }))
+        }),
         h(Input, { label: 'Final Depth', value: surfaceParams.depth, onChange: e => handleParamChange(setSurfaceParams, surfaceParams, 'depth', e.target.value), unit, help: 'Should be negative' }),
         h(Input, { label: 'Stepover', value: surfaceParams.stepover, onChange: e => handleParamChange(setSurfaceParams, surfaceParams, 'stepover', e.target.value), unit: '%' }),
         h(SpindleAndFeedControls, { params: surfaceParams, onParamChange: (field, value) => handleParamChange(setSurfaceParams, surfaceParams, field, value), unit })

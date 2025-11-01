@@ -22,6 +22,7 @@ import { estimateGCodeTime } from './services/gcodeTimeEstimator.js';
 import { analyzeGCode } from './services/gcodeAnalyzer.js';
 import { Analytics } from '@vercel/analytics/react';
 import Footer from './components/Footer.js';
+import UnsupportedBrowser from './components/UnsupportedBrowser.js';
 
 const GRBL_ALARM_CODES = {
     1: { name: 'Hard limit', desc: 'A limit switch was triggered. Usually due to machine travel limits.', resolution: 'Check for obstructions. The machine may need to be moved off the switch manually. Use the "$X" command to unlock after clearing the issue, then perform a homing cycle ($H).' },
@@ -397,12 +398,7 @@ const App = () => {
     }, [machineState, jobStatus, addLog]);
 
     useEffect(() => {
-        if ('serial' in navigator) {
-            setIsSerialApiSupported(true);
-        } else {
-            setIsSerialApiSupported(false);
-            setError("Web Serial API is not supported by your browser. Please use a compatible browser like Chrome, Edge, or enable it in Firefox (dom.w3c_serial.enabled).");
-        }
+        setIsSerialApiSupported('serial' in navigator);
     }, []);
 
     const handleConnect = useCallback(async () => {
@@ -983,6 +979,10 @@ const App = () => {
         }
     }, [addNotification]);
 
+    if (!isSerialApiSupported && !useSimulator) {
+        return React.createElement(UnsupportedBrowser, { useSimulator, onSimulatorChange: setUseSimulator });
+    }
+
     const alarmInfo = isAlarm ? (GRBL_ALARM_CODES[machineState.code] || GRBL_ALARM_CODES.default) : null;
     const isJobActive = jobStatus === JobStatus.Running || jobStatus === JobStatus.Paused;
 
@@ -1183,14 +1183,7 @@ const App = () => {
                 "Unlock ($X)"
             )
         ),
-        !isSerialApiSupported && !useSimulator && React.createElement('div', { className: "bg-accent-yellow/20 border-l-4 border-accent-yellow text-accent-yellow p-4 m-4 flex items-start", role: "alert" },
-            React.createElement(AlertTriangle, { className: "h-6 w-6 mr-3 flex-shrink-0" }),
-            React.createElement('div', null,
-                React.createElement('p', { className: "font-bold" }, "Browser Not Supported"),
-                React.createElement('p', null, error)
-            )
-        ),
-        error && (isSerialApiSupported || useSimulator) && React.createElement('div', { className: "bg-accent-red/20 border-l-4 border-accent-red text-accent-red p-4 m-4 flex items-start", role: "alert" },
+        error && React.createElement('div', { className: "bg-accent-red/20 border-l-4 border-accent-red text-accent-red p-4 m-4 flex items-start", role: "alert" },
             React.createElement(AlertTriangle, { className: "h-6 w-6 mr-3 flex-shrink-0" }),
             React.createElement('p', null, error),
             React.createElement('button', { onClick: () => setError(null), className: "ml-auto font-bold" }, "X")
