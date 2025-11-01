@@ -1,4 +1,4 @@
-import { ConsoleLog, MachineState, PortInfo } from '../types';
+import { ConsoleLog, MachineState, PortInfo, MachinePosition } from '../types';
 
 interface SerialManagerCallbacks {
     onConnect: (info: PortInfo) => void;
@@ -6,7 +6,7 @@ interface SerialManagerCallbacks {
     onLog: (log: ConsoleLog) => void;
     onProgress: (p: { percentage: number; linesSent: number; totalLines: number; }) => void;
     onError: (message: string) => void;
-    onStatus: (status: MachineState) => void;
+    onStatus: (status: MachineState, raw: string) => void;
 }
 
 export class SerialManager {
@@ -31,6 +31,7 @@ export class SerialManager {
         code: null,
         wpos: { x: 0, y: 0, z: 0 },
         mpos: { x: 0, y: 0, z: 0 },
+        wco: { x: 0, y: 0, z: 0 },
         spindle: { state: 'off', speed: 0 },
         ov: [100, 100, 100],
     };
@@ -60,6 +61,7 @@ export class SerialManager {
                 code: null,
                 wpos: { x: 0, y: 0, z: 0 },
                 mpos: { x: 0, y: 0, z: 0 },
+                wco: { x: 0, y: 0, z: 0 },
                 spindle: { state: 'off', speed: 0 },
                 ov: [100, 100, 100],
             };
@@ -181,6 +183,13 @@ export class SerialManager {
                     if (coords.length > 1 && coords[1] !== '' && !isNaN(parseFloat(coords[1]))) mpos.y = parseFloat(coords[1]);
                     if (coords.length > 2 && coords[2] !== '' && !isNaN(parseFloat(coords[2]))) mpos.z = parseFloat(coords[2]);
                     parsed.mpos = mpos;
+                } else if (part.startsWith('WCO:')) {
+                    const coords = part.substring(4).split(',');
+                    const wco = lastStatus.wco ? { ...lastStatus.wco } : { x: 0, y: 0, z: 0 };
+                    if (coords.length > 0 && coords[0] !== '' && !isNaN(parseFloat(coords[0]))) wco.x = parseFloat(coords[0]);
+                    if (coords.length > 1 && coords[1] !== '' && !isNaN(parseFloat(coords[1]))) wco.y = parseFloat(coords[1]);
+                    if (coords.length > 2 && coords[2] !== '' && !isNaN(parseFloat(coords[2]))) wco.z = parseFloat(coords[2]);
+                    parsed.wco = wco;
                 } else if (part.startsWith('FS:')) {
                     const speeds = part.substring(3).split(',');
                     if (!parsed.spindle) parsed.spindle = { state: 'off', speed: 0 };
@@ -194,6 +203,17 @@ export class SerialManager {
                     }
                 }
             }
+
+            // If WPos wasn't in the status string, calculate it from MPos and WCO
+            if (!parsed.wpos && parsed.mpos && (parsed.wco || lastStatus.wco)) {
+                const wcoToUse = parsed.wco || lastStatus.wco!;
+                parsed.wpos = {
+                    x: parsed.mpos.x - wcoToUse.x,
+                    y: parsed.mpos.y - wcoToUse.y,
+                    z: parsed.mpos.z - wcoToUse.z,
+                };
+            }
+
             return parsed;
         } catch (e) {
             console.error("Failed to parse GRBL status:", statusStr, e);
@@ -228,6 +248,7 @@ export class SerialManager {
                                     code: statusUpdate.code,
                                     wpos: statusUpdate.wpos || this.lastStatus.wpos,
                                     mpos: statusUpdate.mpos || this.lastStatus.mpos,
+                                    wco: statusUpdate.wco || this.lastStatus.wco,
                                     ov: statusUpdate.ov || this.lastStatus.ov,
                                     spindle: {
                                         ...this.lastStatus.spindle,
@@ -242,7 +263,7 @@ export class SerialManager {
                                 this.lastStatus.spindle.state = this.spindleDirection;
                         
                                 // Send a deep clone to React to ensure re-render
-                                this.callbacks.onStatus(JSON.parse(JSON.stringify(this.lastStatus)));
+                                this.callbacks.onStatus(JSON.parse(JSON.stringify(this.lastStatus)), trimmedValue);
 
                                 // If a jog just completed, request another status update to ensure we have the final position.
                                 if (previousStatus === 'Jog' && this.lastStatus.status === 'Idle') {

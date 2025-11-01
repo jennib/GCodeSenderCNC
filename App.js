@@ -21,6 +21,8 @@ import { AlertTriangle, OctagonAlert, Unlock, Settings, BookOpen } from './compo
 import { estimateGCodeTime } from './services/gcodeTimeEstimator.js';
 import { analyzeGCode } from './services/gcodeAnalyzer.js';
 import { Analytics } from '@vercel/analytics/react';
+import ContactModal from './components/ContactModal.js';
+import Footer from './components/Footer.js';
 
 const GRBL_ALARM_CODES = {
     1: { name: 'Hard limit', desc: 'A limit switch was triggered. Usually due to machine travel limits.', resolution: 'Check for obstructions. The machine may need to be moved off the switch manually. Use the "$X" command to unlock after clearing the issue, then perform a homing cycle ($H).' },
@@ -139,7 +141,9 @@ const App = () => {
     const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
     const [isToolLibraryModalOpen, setIsToolLibraryModalOpen] = useState(false);
     const [isGCodeGeneratorModalOpen, setIsGCodeGeneratorModalOpen] = useState(false);
+    const [isContactModalOpen, setIsContactModalOpen] = useState(false);
     const [selectedToolId, setSelectedToolId] = useState(null);
+    const [isVerbose, setIsVerbose] = useState(false);
 
 
     // Persisted State
@@ -355,7 +359,7 @@ const App = () => {
             const trimmedMessage = processedLog.message.trim().toLowerCase();
 
             // Consolidate repeated 'ok' messages to prevent console spam.
-            if (processedLog.type === 'received' && trimmedMessage === 'ok') {
+            if (!isVerbose && processedLog.type === 'received' && trimmedMessage === 'ok') {
                 const lastLog = prev.length > 0 ? prev[prev.length - 1] : null;
 
                 // Check if the last log was also an 'ok' message that we can append to.
@@ -373,7 +377,7 @@ const App = () => {
             // For any other message, or the first 'ok' in a sequence.
             return [...prev, processedLog].slice(-200); // Keep last 200 logs
         });
-    }, []);
+    }, [isVerbose]);
     
     useEffect(() => {
         if (prevState?.status === 'Home' && machineState?.status === 'Idle') {
@@ -449,8 +453,11 @@ const App = () => {
                 setError(message);
                 addLog({ type: 'error', message });
             },
-            onStatus: (status) => {
+            onStatus: (status, rawStatus) => {
                 setMachineState(status);
+                if (isVerbose && rawStatus) {
+                    addLog({ type: 'status', message: rawStatus });
+                }
             }
         };
 
@@ -467,7 +474,7 @@ const App = () => {
             setError(`Failed to connect: ${errorMessage}`);
             addLog({ type: 'error', message: `Failed to connect: ${errorMessage}` });
         }
-    }, [addLog, isSerialApiSupported, useSimulator, addNotification, playCompletionSound, machineSettings.scripts.startup]);
+    }, [addLog, isSerialApiSupported, useSimulator, addNotification, playCompletionSound, machineSettings.scripts.startup, isVerbose]);
 
     const handleDisconnect = useCallback(async () => {
         if (jobStatus === JobStatus.Running || jobStatus === JobStatus.Paused) {
@@ -637,6 +644,7 @@ const App = () => {
             if (!errorMessage.includes('Cannot send new line')) {
                 addLog({ type: 'error', message: `Jog failed: ${errorMessage}` });
             }
+            setIsJogging(false);
         });
     };
 
@@ -1068,6 +1076,10 @@ const App = () => {
             notifications: notifications,
             onDismiss: removeNotification
         }),
+        React.createElement(ContactModal, {
+            isOpen: isContactModalOpen,
+            onClose: () => setIsContactModalOpen(false)
+        }),
         React.createElement(WelcomeModal, {
             isOpen: isWelcomeModalOpen,
             onClose: handleCloseWelcomeModal,
@@ -1248,10 +1260,15 @@ const App = () => {
                     isConnected: isConnected,
                     isJobActive: isJobActive,
                     isMacroRunning: isMacroRunning,
-                    isLightMode: isLightMode
+                    isLightMode: isLightMode,
+                    isVerbose: isVerbose,
+                    onVerboseChange: setIsVerbose,
                 })
             )
-        )
+        ),
+        React.createElement(Footer, {
+            onOpenContact: () => setIsContactModalOpen(true)
+        })
     );
 };
 

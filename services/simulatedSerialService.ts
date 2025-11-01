@@ -13,7 +13,7 @@ interface SimulatedSerialManagerCallbacks {
     onLog: (log: ConsoleLog) => void;
     onProgress: (p: { percentage: number; linesSent: number; totalLines: number; }) => void;
     onError: (message: string) => void;
-    onStatus: (status: MachineState) => void;
+    onStatus: (status: MachineState, raw: string) => void;
 }
 
 export class SimulatedSerialManager {
@@ -24,6 +24,7 @@ export class SimulatedSerialManager {
         code: null,
         wpos: { x: 0, y: 0, z: 0 },
         mpos: { x: 0, y: 0, z: 0 },
+        wco: { x: 0, y: 0, z: 0 },
         spindle: { state: 'off', speed: 0 },
         ov: [100, 100, 100],
     };
@@ -47,7 +48,8 @@ export class SimulatedSerialManager {
         this.statusInterval = window.setInterval(() => {
             // Deep clone the position object to ensure React detects a state change
             const newPosition = JSON.parse(JSON.stringify(this.position));
-            this.callbacks.onStatus(newPosition);
+            const rawStatus = `<${newPosition.status}|MPos:${newPosition.mpos.x.toFixed(3)},${newPosition.mpos.y.toFixed(3)},${newPosition.mpos.z.toFixed(3)}|WPos:${newPosition.wpos.x.toFixed(3)},${newPosition.wpos.y.toFixed(3)},${newPosition.wpos.z.toFixed(3)}|FS:${newPosition.spindle.state === 'off' ? 0 : newPosition.spindle.speed},${newPosition.spindle.speed}|WCO:${newPosition.wco!.x.toFixed(3)},${newPosition.wco!.y.toFixed(3)},${newPosition.wco!.z.toFixed(3)}>`;
+            this.callbacks.onStatus(newPosition, rawStatus);
         }, 250);
     }
 
@@ -113,9 +115,9 @@ export class SimulatedSerialManager {
                 if(y !== null) { this.position.wpos.y += y; this.position.mpos.y += y; }
                 if(z !== null) { this.position.wpos.z += z; this.position.mpos.z += z; }
             } else { // absolute
-                if(x !== null) { this.position.wpos.x = x; this.position.mpos.x = x; }
-                if(y !== null) { this.position.wpos.y = y; this.position.mpos.y = y; }
-                if(z !== null) { this.position.wpos.z = z; this.position.mpos.z = z; }
+                if(x !== null) { this.position.wpos.x = x; this.position.mpos.x = x + this.position.wco!.x; }
+                if(y !== null) { this.position.wpos.y = y; this.position.mpos.y = y + this.position.wco!.y; }
+                if(z !== null) { this.position.wpos.z = z; this.position.mpos.z = z + this.position.wco!.z; }
             }
             await this.sendOk();
             return;
@@ -184,32 +186,26 @@ export class SimulatedSerialManager {
             const yParam = getParam(upperLine, 'Y');
             const zParam = getParam(upperLine, 'Z');
             
-            // This command sets the origin of the current work coordinate system.
-            // It modifies the WCS offset, which changes WPos but not MPos.
-            if (xParam !== null) { this.position.wpos.x = xParam; }
-            if (yParam !== null) { this.position.wpos.y = yParam; }
-            if (zParam !== null) { this.position.wpos.z = zParam; }
+            if (xParam !== null) { this.position.wco!.x = this.position.mpos.x - xParam; this.position.wpos.x = xParam; }
+            if (yParam !== null) { this.position.wco!.y = this.position.mpos.y - yParam; this.position.wpos.y = yParam; }
+            if (zParam !== null) { this.position.wco!.z = this.position.mpos.z - zParam; this.position.wpos.z = zParam; }
             await this.sendOk();
             return;
         }
 
         if (upperLine.startsWith('$H')) {
             this.position.status = 'Home';
-            const oldMpos = { ...this.position.mpos };
             // Simulate homing process running in the background
             setTimeout(() => {
-                if (upperLine === '$H' || upperLine.includes('X')) {
-                    this.position.wpos.x -= oldMpos.x;
-                    this.position.mpos.x = 0;
-                }
-                if (upperLine === '$H' || upperLine.includes('Y')) {
-                    this.position.wpos.y -= oldMpos.y;
-                    this.position.mpos.y = 0;
-                }
-                if (upperLine === '$H' || upperLine.includes('Z')) {
-                    this.position.wpos.z -= oldMpos.z;
-                    this.position.mpos.z = 0;
-                }
+                if (upperLine === '$H' || upperLine.includes('X')) { this.position.mpos.x = 0; }
+                if (upperLine === '$H' || upperLine.includes('Y')) { this.position.mpos.y = 0; }
+                if (upperLine === '$H' || upperLine.includes('Z')) { this.position.mpos.z = 0; }
+                
+                // After MPos is reset, WPos is calculated from the existing WCO
+                this.position.wpos.x = this.position.mpos.x - this.position.wco!.x;
+                this.position.wpos.y = this.position.mpos.y - this.position.wco!.y;
+                this.position.wpos.z = this.position.mpos.z - this.position.wco!.z;
+
                 this.position.status = 'Idle';
             }, 1000); // Homing takes time
             

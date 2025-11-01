@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, ChevronRight, ChevronsLeft, ChevronsRight, Info, AlertTriangle, Maximize, Minimize } from './Icons';
 
@@ -9,9 +8,11 @@ interface ConsoleProps {
     isJobActive: boolean;
     isMacroRunning: boolean;
     isLightMode: boolean;
+    isVerbose: boolean;
+    onVerboseChange: (verbose: boolean) => void;
 }
 
-const Console: React.FC<ConsoleProps> = ({ logs, onSendCommand, isConnected, isJobActive, isMacroRunning, isLightMode }) => {
+const Console: React.FC<ConsoleProps> = ({ logs, onSendCommand, isConnected, isJobActive, isMacroRunning, isLightMode, isVerbose, onVerboseChange }) => {
     const [command, setCommand] = useState('');
     const [isFullscreen, setIsFullscreen] = useState(false);
     const logContainerRef = useRef<HTMLDivElement>(null);
@@ -78,15 +79,26 @@ const Console: React.FC<ConsoleProps> = ({ logs, onSendCommand, isConnected, isJ
         <div className={containerClasses}>
             <h2 className="text-lg font-bold mb-4 pb-4 border-b border-secondary flex-shrink-0 flex justify-between items-center">
                 Console
-                <button
-                    onClick={() => setIsFullscreen(!isFullscreen)}
-                    title={isFullscreen ? "Minimize Console" : "Fullscreen Console"}
-                    className="text-text-secondary hover:text-text-primary p-1 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-surface"
-                >
-                    {isFullscreen
-                        ? <Minimize className="w-5 h-5" />
-                        : <Maximize className="w-5 h-5" />}
-                </button>
+                <div className="flex items-center gap-4">
+                    <label title="Toggle Verbose Output" className="flex items-center gap-1.5 cursor-pointer text-sm text-text-secondary hover:text-text-primary">
+                        <input
+                            type="checkbox"
+                            checked={isVerbose}
+                            onChange={(e) => onVerboseChange(e.target.checked)}
+                            className="h-4 w-4 rounded border-secondary text-primary focus:ring-primary"
+                        />
+                        Verbose
+                    </label>
+                    <button
+                        onClick={() => setIsFullscreen(!isFullscreen)}
+                        title={isFullscreen ? "Minimize Console" : "Fullscreen Console"}
+                        className="text-text-secondary hover:text-text-primary p-1 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-surface"
+                    >
+                        {isFullscreen
+                            ? <Minimize className="w-5 h-5" />
+                            : <Maximize className="w-5 h-5" />}
+                    </button>
+                </div>
             </h2>
             <div ref={logContainerRef} className="h-40 bg-background rounded p-2 overflow-y-auto mb-4 font-mono text-sm">
                 {logs.map((log, index) => (

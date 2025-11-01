@@ -1,5 +1,3 @@
-
-
 export enum JobStatus {
     Idle = 'idle',
     Running = 'running',
@@ -34,6 +32,7 @@ export interface MachineState {
     code: number | null;
     wpos: MachinePosition;
     mpos: MachinePosition;
+    wco?: MachinePosition;
     spindle: SpindleState;
     ov: [number, number, number];
 }

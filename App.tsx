@@ -1,7 +1,3 @@
-
-
-
-
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { SerialManager } from './services/serialService';
 import { SimulatedSerialManager } from './services/simulatedSerialService';
@@ -24,6 +20,8 @@ import { AlertTriangle, OctagonAlert, Unlock, Settings } from './components/Icon
 import { estimateGCodeTime } from './services/gcodeTimeEstimator.js';
 import { analyzeGCode } from './services/gcodeAnalyzer.js';
 import { Analytics } from '@vercel/analytics/react';
+import ContactModal from './components/ContactModal.js';
+import Footer from './components/Footer.js';
 
 const GRBL_ALARM_CODES: { [key: number | string]: { name: string; desc: string; resolution: string } } = {
     1: { name: 'Hard limit', desc: 'A limit switch was triggered. Usually due to machine travel limits.', resolution: 'Check for obstructions. The machine may need to be moved off the switch manually. Use the "$X" command to unlock after clearing the issue, then perform a homing cycle ($H).' },
@@ -139,7 +137,9 @@ const App: React.FC = () => {
     // Advanced Features State
     const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
     const [isToolLibraryModalOpen, setIsToolLibraryModalOpen] = useState(false);
+    const [isContactModalOpen, setIsContactModalOpen] = useState(false);
     const [selectedToolId, setSelectedToolId] = useState<number | null>(null);
+    const [isVerbose, setIsVerbose] = useState(false);
 
 
     // Persisted State
@@ -347,8 +347,8 @@ const App: React.FC = () => {
         setConsoleLogs(prev => {
             const trimmedMessage = processedLog.message.trim().toLowerCase();
 
-            // Consolidate repeated 'ok' messages to prevent console spam.
-            if (processedLog.type === 'received' && trimmedMessage === 'ok') {
+            // Consolidate repeated 'ok' messages to prevent console spam, unless in verbose mode.
+            if (!isVerbose && processedLog.type === 'received' && trimmedMessage === 'ok') {
                 const lastLog = prev.length > 0 ? prev[prev.length - 1] : null;
 
                 // Check if the last log was also an 'ok' message that we can append to.
@@ -363,10 +363,10 @@ const App: React.FC = () => {
                 }
             }
             
-            // For any other message, or the first 'ok' in a sequence.
+            // For any other message, or the first 'ok' in a sequence, or if verbose.
             return [...prev, processedLog].slice(-200); // Keep last 200 logs
         });
-    }, []);
+    }, [isVerbose]);
     
     useEffect(() => {
         // FIX: The type of `prevState` is correctly inferred due to the typed `machineState`.
@@ -443,8 +443,11 @@ const App: React.FC = () => {
                 setError(message);
                 addLog({ type: 'error', message });
             },
-            onStatus: (status: MachineState) => {
+            onStatus: (status: MachineState, rawStatus?: string) => {
                 setMachineState(status);
+                if (isVerbose && rawStatus) {
+                    addLog({ type: 'status', message: rawStatus });
+                }
             }
         };
 
@@ -461,7 +464,7 @@ const App: React.FC = () => {
             setError(`Failed to connect: ${errorMessage}`);
             addLog({ type: 'error', message: `Failed to connect: ${errorMessage}` });
         }
-    }, [addLog, isSerialApiSupported, useSimulator, addNotification, playCompletionSound, machineSettings.scripts.startup]);
+    }, [addLog, isSerialApiSupported, useSimulator, addNotification, playCompletionSound, machineSettings.scripts.startup, isVerbose]);
 
     const handleDisconnect = useCallback(async () => {
         if (jobStatus === JobStatus.Running || jobStatus === JobStatus.Paused) {
@@ -599,6 +602,7 @@ const App: React.FC = () => {
             if (!errorMessage.includes('Cannot send new line')) {
                 addLog({ type: 'error', message: `Jog failed: ${errorMessage}` });
             }
+            setIsJogging(false);
         });
     };
 
@@ -981,6 +985,10 @@ const App: React.FC = () => {
                 notifications={notifications}
                 onDismiss={removeNotification}
             />
+             <ContactModal
+                isOpen={isContactModalOpen}
+                onClose={() => setIsContactModalOpen(false)}
+            />
             <PreflightChecklistModal
                 isOpen={isPreflightModalOpen}
                 onCancel={() => setIsPreflightModalOpen(false)}
@@ -1020,7 +1028,7 @@ const App: React.FC = () => {
             />
             <header className="bg-surface shadow-md p-4 flex justify-between items-center z-10 flex-shrink-0 gap-4">
                 <div className="flex items-baseline gap-2">
-                    <h1 className="text-xl font-bold">CNC Sender 3D</h1>
+                    <h1 className="text-xl font-bold">mycnc.app</h1>
                     <span className='text-xs text-text-secondary font-mono'>{version}</span>
                 </div>
                 <div className="flex items-center gap-4">
@@ -1047,6 +1055,10 @@ const App: React.FC = () => {
                     />
                 </div>
             </header>
+            <div className="bg-accent-yellow/20 text-accent-yellow text-center p-2 text-sm font-semibold flex items-center justify-center gap-2">
+                <AlertTriangle className="w-4 h-4" />
+                Work in Progress: This software is for demonstration purposes only. Use at your own risk.
+            </div>
             <StatusBar
                 isConnected={isConnected}
                 machineState={machineState}
@@ -1145,9 +1157,12 @@ const App: React.FC = () => {
                         isJobActive={isJobActive}
                         isMacroRunning={isMacroRunning}
                         isLightMode={isLightMode}
+                        isVerbose={isVerbose}
+                        onVerboseChange={setIsVerbose}
                     />
                 </div>
             </main>
+            <Footer onOpenContact={() => setIsContactModalOpen(true)} />
         </div>
     );
 };
