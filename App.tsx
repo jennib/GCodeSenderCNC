@@ -16,11 +16,13 @@ import ToolLibraryModal from './components/ToolLibraryModal.js';
 import { NotificationContainer } from './components/Notification.js';
 import ThemeToggle from './components/ThemeToggle.js';
 import StatusBar from './components/StatusBar.js';
-import { AlertTriangle, OctagonAlert, Unlock, Settings } from './components/Icons';
+import { AlertTriangle, OctagonAlert, Unlock, Settings, Maximize, Minimize } from './components/Icons';
 import { estimateGCodeTime } from './services/gcodeTimeEstimator.js';
 import { analyzeGCode } from './services/gcodeAnalyzer.js';
 import { Analytics } from '@vercel/analytics/react';
 import Footer from './components/Footer.js';
+import ContactModal from './components/ContactModal';
+import UnsupportedBrowser from './components/UnsupportedBrowser.js';
 
 const GRBL_ALARM_CODES: { [key: number | string]: { name: string; desc: string; resolution: string } } = {
     1: { name: 'Hard limit', desc: 'A limit switch was triggered. Usually due to machine travel limits.', resolution: 'Check for obstructions. The machine may need to be moved off the switch manually. Use the "$X" command to unlock after clearing the issue, then perform a homing cycle ($H).' },
@@ -84,6 +86,7 @@ const DEFAULT_MACROS = [
 const DEFAULT_SETTINGS = {
     workArea: { x: 300, y: 300, z: 80 },
     spindle: { min: 0, max: 12000 },
+    probe: { xOffset: 3.0, yOffset: 3.0, zOffset: 15.0, feedRate: 25 },
     scripts: {
         startup: ['G21', 'G90'].join('\n'), // Set units to mm, absolute positioning
         toolChange: ['M5', 'G0 Z10'].join('\n'), // Stop spindle, raise Z
@@ -100,6 +103,8 @@ const usePrevious = <T,>(value: T): T | undefined => {
     });
     return ref.current;
 };
+
+const buildTimestamp = new Date().toISOString().replace('T', ' ').substring(0, 19);
 
 const App: React.FC = () => {
     // FIX: Initialize `isConnected` state with `false`.
@@ -127,6 +132,7 @@ const App: React.FC = () => {
     const [isHomedSinceConnect, setIsHomedSinceConnect] = useState(false);
     const [isMacroRunning, setIsMacroRunning] = useState(false);
     const [preflightWarnings, setPreflightWarnings] = useState<any[]>([]);
+    const [isFullscreen, setIsFullscreen] = useState(false);
 
     // Macro Editing State
     const [isMacroEditorOpen, setIsMacroEditorOpen] = useState(false);
@@ -136,6 +142,7 @@ const App: React.FC = () => {
     // Advanced Features State
     const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
     const [isToolLibraryModalOpen, setIsToolLibraryModalOpen] = useState(false);
+    const [isContactModalOpen, setIsContactModalOpen] = useState(false);
     const [selectedToolId, setSelectedToolId] = useState<number | null>(null);
     const [isVerbose, setIsVerbose] = useState(false);
 
@@ -170,7 +177,14 @@ const App: React.FC = () => {
     const [machineSettings, setMachineSettings] = useState(() => {
         try {
             const saved = localStorage.getItem('cnc-app-settings');
-            return saved ? JSON.parse(saved) : DEFAULT_SETTINGS;
+            let parsed = saved ? JSON.parse(saved) : DEFAULT_SETTINGS;
+             if (!parsed.probe) {
+                parsed.probe = DEFAULT_SETTINGS.probe;
+            }
+            if (parsed.probe && typeof parsed.probe.feedRate === 'undefined') {
+                parsed.probe.feedRate = DEFAULT_SETTINGS.probe.feedRate;
+            }
+            return parsed;
         } catch {
             return DEFAULT_SETTINGS;
         }
@@ -312,6 +326,14 @@ const App: React.FC = () => {
             context.close();
         };
     }, [addNotification]);
+    
+    useEffect(() => {
+        const onFullscreenChange = () => {
+            setIsFullscreen(!!document.fullscreenElement);
+        };
+        document.addEventListener('fullscreenchange', onFullscreenChange);
+        return () => document.removeEventListener('fullscreenchange', onFullscreenChange);
+    }, []);
 
     const playCompletionSound = useCallback(() => {
         const audioContext = audioContextRef.current;
@@ -686,7 +708,7 @@ const App: React.FC = () => {
         };
     
         const probeTravel = unit === 'mm' ? -25 : -1.0;
-        const probeFeed = unit === 'mm' ? 25 : 1;
+        const probeFeed = machineSettings.probe.feedRate || 25;
         const retractDist = unit === 'mm' ? 5 : 0.2;
     
         addLog({ type: 'status', message: `Starting ${axes.toUpperCase()}-Probe cycle...` });
@@ -694,7 +716,7 @@ const App: React.FC = () => {
         try {
             const probeAxis = async (axis: string, offset: number, travelDir = -1) => {
                 const travel = probeTravel * travelDir;
-                await manager.sendLineAndWaitForOk(`G38.2 ${axis}${travel}`);
+                await manager.sendLineAndWaitForOk(`G38.2 ${axis}${travel.toFixed(4)} F${probeFeed}`);
                 addLog({ type: 'status', message: `Probe contact detected on ${axis}.` });
                 await manager.sendLineAndWaitForOk(`G10 L20 P1 ${axis}${offset}`);
                 addLog({ type: 'status', message: `${axis}-axis zero set to ${offset}${unit}.` });
@@ -931,6 +953,9 @@ const App: React.FC = () => {
     const handleImportSettings = useCallback((imported: any) => {
         if (window.confirm("This will overwrite your current macros, settings, and tool library. Are you sure?")) {
             // Basic validation
+            if (imported.machineSettings && !imported.machineSettings.probe) {
+                imported.machineSettings.probe = DEFAULT_SETTINGS.probe;
+            }
             if (imported.machineSettings && imported.macros && imported.toolLibrary) {
                 setMachineSettings(imported.machineSettings);
                 setMacros(imported.macros);
@@ -941,7 +966,24 @@ const App: React.FC = () => {
             }
         }
     }, [addNotification]);
+    
+    const handleToggleFullscreen = () => {
+        if (!document.fullscreenElement) {
+            document.documentElement.requestFullscreen().catch(err => {
+                alert(`Error attempting to enable full-screen mode: ${err.message} (${err.name})`);
+            });
+        } else {
+            if (document.exitFullscreen) {
+                document.exitFullscreen();
+            }
+        }
+    };
 
+    const isMobile = /Mobi|Android/i.test(navigator.userAgent);
+
+    if (!isSerialApiSupported || isMobile) {
+        return <UnsupportedBrowser />;
+    }
 
     const alarmInfo = isAlarm ? (GRBL_ALARM_CODES[machineState!.code!] || GRBL_ALARM_CODES.default) : null;
     const isJobActive = jobStatus === JobStatus.Running || jobStatus === JobStatus.Paused;
@@ -965,9 +1007,6 @@ const App: React.FC = () => {
 
     const isAnyControlLocked = !isConnected || isJobActive || isJogging || isMacroRunning || (machineState?.status && ['Alarm', 'Home'].includes(machineState.status));
     const selectedTool = toolLibrary.find(t => t.id === selectedToolId) || null;
-    
-    const version = '0.5.0';
-
 
     return (
         <div className="min-h-screen bg-background font-sans text-text-primary flex flex-col">
@@ -980,6 +1019,10 @@ const App: React.FC = () => {
             <NotificationContainer
                 notifications={notifications}
                 onDismiss={removeNotification}
+            />
+             <ContactModal
+                isOpen={isContactModalOpen}
+                onClose={() => setIsContactModalOpen(false)}
             />
             <PreflightChecklistModal
                 isOpen={isPreflightModalOpen}
@@ -1019,7 +1062,7 @@ const App: React.FC = () => {
                 library={toolLibrary}
             />
             <header className="bg-surface shadow-md p-4 flex justify-between items-center z-10 flex-shrink-0 gap-4">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-4">
                     <svg
                         viewBox="0 0 400 100"
                         className="h-8 w-auto"
@@ -1043,9 +1086,16 @@ const App: React.FC = () => {
                             <tspan style={{fill: 'var(--color-primary)'}}>mycnc</tspan>.app
                         </text>
                     </svg>
-                    <span className='text-xs text-text-secondary font-mono'>{version}</span>
+                    <span className='text-xs text-text-secondary font-mono pt-1'>{buildTimestamp}</span>
                 </div>
                 <div className="flex items-center gap-4">
+                    <button
+                        onClick={handleToggleFullscreen}
+                        title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
+                         className="p-2 rounded-md bg-secondary text-text-primary hover:bg-secondary-focus focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-surface"
+                    >
+                        {isFullscreen ? <Minimize className='w-5 h-5' /> : <Maximize className='w-5 h-5' />}
+                    </button>
                     <button
                         onClick={() => setIsSettingsModalOpen(true)}
                         title="Machine Settings"
@@ -1176,7 +1226,7 @@ const App: React.FC = () => {
                     />
                 </div>
             </main>
-            <Footer />
+            <Footer onContactClick={() => setIsContactModalOpen(true)} />
         </div>
     );
 };

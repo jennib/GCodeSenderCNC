@@ -3,47 +3,56 @@ import { AlertTriangle } from './Icons.js';
 
 const h = React.createElement;
 
-const UnsupportedBrowser = ({ useSimulator, onSimulatorChange }) => {
+const UnsupportedBrowser = () => {
     return h('div', { className: "bg-background text-text-primary min-h-screen flex flex-col items-center justify-center p-8 text-center" },
         h('div', { className: 'max-w-2xl' },
-            h(AlertTriangle, { className: 'w-20 h-20 text-accent-yellow mx-auto mb-6' }),
-            h('h1', { className: 'text-4xl font-bold text-text-primary mb-4' }, "Browser Not Supported"),
-            h('p', { className: 'text-lg text-text-secondary mb-6' },
-                "We're sorry, but your browser does not support the Web Serial API, which is required for this application to connect to a physical CNC machine."
-            ),
-            h('div', { className: 'bg-surface p-6 rounded-lg' },
-                h('h2', { className: 'text-xl font-semibold text-text-primary mb-3' }, "For physical machine control, please use a supported browser:"),
-                h('ul', { className: 'list-disc list-inside text-left text-text-secondary space-y-2' },
-                    h('li', null, "Google Chrome (version 78+)"),
-                    h('li', null, "Microsoft Edge (version 78+)"),
-                    h('li', null, 
-                        "Mozilla Firefox (version 119+), with the ",
-                        h('code', { className: 'bg-background px-1.5 py-0.5 rounded-md font-mono' }, 'dom.w3c_serial.enabled'),
-                        " flag enabled in ",
-                        h('code', { className: 'bg-background px-1.5 py-0.5 rounded-md font-mono' }, 'about:config'),
-                        "."
-                    )
+            h('svg', {
+                viewBox: '0 0 400 100',
+                className: 'h-16 w-auto mx-auto mb-8',
+                'aria-label': 'mycnc.app logo'
+            }, 
+                h('g', {
+                    transform: 'translate(48,48)',
+                    fill: 'none',
+                    stroke: 'var(--color-text-primary)',
+                    strokeWidth: '4'
+                },
+                    h('circle', { r: '48', cx: '0', cy: '0' }),
+                    h('path', { d: 'M 0,-48 A 48,48 0 0 1 30,16 L 10,6 A 12,12 0 0 0 0,-12 Z' }),
+                    h('path', { d: 'M 0,-48 A 48,48 0 0 1 30,16 L 10,6 A 12,12 0 0 0 0,-12 Z', transform: 'rotate(120)' }),
+                    h('path', { d: 'M 0,-48 A 48,48 0 0 1 30,16 L 10,6 A 12,12 0 0 0 0,-12 Z', transform: 'rotate(-120)' }),
+                    h('circle', { r: '12', cx: '0', cy: '0' })
+                ),
+                h('text', {
+                    x: '108',
+                    y: '66',
+                    fontFamily: "Inter, 'Segoe UI', Roboto, Arial, sans-serif",
+                    fontWeight: '700',
+                    fontSize: '64px',
+                    letterSpacing: '-0.02em',
+                    fill: 'var(--color-text-primary)'
+                },
+                    h('tspan', { style: { fill: 'var(--color-primary)' } }, 'mycnc'),
+                    '.app'
                 )
             ),
-             h('div', { className: 'mt-8 bg-surface p-6 rounded-lg' },
-                h('h2', { className: 'text-xl font-semibold text-text-primary mb-3' }, "Try the Simulator"),
-                h('p', { className: 'text-text-secondary mb-4' },
-                    "You can still explore the application's features using the built-in simulator."
-                ),
-                h('label', {
-                    className: 'mt-2 inline-flex items-center gap-3 cursor-pointer text-lg p-3 rounded-md bg-secondary hover:bg-secondary-focus',
-                },
-                    h('input', {
-                        type: 'checkbox',
-                        checked: useSimulator,
-                        onChange: e => onSimulatorChange(e.target.checked),
-                        className: 'h-6 w-6 rounded border-secondary text-primary focus:ring-primary'
-                    }),
-                    h('span', {className: 'font-semibold'}, 'Use Simulator')
+            h('div', { className: 'bg-accent-yellow/20 border-l-4 border-accent-yellow text-accent-yellow p-4 m-4 flex items-start', role: 'alert' },
+                h(AlertTriangle, { className: 'h-8 w-8 mr-4 flex-shrink-0' }),
+                h('div', { className: 'text-left' },
+                    h('h2', { className: 'text-lg font-bold mb-2' }, 'Browser Not Supported or Mobile Device Detected'),
+                    h('p', { className: 'mb-2' }, "This application requires the Web Serial API to communicate with CNC controllers. This API is currently supported in desktop versions of browsers like Google Chrome and Microsoft Edge."),
+                    h('p', { className: 'mb-2' }, "Mobile browsers do not support this feature."),
+                    h('p', null, "Please access this page from a compatible desktop browser."),
+                    h('div', { className: 'mt-4' },
+                        h('a', { href: 'https://developer.mozilla.org/en-US/docs/Web/API/Web_Serial_API#browser_compatibility', target: '_blank', rel: 'noopener noreferrer', className: 'text-primary font-semibold hover:underline' }, 'Check Web Serial API compatibility'),
+                        h('span', { className: 'mx-2' }, '|'),
+                        h('a', { href: 'https://caniuse.com/serial', target: '_blank', rel: 'noopener noreferrer', className: 'text-primary font-semibold hover:underline' }, "View on CanIUse.com")
+                    )
                 )
             )
         )
     );
 };
 
+// FIX: Add default export to allow this component to be imported.
 export default UnsupportedBrowser;

@@ -66,7 +66,7 @@ const SettingsModal = ({ isOpen, onCancel, onSave, settings, onResetDialogs, onE
         const numericFields = {
             workArea: ['x', 'y', 'z'],
             spindle: ['min', 'max'],
-            probe: ['xOffset', 'yOffset', 'zOffset']
+            probe: ['xOffset', 'yOffset', 'zOffset', 'feedRate']
         };
 
         // Iterate and parse string inputs back to numbers
@@ -127,10 +127,13 @@ const SettingsModal = ({ isOpen, onCancel, onSave, settings, onResetDialogs, onE
                             h(NumberInput, { id: 'spindle-min', value: localSettings.spindle.min, onChange: e => handleNestedNumericChange('spindle', 'min', e.target.value), unit: 'Min' }),
                             h(NumberInput, { id: 'spindle-max', value: localSettings.spindle.max, onChange: e => handleNestedNumericChange('spindle', 'max', e.target.value), unit: 'Max' })
                         ),
-                        h(InputGroup, { label: 'Probing Settings (mm)' },
+                        h(InputGroup, { label: 'Probe Offsets (mm)' },
                              h(NumberInput, { id: 'probe-x', value: localSettings.probe.xOffset, onChange: e => handleNestedNumericChange('probe', 'xOffset', e.target.value), unit: 'X Offset' }),
                              h(NumberInput, { id: 'probe-y', value: localSettings.probe.yOffset, onChange: e => handleNestedNumericChange('probe', 'yOffset', e.target.value), unit: 'Y Offset' }),
                              h(NumberInput, { id: 'probe-z', value: localSettings.probe.zOffset, onChange: e => handleNestedNumericChange('probe', 'zOffset', e.target.value), unit: 'Z Offset' })
+                        ),
+                        h(InputGroup, { label: 'Probe Feed Rate'},
+                            h(NumberInput, { id: 'probe-feed', value: localSettings.probe.feedRate, onChange: e => handleNestedNumericChange('probe', 'feedRate', e.target.value), unit: 'mm/min' })
                         )
                     ),
                     h('div', { className: 'space-y-4 bg-background p-4 rounded-md' },

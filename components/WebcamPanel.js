@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Camera, CameraOff, AlertTriangle, PictureInPicture, Dock } from './Icons.js';
 
@@ -102,12 +101,12 @@ const WebcamPanel = () => {
         }
 
         if (isInPiP) {
-            return h('div', { className: 'aspect-video bg-background rounded-md flex flex-col items-center justify-center text-text-secondary' },
-                h('p', { className: 'mb-4 font-semibold' }, 'Webcam is in Picture-in-Picture mode.'),
+            return h('div', { className: 'relative aspect-video bg-background rounded-md' },
                 h('button', {
                     onClick: handleTogglePiP,
-                    className: 'flex items-center gap-2 px-4 py-2 bg-secondary text-white font-semibold rounded-md hover:bg-secondary-focus focus:outline-none focus:ring-2 focus:ring-primary'
-                }, h(Dock, { className: 'w-5 h-5' }), 'Dock to Panel')
+                    title: 'Dock to Panel',
+                    className: 'absolute top-2 right-2 flex items-center gap-2 p-2 bg-secondary text-white font-semibold rounded-md hover:bg-secondary-focus focus:outline-none focus:ring-2 focus:ring-primary'
+                }, h(Dock, { className: 'w-5 h-5' }))
             );
         }
 

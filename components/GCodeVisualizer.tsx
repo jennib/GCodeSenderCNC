@@ -1,4 +1,3 @@
-
 import React, { useRef, useEffect, useState, useCallback, useImperativeHandle, ForwardedRef } from 'react';
 import { parseGCode } from '../services/gcodeParser';
 

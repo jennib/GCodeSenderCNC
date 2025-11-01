@@ -45,7 +45,7 @@ export interface Macro {
 export interface MachineSettings {
     workArea: { x: number; y: number; z: number };
     spindle: { min: number; max: number };
-    probe: { xOffset: number; yOffset: number; zOffset: number; };
+    probe: { xOffset: number; yOffset: number; zOffset: number; feedRate: number; };
     scripts: {
         startup: string;
         toolChange: string;

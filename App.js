@@ -17,11 +17,12 @@ import WelcomeModal from './components/WelcomeModal.js';
 import { NotificationContainer } from './components/Notification.js';
 import ThemeToggle from './components/ThemeToggle.js';
 import StatusBar from './components/StatusBar.js';
-import { AlertTriangle, OctagonAlert, Unlock, Settings, BookOpen } from './components/Icons.js';
+import { AlertTriangle, OctagonAlert, Unlock, Settings, Maximize, Minimize, BookOpen } from './components/Icons.js';
 import { estimateGCodeTime } from './services/gcodeTimeEstimator.js';
 import { analyzeGCode } from './services/gcodeAnalyzer.js';
 import { Analytics } from '@vercel/analytics/react';
 import Footer from './components/Footer.js';
+import ContactModal from './components/ContactModal.js';
 import UnsupportedBrowser from './components/UnsupportedBrowser.js';
 
 const GRBL_ALARM_CODES = {
@@ -86,7 +87,7 @@ const DEFAULT_MACROS = [
 const DEFAULT_SETTINGS = {
     workArea: { x: 300, y: 300, z: 80 },
     spindle: { min: 0, max: 12000 },
-    probe: { xOffset: 3.0, yOffset: 3.0, zOffset: 15.0 },
+    probe: { xOffset: 3.0, yOffset: 3.0, zOffset: 15.0, feedRate: 25 },
     scripts: {
         startup: ['G21', 'G90'].join('\n'), // Set units to mm, absolute positioning
         toolChange: ['M5', 'G0 Z10'].join('\n'), // Stop spindle, raise Z
@@ -101,6 +102,8 @@ const usePrevious = (value) => {
     });
     return ref.current;
 };
+
+const buildTimestamp = new Date().toISOString().replace('T', ' ').substring(0, 19);
 
 const App = () => {
     const [isConnected, setIsConnected] = useState(false);
@@ -126,6 +129,7 @@ const App = () => {
     const [isHomedSinceConnect, setIsHomedSinceConnect] = useState(false);
     const [isMacroRunning, setIsMacroRunning] = useState(false);
     const [preflightWarnings, setPreflightWarnings] = useState([]);
+    const [isFullscreen, setIsFullscreen] = useState(false);
 
     // Onboarding State
     const [isWelcomeModalOpen, setIsWelcomeModalOpen] = useState(false);
@@ -140,6 +144,7 @@ const App = () => {
     // Advanced Features State
     const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
     const [isToolLibraryModalOpen, setIsToolLibraryModalOpen] = useState(false);
+    const [isContactModalOpen, setIsContactModalOpen] = useState(false);
     const [isGCodeGeneratorModalOpen, setIsGCodeGeneratorModalOpen] = useState(false);
     const [selectedToolId, setSelectedToolId] = useState(null);
     const [isVerbose, setIsVerbose] = useState(false);
@@ -175,10 +180,13 @@ const App = () => {
     const [machineSettings, setMachineSettings] = useState(() => {
         try {
             const saved = localStorage.getItem('cnc-app-settings');
-            const parsed = saved ? JSON.parse(saved) : DEFAULT_SETTINGS;
+            let parsed = saved ? JSON.parse(saved) : DEFAULT_SETTINGS;
             // Ensure probe settings exist from older configs
             if (!parsed.probe) {
                 parsed.probe = DEFAULT_SETTINGS.probe;
+            }
+            if (parsed.probe && typeof parsed.probe.feedRate === 'undefined') {
+                parsed.probe.feedRate = DEFAULT_SETTINGS.probe.feedRate;
             }
             return parsed;
         } catch {
@@ -324,6 +332,14 @@ const App = () => {
             context.close();
         };
     }, [addNotification]);
+
+    useEffect(() => {
+        const onFullscreenChange = () => {
+            setIsFullscreen(!!document.fullscreenElement);
+        };
+        document.addEventListener('fullscreenchange', onFullscreenChange);
+        return () => document.removeEventListener('fullscreenchange', onFullscreenChange);
+    }, []);
 
     const playCompletionSound = useCallback(() => {
         const audioContext = audioContextRef.current;
@@ -724,7 +740,7 @@ const App = () => {
         };
     
         const probeTravel = unit === 'mm' ? 25 : 1.0;
-        const probeFeed = unit === 'mm' ? 100 : 4;
+        const probeFeed = machineSettings.probe.feedRate || 25;
         const retractDist = unit === 'mm' ? 5 : 0.2;
     
         addLog({ type: 'status', message: `Starting ${axes.toUpperCase()}-Probe cycle...` });
@@ -978,9 +994,22 @@ const App = () => {
             }
         }
     }, [addNotification]);
+    
+    const handleToggleFullscreen = () => {
+        if (!document.fullscreenElement) {
+            document.documentElement.requestFullscreen().catch(err => {
+                alert(`Error attempting to enable full-screen mode: ${err.message} (${err.name})`);
+            });
+        } else {
+            if (document.exitFullscreen) {
+                document.exitFullscreen();
+            }
+        }
+    };
 
-    if (!isSerialApiSupported && !useSimulator) {
-        return React.createElement(UnsupportedBrowser, { useSimulator, onSimulatorChange: setUseSimulator });
+    const isMobile = /Mobi|Android/i.test(navigator.userAgent);
+    if (!isSerialApiSupported || isMobile) {
+        return React.createElement(UnsupportedBrowser, null);
     }
 
     const alarmInfo = isAlarm ? (GRBL_ALARM_CODES[machineState.code] || GRBL_ALARM_CODES.default) : null;
@@ -1005,8 +1034,6 @@ const App = () => {
 
     const isAnyControlLocked = !isConnected || isJobActive || isJogging || isMacroRunning || (machineState?.status && ['Alarm', 'Home'].includes(machineState.status));
     const selectedTool = toolLibrary.find(t => t.id === selectedToolId) || null;
-    
-    const version = '0.5.0';
     
     // --- Welcome & Onboarding Handlers ---
     const handleCloseWelcomeModal = () => {
@@ -1072,6 +1099,10 @@ const App = () => {
             notifications: notifications,
             onDismiss: removeNotification
         }),
+        React.createElement(ContactModal, {
+            isOpen: isContactModalOpen,
+            onClose: () => setIsContactModalOpen(false)
+        }),
         React.createElement(WelcomeModal, {
             isOpen: isWelcomeModalOpen,
             onClose: handleCloseWelcomeModal,
@@ -1124,7 +1155,7 @@ const App = () => {
             toolLibrary: toolLibrary
         }),
         React.createElement('header', { className: "bg-surface shadow-md p-4 flex justify-between items-center z-10 flex-shrink-0 gap-4" },
-            React.createElement('div', { className: "flex items-center gap-2" },
+            React.createElement('div', { className: "flex items-center gap-4" },
                 React.createElement('svg', {
                     viewBox: '0 0 400 100',
                     className: 'h-8 w-auto',
@@ -1155,9 +1186,14 @@ const App = () => {
                         '.app'
                     )
                 ),
-                 React.createElement('span', { className: 'text-xs text-text-secondary font-mono' }, version)
+                 React.createElement('span', { className: 'text-xs text-text-secondary font-mono pt-1' }, buildTimestamp)
             ),
             React.createElement('div', { className: "flex items-center gap-4" },
+                 React.createElement('button', {
+                    onClick: handleToggleFullscreen,
+                    title: isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen",
+                    className: "p-2 rounded-md bg-secondary text-text-primary hover:bg-secondary-focus focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-surface"
+                }, isFullscreen ? React.createElement(Minimize, { className: 'w-5 h-5' }) : React.createElement(Maximize, { className: 'w-5 h-5' })),
                 React.createElement('button', {
                     onClick: () => setIsToolLibraryModalOpen(true),
                     title: "Tool Library",
@@ -1280,7 +1316,7 @@ const App = () => {
                 })
             )
         ),
-        React.createElement(Footer, null)
+        React.createElement(Footer, { onContactClick: () => setIsContactModalOpen(true) })
     );
 };
 
