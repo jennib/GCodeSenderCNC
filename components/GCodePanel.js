@@ -1,6 +1,7 @@
 
 
 
+
 import React, { useRef, useState, useEffect } from 'react';
 import { JobStatus } from '../types.js';
 import { Play, Pause, Square, Upload, FileText, Code, Eye, Maximize, Pencil, CheckCircle, X, Save, Plus, Minus, RefreshCw, Percent, ZoomIn, ZoomOut, Clock, BookOpen, Crosshair, Zap } from './Icons.js';
@@ -43,10 +44,8 @@ const formatTime = (totalSeconds) => {
 const GCodePanel = ({ 
     onFileLoad, fileName, gcodeLines, onJobControl, 
     jobStatus, progress, isConnected, unit, onGCodeChange, 
-    onClearFile,
     machineState, onFeedOverride, timeEstimate, 
-    machineSettings, toolLibrary, selectedToolId, onToolSelect,
-    onOpenGenerator 
+    machineSettings, toolLibrary, selectedToolId, onToolSelect
 }) => {
     const fileInputRef = useRef(null);
     const visualizerRef = useRef(null);
@@ -265,10 +264,8 @@ const GCodePanel = ({
                 )
             ),
             h('div', { className: "flex items-center gap-2" },
-                h('button', { onClick: onOpenGenerator, disabled: isJobActive, className: "flex items-center gap-2 px-4 py-2 bg-primary text-white font-semibold rounded-md hover:bg-primary-focus disabled:opacity-50", title: "Generate G-Code" }, h(Zap, { className: "w-5 h-5" }), "Generate"),
                 h('input', { type: "file", ref: fileInputRef, onChange: handleFileChange, className: "hidden", accept: ".gcode,.nc,.txt" }),
-                h('button', { onClick: handleUploadClick, disabled: isJobActive, className: "flex items-center gap-2 px-4 py-2 bg-secondary text-white font-semibold rounded-md hover:bg-secondary-focus disabled:opacity-50" }, h(Upload, { className: "w-5 h-5" }), "Load File"),
-                h('button', { onClick: onClearFile, disabled: isJobActive || gcodeLines.length === 0, className: "p-2 bg-secondary text-text-primary rounded-md hover:bg-secondary-focus disabled:opacity-50", title: "Clear G-Code" }, h(X, { className: "w-5 h-5" }))
+                h('button', { onClick: handleUploadClick, disabled: isJobActive, className: "flex items-center gap-2 px-4 py-2 bg-secondary text-white font-semibold rounded-md hover:bg-secondary-focus disabled:opacity-50" }, h(Upload, { className: "w-5 h-5" }), "Load File")
             )
         ),
         fileName && h('div', { className: 'grid grid-cols-2 gap-4 mb-2' },

@@ -1,4 +1,5 @@
 
+
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { SerialManager } from './services/serialService.js';
 import { SimulatedSerialManager } from './services/simulatedSerialService.js';
@@ -13,8 +14,6 @@ import PreflightChecklistModal from './components/PreflightChecklistModal.js';
 import MacroEditorModal from './components/MacroEditorModal.js';
 import SettingsModal from './components/SettingsModal.js';
 import ToolLibraryModal from './components/ToolLibraryModal.js';
-import GCodeGeneratorModal from './components/GCodeGeneratorModal.js';
-import WelcomeModal from './components/WelcomeModal.js';
 import { NotificationContainer } from './components/Notification.js';
 import ThemeToggle from './components/ThemeToggle.js';
 import StatusBar from './components/StatusBar.js';
@@ -158,11 +157,6 @@ const App = () => {
     const [preflightWarnings, setPreflightWarnings] = useState([]);
     const [isFullscreen, setIsFullscreen] = useState(false);
 
-    // Onboarding State
-    const [isWelcomeModalOpen, setIsWelcomeModalOpen] = useState(false);
-    const [cameFromWelcome, setCameFromWelcome] = useState(null);
-    const [machineSetupCompleted, setMachineSetupCompleted] = useState(() => localStorage.getItem('cnc-app-machine-setup-complete') === 'true');
-
     // Macro Editing State
     const [isMacroEditorOpen, setIsMacroEditorOpen] = useState(false);
     const [editingMacroIndex, setEditingMacroIndex] = useState(null);
@@ -172,7 +166,6 @@ const App = () => {
     const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
     const [isToolLibraryModalOpen, setIsToolLibraryModalOpen] = useState(false);
     const [isContactModalOpen, setIsContactModalOpen] = useState(false);
-    const [isGCodeGeneratorModalOpen, setIsGCodeGeneratorModalOpen] = useState(false);
     const [selectedToolId, setSelectedToolId] = useState(null);
     const [isVerbose, setIsVerbose] = useState(false);
     
@@ -249,13 +242,6 @@ const App = () => {
     const audioBufferRef = useRef(null);
     const toolChangePromiseRef = useRef(null);
     
-    useEffect(() => {
-        const onboardingComplete = localStorage.getItem('cnc-app-onboarding-complete');
-        if (onboardingComplete !== 'true') {
-            setIsWelcomeModalOpen(true);
-        }
-    }, []);
-
     useEffect(() => {
         jobStatusRef.current = jobStatus;
     }, [jobStatus]);
@@ -521,16 +507,6 @@ const App = () => {
         setGcodeLines(lines); setFileName(name); setProgress(0); setJobStatus(JobStatus.Idle);
         setSelectedToolId(null); setTimeEstimate(estimateGCodeTime(lines));
         addLog({ type: 'status', message: `Loaded ${name} (${lines.length} lines).` });
-    };
-
-    const handleClearFile = useCallback(() => {
-        setGcodeLines([]); setFileName(''); setProgress(0); setJobStatus(JobStatus.Idle);
-        setSelectedToolId(null); setTimeEstimate({ totalSeconds: 0, cumulativeSeconds: [] });
-        addLog({ type: 'status', message: 'G-code cleared from preview.' });
-    }, [addLog]);
-    
-    const handleGeneratedGCodeLoad = (gcode, name) => {
-        handleFileLoad(gcode, name); setIsGCodeGeneratorModalOpen(false);
     };
 
     const handleGCodeChange = (content) => {
@@ -808,24 +784,19 @@ const App = () => {
     const isAnyControlLocked = !isConnected || isJobActive || isJogging || isMacroRunning || (machineState?.status && ['Alarm', 'Home'].includes(machineState.status));
     const selectedTool = toolLibrary.find(t => t.id === selectedToolId) || null;
     
-    const handleCloseWelcomeModal = () => { setIsWelcomeModalOpen(false); localStorage.setItem('cnc-app-onboarding-complete', 'true'); };
-    const handleOpenSettingsFromWelcome = () => { setIsWelcomeModalOpen(false); setCameFromWelcome('settings'); setIsSettingsModalOpen(true); };
-    const handleOpenToolsFromWelcome = () => { setIsWelcomeModalOpen(false); setCameFromWelcome('tools'); setIsToolLibraryModalOpen(true); };
     const handleSaveSettings = (newSettings) => {
-        setMachineSettings(newSettings); setIsSettingsModalOpen(false);
-        if (cameFromWelcome === 'settings') { setMachineSetupCompleted(true); localStorage.setItem('cnc-app-machine-setup-complete', 'true'); setIsWelcomeModalOpen(true); setCameFromWelcome(null); }
+        setMachineSettings(newSettings);
+        setIsSettingsModalOpen(false);
     };
     const handleCancelSettings = () => {
         setIsSettingsModalOpen(false);
-        if (cameFromWelcome === 'settings') { setIsWelcomeModalOpen(true); setCameFromWelcome(null); }
     };
     const handleSaveToolLibrary = (newLibrary) => {
-        setToolLibrary(newLibrary); setIsToolLibraryModalOpen(false);
-        if (cameFromWelcome === 'tools') { setIsWelcomeModalOpen(true); setCameFromWelcome(null); }
+        setToolLibrary(newLibrary);
+        setIsToolLibraryModalOpen(false);
     };
     const handleCancelTools = () => {
         setIsToolLibraryModalOpen(false);
-        if (cameFromWelcome === 'tools') { setIsWelcomeModalOpen(true); setCameFromWelcome(null); }
     };
 
     return h('div', { className: "min-h-screen bg-background font-sans text-text-primary flex flex-col" },
@@ -833,12 +804,10 @@ const App = () => {
         !isAudioUnlocked && h('div', { className: "bg-accent-yellow/20 text-accent-yellow text-center p-2 text-sm font-semibold animate-pulse" }, "Click anywhere or press any key to enable sound notifications"),
         h(NotificationContainer, { notifications, onDismiss: removeNotification }),
         h(ContactModal, { isOpen: isContactModalOpen, onClose: () => setIsContactModalOpen(false) }),
-        h(WelcomeModal, { isOpen: isWelcomeModalOpen, onClose: handleCloseWelcomeModal, onOpenSettings: handleOpenSettingsFromWelcome, onOpenToolLibrary: handleOpenToolsFromWelcome, isMachineSetupComplete: machineSetupCompleted, isToolLibrarySetupComplete: toolLibrary.length > 0 }),
         h(PreflightChecklistModal, { isOpen: isPreflightModalOpen, onCancel: () => setIsPreflightModalOpen(false), onConfirm: handleStartJobConfirmed, jobInfo: { fileName, gcodeLines, timeEstimate, startLine: jobStartOptions.startLine }, isHomed: isHomedSinceConnect, warnings: preflightWarnings, selectedTool }),
         h(MacroEditorModal, { isOpen: isMacroEditorOpen, onCancel: handleCloseMacroEditor, onSave: handleSaveMacro, onDelete: handleDeleteMacro, macro: editingMacroIndex !== null ? macros[editingMacroIndex] : null, index: editingMacroIndex }),
         h(SettingsModal, { isOpen: isSettingsModalOpen, onCancel: handleCancelSettings, onSave: handleSaveSettings, settings: machineSettings, onResetDialogs: () => { localStorage.removeItem('cnc-app-skip-preflight'); addNotification("Dialog settings have been reset.", 'info'); }, onExport: handleExportSettings, onImport: handleImportSettings }),
         h(ToolLibraryModal, { isOpen: isToolLibraryModalOpen, onCancel: handleCancelTools, onSave: handleSaveToolLibrary, library: toolLibrary }),
-        h(GCodeGeneratorModal, { isOpen: isGCodeGeneratorModalOpen, onCancel: () => setIsGCodeGeneratorModalOpen(false), onLoadGCode: handleGeneratedGCodeLoad, unit, settings: machineSettings, toolLibrary }),
         h(ManualToolChangeModal, {
             isOpen: isToolChangeModalOpen,
             onContinue: () => {
@@ -900,7 +869,7 @@ const App = () => {
         ),
         h('main', { className: "flex-grow p-4 grid grid-cols-1 lg:grid-cols-2 gap-4 min-h-0" },
             h('div', { className: "min-h-[60vh] lg:min-h-0" },
-                h(GCodePanel, { onFileLoad, fileName, gcodeLines, onJobControl, jobStatus, progress, isConnected, unit, onGCodeChange, onClearFile: handleClearFile, machineState, onFeedOverride: handleFeedOverride, timeEstimate, machineSettings, toolLibrary, selectedToolId, onToolSelect: setSelectedToolId, onOpenGenerator: () => setIsGCodeGeneratorModalOpen(true) })
+                h(GCodePanel, { onFileLoad, fileName, gcodeLines, onJobControl, jobStatus, progress, isConnected, unit, onGCodeChange, machineState, onFeedOverride: handleFeedOverride, timeEstimate, machineSettings, toolLibrary, selectedToolId, onToolSelect: setSelectedToolId })
             ),
             h('div', { className: "flex flex-col gap-4 overflow-hidden min-h-0" },
                 h(JogPanel, { isConnected, machineState, onJog: handleJog, onHome: handleHome, onSetZero: handleSetZero, onSpindleCommand: handleSpindleCommand, onProbe: handleProbe, jogStep, onStepChange: setJogStep, flashingButton, onFlash: flashControl, unit, onUnitChange: handleUnitChange, isJobActive, isJogging, isMacroRunning }),
