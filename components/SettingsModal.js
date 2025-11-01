@@ -21,7 +21,7 @@ const NumberInput = ({ id, value, onChange, unit }) => h('div', { className: 're
 const ScriptInput = ({ label, value, onChange, placeholder, help }) => h('div', null,
     h('label', { className: 'block text-sm font-medium text-text-secondary mb-1' }, label),
     h('textarea', {
-        value, onChange, rows: 3, placeholder,
+        value, onChange, rows: 2, placeholder,
         className: 'w-full bg-background border border-secondary rounded-md py-2 px-3 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary',
         spellCheck: 'false'
     }),
@@ -41,7 +41,6 @@ const SettingsModal = ({ isOpen, onCancel, onSave, settings, onResetDialogs, onE
     if (!isOpen) return null;
 
     const handleNestedNumericChange = (category, field, value) => {
-        // Keep the value as a string during editing to allow partial input like "1." or "-"
         setLocalSettings(prev => ({
             ...prev,
             [category]: {
@@ -62,22 +61,18 @@ const SettingsModal = ({ isOpen, onCancel, onSave, settings, onResetDialogs, onE
     };
     
     const handleSave = () => {
-        // Deep clone to avoid mutating state directly
         const settingsToSave = JSON.parse(JSON.stringify(localSettings));
         
-        // Define which fields need to be parsed to numbers
         const numericFields = {
             workArea: ['x', 'y', 'z'],
             spindle: ['min', 'max'],
             probe: ['xOffset', 'yOffset', 'zOffset', 'feedRate']
         };
 
-        // Iterate and parse string inputs back to numbers
         for (const category in numericFields) {
             if (settingsToSave[category]) {
                 for (const field of numericFields[category]) {
                     const value = settingsToSave[category][field];
-                    // Coerce to number, default to 0 if invalid
                     settingsToSave[category][field] = parseFloat(value) || 0;
                 }
             }
@@ -96,14 +91,14 @@ const SettingsModal = ({ isOpen, onCancel, onSave, settings, onResetDialogs, onE
             try {
                 const importedData = JSON.parse(e.target.result);
                 onImport(importedData);
-                onCancel(); // Close modal on successful import
+                onCancel();
             } catch (error) {
                 console.error("Failed to parse settings file:", error);
                 alert("Error: Could not read or parse the settings file. Please ensure it's a valid JSON file.");
             }
         };
         reader.readAsText(file);
-        event.target.value = null; // Reset file input
+        event.target.value = null;
     };
 
     return h('div', {
@@ -142,7 +137,8 @@ const SettingsModal = ({ isOpen, onCancel, onSave, settings, onResetDialogs, onE
                     h('div', { className: 'space-y-4 bg-background p-4 rounded-md' },
                         h('h3', { className: 'text-sm font-bold text-text-secondary mb-2' }, 'Custom G-Code Scripts'),
                         h(ScriptInput, { label: 'Startup Script (on connect)', value: localSettings.scripts.startup, onChange: e => handleScriptChange('startup', e.target.value), placeholder: 'e.g., G21 G90' }),
-                        h(ScriptInput, { label: 'Tool Change Script', value: localSettings.scripts.toolChange, onChange: e => handleScriptChange('toolChange', e.target.value), placeholder: 'e.g., M5 G0 Z10 M0', help: 'Use {T} for the tool number.' }),
+                        h(ScriptInput, { label: 'Automatic Tool Change Script', value: localSettings.scripts.automaticToolChange, onChange: e => handleScriptChange('automaticToolChange', e.target.value), placeholder: 'e.g., M6 T{T}', help: 'Use {T} for tool number.' }),
+                        h(ScriptInput, { label: 'Manual Tool Change Script', value: localSettings.scripts.manualToolChange, onChange: e => handleScriptChange('manualToolChange', e.target.value), placeholder: 'e.g., M5 G0 Z10', help: 'Runs before pause. Do not include M0.' }),
                         h(ScriptInput, { label: 'Shutdown Script (on disconnect)', value: localSettings.scripts.shutdown, onChange: e => handleScriptChange('shutdown', e.target.value), placeholder: 'e.g., M5 G0 X0 Y0' })
                     )
                 ),

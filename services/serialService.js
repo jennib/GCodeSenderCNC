@@ -1,3 +1,4 @@
+
 export class SerialManager {
     port = null;
     reader = null;
@@ -12,9 +13,9 @@ export class SerialManager {
     totalLines = 0;
     gcode = [];
     jobToolLibrary = [];
+    machineSettings = null;
     statusInterval = null;
     
-    // State is now managed within the service to handle partial updates correctly.
     spindleDirection = 'off';
     lastStatus = {
         status: 'Idle',
@@ -45,7 +46,6 @@ export class SerialManager {
             this.port = await navigator.serial.requestPort();
             await this.port.open({ baudRate });
             
-            // Reset state for new connection
             this.lastStatus = {
                 status: 'Idle',
                 code: null,
@@ -122,8 +122,8 @@ export class SerialManager {
 
             const rawStatus = statusPart.split(':')[0].toLowerCase();
             let status;
-
-            if (rawStatus.startsWith('home')) { // Catches 'home', 'homing', 'homing cycle', etc.
+            
+            if (rawStatus.startsWith('home')) {
                 status = 'Home';
             } else if (rawStatus === 'idle') {
                 status = 'Idle';
@@ -142,7 +142,6 @@ export class SerialManager {
             } else if (rawStatus === 'sleep') {
                 status = 'Sleep';
             } else {
-                // Try to capitalize unknown states as a fallback
                 status = rawStatus.charAt(0).toUpperCase() + rawStatus.slice(1);
             }
 
@@ -154,7 +153,6 @@ export class SerialManager {
                 }
             }
             
-            // Always include status and code to ensure state is fully updated.
             parsed.status = status;
             parsed.code = code;
 
@@ -182,7 +180,7 @@ export class SerialManager {
                     parsed.wco = wco;
                 } else if (part.startsWith('FS:')) {
                     const speeds = part.substring(3).split(',');
-                    if (!parsed.spindle) parsed.spindle = {};
+                    if (!parsed.spindle) parsed.spindle = { state: 'off', speed: 0 };
                     if (speeds.length > 1) {
                          parsed.spindle.speed = parseFloat(speeds[1]);
                     }
@@ -194,7 +192,6 @@ export class SerialManager {
                 }
             }
 
-            // If WPos wasn't in the status string, calculate it from MPos and WCO
             if (!parsed.wpos && parsed.mpos && (parsed.wco || lastStatus.wco)) {
                 const wcoToUse = parsed.wco || lastStatus.wco;
                 parsed.wpos = {
@@ -203,11 +200,11 @@ export class SerialManager {
                     z: parsed.mpos.z - wcoToUse.z,
                 };
             }
-            
+
             return parsed;
         } catch (e) {
             console.error("Failed to parse GRBL status:", statusStr, e);
-            return null; // Failed to parse
+            return null;
         }
     }
 
@@ -222,17 +219,14 @@ export class SerialManager {
                 if (value) {
                     buffer += value;
                     const lines = buffer.split('\n');
-                    buffer = lines.pop(); // Keep the last, possibly incomplete, line
+                    buffer = lines.pop(); 
 
                     lines.forEach(line => {
                         const trimmedValue = line.trim();
                         if (trimmedValue.startsWith('<') && trimmedValue.endsWith('>')) {
-                            const previousStatus = this.lastStatus.status; // Capture state before processing new status
+                            const previousStatus = this.lastStatus.status;
                             const statusUpdate = this.parseGrblStatus(trimmedValue, this.lastStatus);
                             if (statusUpdate) {
-                                // A more robust state update. Instead of merging with spread syntax,
-                                // we explicitly build the new state to prevent stale properties
-                                // (like an alarm 'code') from persisting incorrectly.
                                 this.lastStatus = {
                                     status: statusUpdate.status,
                                     code: statusUpdate.code,
@@ -246,25 +240,19 @@ export class SerialManager {
                                     }
                                 };
                         
-                                // This logic must run *after* the new state is built.
                                 if (this.lastStatus.spindle.speed === 0) {
                                     this.spindleDirection = 'off';
                                 }
                                 this.lastStatus.spindle.state = this.spindleDirection;
                         
-                                // Send a deep clone to React to ensure re-render
                                 this.callbacks.onStatus(JSON.parse(JSON.stringify(this.lastStatus)), trimmedValue);
 
-                                // If a jog just completed, request another status update to ensure we have the final position.
                                 if (previousStatus === 'Jog' && this.lastStatus.status === 'Idle') {
                                     this.requestStatusUpdate();
                                 }
                             }
                         } else if (trimmedValue) {
                             if (trimmedValue.startsWith('error:')) {
-                                // If a job is running (i.e., a promise is pending for an 'ok'),
-                                // reject the promise and let the job handler log the error contextually.
-                                // Otherwise, it's a manual command error, so report it directly.
                                 if (this.linePromiseReject) {
                                     this.linePromiseReject(new Error(trimmedValue));
                                     this.linePromiseResolve = null;
@@ -293,7 +281,6 @@ export class SerialManager {
                 }
                 const errorMessage = error instanceof Error ? error.message : "Unknown error";
                  if (this.isDisconnecting) {
-                    // Error is expected during a manual disconnect.
                 } else if (errorMessage.includes("device has been lost") || errorMessage.includes("The port is closed.")) {
                     this.callbacks.onError("Device disconnected unexpectedly. Please reconnect.");
                     this.disconnect();
@@ -308,7 +295,6 @@ export class SerialManager {
     async sendLineAndWaitForOk(line, log = true) {
         return new Promise((resolve, reject) => {
             if (this.linePromiseResolve) {
-                // This shouldn't happen with proper logic, but as a safeguard...
                 return reject(new Error("Cannot send new line while another is awaiting 'ok'."));
             }
             this.linePromiseResolve = resolve;
@@ -343,7 +329,6 @@ export class SerialManager {
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : "Unknown error";
             if (this.isDisconnecting) {
-                // Expected error during disconnect.
             } else if (errorMessage.includes("device has been lost") || errorMessage.includes("The port is closed.")) {
                 this.callbacks.onError("Device disconnected unexpectedly. Please reconnect.");
                 this.disconnect();
@@ -360,11 +345,9 @@ export class SerialManager {
         }
         try {
             await this.writer.write(command);
-            // Real-time commands are not logged to the console to avoid clutter.
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : "Unknown error";
             if (this.isDisconnecting) {
-                // Expected error during disconnect.
             } else if (errorMessage.includes("device has been lost") || errorMessage.includes("The port is closed.")) {
                 this.callbacks.onError("Device disconnected unexpectedly. Please reconnect.");
                 this.disconnect();
@@ -377,12 +360,11 @@ export class SerialManager {
 
     requestStatusUpdate() {
         if (this.writer) {
-            // This write is silent and doesn't need to be awaited
             this.writer.write('?').catch(() => {});
         }
     }
 
-    sendGCode(gcodeLines, toolLibrary, options = {}) {
+    sendGCode(gcodeLines, toolLibrary, machineSettings, options = {}) {
         if (this.isJobRunning) {
             this.callbacks.onError("A job is already running.");
             return;
@@ -392,6 +374,7 @@ export class SerialManager {
 
         this.gcode = gcodeLines;
         this.jobToolLibrary = toolLibrary;
+        this.machineSettings = machineSettings;
         this.totalLines = gcodeLines.length;
         this.currentLineIndex = startLine;
         this.isDryRun = isDryRun;
@@ -405,7 +388,6 @@ export class SerialManager {
         }
         this.callbacks.onLog({ type: 'status', message: logMessage });
         
-        // Fire initial progress update
         this.callbacks.onProgress({
             percentage: (this.currentLineIndex / this.totalLines) * 100,
             linesSent: this.currentLineIndex,
@@ -446,39 +428,56 @@ export class SerialManager {
             return;
         }
         
-        if (upperLine.includes('M6')) {
+        if (upperLine.includes('M6') && this.machineSettings) {
             const tMatch = upperLine.match(/T(\d+)/);
             if (tMatch) {
                 const toolNumber = parseInt(tMatch[1], 10);
                 const atcTool = this.jobToolLibrary.find(t => t.position === toolNumber);
 
-                if (!atcTool) { // Manual change required
-                    this.callbacks.onLog({ type: 'status', message: `Pausing for manual tool change to T${toolNumber}.` });
-                    this.isPaused = true;
-                    this.sendRealtimeCommand('!').catch(() => {}); // Feed Hold
-                    
-                    try {
-                        await this.callbacks.onManualToolChangeRequired(toolNumber);
-                        // User has confirmed
-                        this.isPaused = false;
-                        this.callbacks.onLog({ type: 'status', message: 'Job resumed after tool change.' });
-                        this.sendRealtimeCommand('~').catch(() => {}); // Cycle Resume
+                try {
+                    if (atcTool) { // ATC Change
+                        this.callbacks.onLog({ type: 'status', message: `Executing ATC change for T${toolNumber}...` });
+                        const script = this.machineSettings.scripts.automaticToolChange.replace(/{T}/g, String(toolNumber));
+                        const commands = script.split('\n').filter(cmd => cmd.trim() !== '');
+                        for (const command of commands) {
+                            await this.sendLineAndWaitForOk(command);
+                        }
+                    } else { // Manual Change
+                        this.isPaused = true;
+                        this.sendRealtimeCommand('!');
+                        
+                        this.callbacks.onLog({ type: 'status', message: `Executing pre-pause script for manual change to T${toolNumber}...` });
+                        const script = this.machineSettings.scripts.manualToolChange.replace(/{T}/g, String(toolNumber));
+                        const commands = script.split('\n').filter(cmd => cmd.trim() !== '');
+                        for (const command of commands) {
+                            await this.sendLineAndWaitForOk(command);
+                        }
 
-                        // Skip this M6 line and move to the next
-                        this.currentLineIndex++;
-                        this.callbacks.onProgress({
-                            percentage: (this.currentLineIndex / this.totalLines) * 100,
-                            linesSent: this.currentLineIndex,
-                            totalLines: this.totalLines
-                        });
-                        setTimeout(() => this.sendNextLine(), 0);
-                        return; // IMPORTANT: exit this instance of the function
-                    } catch (jobStopError) {
-                        // User cancelled the modal
-                        this.callbacks.onLog({ type: 'error', message: `Job stopped by user during tool change.` });
-                        this.stopJob();
-                        return;
+                        await this.callbacks.onManualToolChangeRequired(toolNumber);
+                        
+                        this.isPaused = false;
+                        this.callbacks.onLog({ type: 'status', message: 'Resuming job after tool change.' });
+                        this.sendRealtimeCommand('~');
                     }
+                    
+                    this.currentLineIndex++;
+                    this.callbacks.onProgress({
+                        percentage: (this.currentLineIndex / this.totalLines) * 100,
+                        linesSent: this.currentLineIndex,
+                        totalLines: this.totalLines
+                    });
+                    setTimeout(() => this.sendNextLine(), 0);
+                    return;
+                } catch (error) {
+                     const errorMessage = error instanceof Error ? error.message : "Unknown error";
+                    if (errorMessage.includes("Job stopped by user")) {
+                         this.callbacks.onLog({ type: 'error', message: errorMessage });
+                         this.stopJob();
+                    } else {
+                         this.callbacks.onError(`Error during tool change: ${errorMessage}`);
+                         this.stopJob();
+                    }
+                    return;
                 }
             }
         }
@@ -494,7 +493,6 @@ export class SerialManager {
                 totalLines: this.totalLines
             });
 
-            // Schedule the next line to be sent on the next frame to avoid deep call stacks.
             setTimeout(() => this.sendNextLine(), 0); 
         } catch (error) {
             this.isJobRunning = false;
@@ -513,7 +511,7 @@ export class SerialManager {
     pause() {
         if (this.isJobRunning && !this.isPaused) {
             this.isPaused = true;
-            this.sendRealtimeCommand('!'); // Feed Hold
+            this.sendRealtimeCommand('!');
             this.callbacks.onLog({ type: 'status', message: 'Job paused.' });
         }
     }
@@ -521,7 +519,7 @@ export class SerialManager {
     resume() {
         if (this.isJobRunning && this.isPaused) {
             this.isPaused = false;
-            this.sendRealtimeCommand('~'); // Cycle Resume
+            this.sendRealtimeCommand('~');
             this.callbacks.onLog({ type: 'status', message: 'Job resumed.' });
             this.sendNextLine();
         }
@@ -530,7 +528,7 @@ export class SerialManager {
     stopJob() {
         if (this.isJobRunning) {
             this.isStopped = true;
-            this.sendRealtimeCommand('\x18'); // Soft-reset
+            this.sendRealtimeCommand('\x18');
             if (this.linePromiseReject) {
                 this.linePromiseReject(new Error('Job stopped by user.'));
                 this.linePromiseResolve = null;
@@ -547,6 +545,6 @@ export class SerialManager {
             this.linePromiseResolve = null;
             this.linePromiseReject = null;
         }
-        this.sendRealtimeCommand('\x18'); // Soft Reset
+        this.sendRealtimeCommand('\x18');
     }
 }

@@ -12,7 +12,6 @@ const ToolLibraryModal = ({ isOpen, onCancel, onSave, library }) => {
 
     useEffect(() => {
         if (isOpen) {
-            // Ensure every tool has a unique ID, even if not saved before.
             setLocalLibrary(library.map((tool, index) => ({ ...tool, id: tool.id || Date.now() + index })));
         }
     }, [isOpen, library]);
@@ -40,12 +39,16 @@ const ToolLibraryModal = ({ isOpen, onCancel, onSave, library }) => {
         const toolToSave = { 
             ...currentTool, 
             diameter: parseFloat(currentTool.diameter),
-            position: currentTool.position ? parseInt(currentTool.position, 10) : undefined,
+            position: currentTool.position !== '' ? parseInt(currentTool.position, 10) : undefined,
         };
+        
+        if (toolToSave.position !== undefined && isNaN(toolToSave.position)) {
+             toolToSave.position = undefined;
+        }
 
-        if (currentTool.id) { // Editing existing
+        if (currentTool.id) {
             setLocalLibrary(lib => lib.map(t => t.id === toolToSave.id ? toolToSave : t));
-        } else { // Adding new
+        } else {
             setLocalLibrary(lib => [...lib, { ...toolToSave, id: Date.now() }]);
         }
         handleCancelEdit();
@@ -130,7 +133,7 @@ const ToolLibraryModal = ({ isOpen, onCancel, onSave, library }) => {
                             className: 'flex items-center justify-between bg-background p-3 rounded-md'
                         },
                             h('div', { className: 'flex items-center gap-3' },
-                                tool.position != null && h('span', { className: 'text-xs font-bold bg-secondary text-text-primary rounded-full w-6 h-6 flex items-center justify-center' }, `T${tool.position}`),
+                                (tool.position !== null && tool.position !== undefined) && h('span', { className: 'text-xs font-bold bg-secondary text-text-primary rounded-full w-6 h-6 flex items-center justify-center' }, `T${tool.position}`),
                                 h('div', { className: 'flex flex-col' },
                                     h('span', { className: 'font-semibold' }, tool.name),
                                     h('span', { className: 'text-xs text-text-secondary' }, `Ø ${tool.diameter} mm`)
