@@ -1019,8 +1019,8 @@ const App: React.FC = () => {
                 library={toolLibrary}
             />
             <header className="bg-surface shadow-md p-4 flex justify-between items-center z-10 flex-shrink-0 gap-4">
-                <div className="flex items-baseline gap-2">
-                    <h1 className="text-xl font-bold">mycnc.app</h1>
+                <div className="flex items-center gap-2">
+                    <img src="/logo.png" alt="mycnc.app logo" className="h-8 w-auto" />
                     <span className='text-xs text-text-secondary font-mono'>{version}</span>
                 </div>
                 <div className="flex items-center gap-4">

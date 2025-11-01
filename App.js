@@ -1124,8 +1124,8 @@ const App = () => {
             toolLibrary: toolLibrary
         }),
         React.createElement('header', { className: "bg-surface shadow-md p-4 flex justify-between items-center z-10 flex-shrink-0 gap-4" },
-            React.createElement('div', { className: "flex items-baseline gap-2" },
-                 React.createElement('h1', { className: "text-xl font-bold" }, "mycnc.app"),
+            React.createElement('div', { className: "flex items-center gap-2" },
+                 React.createElement('img', { src: '/logo.png', alt: 'mycnc.app logo', className: 'h-8 w-auto' }),
                  React.createElement('span', { className: 'text-xs text-text-secondary font-mono' }, version)
             ),
             React.createElement('div', { className: "flex items-center gap-4" },
