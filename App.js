@@ -875,7 +875,7 @@ const App = () => {
                 h(JogPanel, { isConnected, machineState, onJog: handleJog, onHome: handleHome, onSetZero: handleSetZero, onSpindleCommand: handleSpindleCommand, onProbe: handleProbe, jogStep, onStepChange: setJogStep, flashingButton, onFlash: flashControl, unit, onUnitChange: handleUnitChange, isJobActive, isJogging, isMacroRunning }),
                 h(WebcamPanel, {}),
                 h(MacrosPanel, { macros, onRunMacro: handleRunMacro, onOpenEditor: handleOpenMacroEditor, isEditMode: isMacroEditMode, onToggleEditMode: () => setIsMacroEditMode(prev => !prev), disabled: isAnyControlLocked }),
-                h(Console, { logs: consoleLogs, onSendCommand: handleManualCommand, isConnected, isJobActive, isMacroRunning, isLightMode, isVerbose, onVerboseChange: setIsVerbose })
+                h(Console, { logs: consoleLogs, onSendCommand: handleManualCommand, isConnected, isJobActive, isMacroRunning, isLightMode })
             )
         ),
         h(Footer, { onContactClick: () => setIsContactModalOpen(true) })

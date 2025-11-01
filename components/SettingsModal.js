@@ -1,6 +1,5 @@
 
 
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Save, X, Upload, Download } from './Icons.js';
 
@@ -143,8 +142,7 @@ const SettingsModal = ({ isOpen, onCancel, onSave, settings, onResetDialogs, onE
                     h('div', { className: 'space-y-4 bg-background p-4 rounded-md' },
                         h('h3', { className: 'text-sm font-bold text-text-secondary mb-2' }, 'Custom G-Code Scripts'),
                         h(ScriptInput, { label: 'Startup Script (on connect)', value: localSettings.scripts.startup, onChange: e => handleScriptChange('startup', e.target.value), placeholder: 'e.g., G21 G90' }),
-                        h(ScriptInput, { label: 'Automatic Tool Change Script', value: localSettings.scripts.automaticToolChange, onChange: e => handleScriptChange('automaticToolChange', e.target.value), placeholder: 'e.g., M6 T{T}', help: 'Use {T} for the tool number.' }),
-                        h(ScriptInput, { label: 'Manual Tool Change Script', value: localSettings.scripts.manualToolChange, onChange: e => handleScriptChange('manualToolChange', e.target.value), placeholder: 'e.g., M5 G0 Z10', help: 'Runs before the pause. Use {T} for tool number. Do not use M0.' }),
+                        h(ScriptInput, { label: 'Tool Change Script', value: localSettings.scripts.toolChange, onChange: e => handleScriptChange('toolChange', e.target.value), placeholder: 'e.g., M5 G0 Z10 M0', help: 'Use {T} for the tool number.' }),
                         h(ScriptInput, { label: 'Shutdown Script (on disconnect)', value: localSettings.scripts.shutdown, onChange: e => handleScriptChange('shutdown', e.target.value), placeholder: 'e.g., M5 G0 X0 Y0' })
                     )
                 ),

@@ -1,10 +1,8 @@
 
 
-
-
 import React, { useRef, useState, useEffect } from 'react';
 import { JobStatus } from '../types.js';
-import { Play, Pause, Square, Upload, FileText, Code, Eye, Maximize, Pencil, CheckCircle, X, Save, Plus, Minus, RefreshCw, Percent, ZoomIn, ZoomOut, Clock, BookOpen, Crosshair, Zap } from './Icons.js';
+import { Play, Pause, Square, Upload, FileText, Code, Eye, Maximize, Pencil, CheckCircle, X, Save, Plus, Minus, RefreshCw, Percent, ZoomIn, ZoomOut, Clock, BookOpen, Crosshair } from './Icons.js';
 import GCodeVisualizer from './GCodeVisualizer.js';
 import GCodeLine from './GCodeLine.js';
 
@@ -45,7 +43,7 @@ const GCodePanel = ({
     onFileLoad, fileName, gcodeLines, onJobControl, 
     jobStatus, progress, isConnected, unit, onGCodeChange, 
     machineState, onFeedOverride, timeEstimate, 
-    machineSettings, toolLibrary, selectedToolId, onToolSelect
+    machineSettings, toolLibrary, selectedToolId, onToolSelect 
 }) => {
     const fileInputRef = useRef(null);
     const visualizerRef = useRef(null);
