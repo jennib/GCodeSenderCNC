@@ -454,17 +454,19 @@ export class SerialManager {
             const tMatch = upperLine.match(/T(\d+)/);
             if (tMatch) {
                 const toolNumber = parseInt(tMatch[1], 10);
+                const isATCEnabled = this.machineSettings.hasATC;
                 const atcTool = this.jobToolLibrary.find(t => t.position === toolNumber);
 
                 try {
-                    if (atcTool) { // ATC Change
+                    // Condition for ATC: hasATC setting is true AND the requested tool is in the library with a defined position.
+                    if (isATCEnabled && atcTool) { 
                         this.callbacks.onLog({ type: 'status', message: `Executing ATC change for T${toolNumber}...` });
                         const script = this.machineSettings.scripts.automaticToolChange.replace(/{T}/g, String(toolNumber));
                         const commands = script.split('\n').filter(cmd => cmd.trim() !== '');
                         for (const command of commands) {
                             await this.sendLineAndWaitForOk(command);
                         }
-                    } else { // Manual Change
+                    } else { // Manual Change for all other cases
                         this.isPaused = true;
                         this.sendRealtimeCommand('!'); // Feed Hold
                         

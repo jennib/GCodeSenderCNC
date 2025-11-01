@@ -135,7 +135,17 @@ const SettingsModal = ({ isOpen, onCancel, onSave, settings, onResetDialogs, onE
                         )
                     ),
                     h('div', { className: 'space-y-4 bg-background p-4 rounded-md' },
-                        h('h3', { className: 'text-sm font-bold text-text-secondary mb-2' }, 'Custom G-Code Scripts'),
+                        h('h3', { className: 'text-sm font-bold text-text-secondary mb-2' }, 'Tool Changer & Scripts'),
+                        h('label', { className: 'flex items-center gap-2 cursor-pointer font-semibold' },
+                            h('input', {
+                                type: 'checkbox',
+                                checked: localSettings.hasATC,
+                                onChange: e => setLocalSettings(prev => ({ ...prev, hasATC: e.target.checked })),
+                                className: 'h-4 w-4 rounded border-secondary text-primary focus:ring-primary'
+                            }),
+                            'Enable Automatic Tool Changer (ATC)'
+                        ),
+                        h('p', { className: 'text-xs text-text-secondary -mt-3 mb-3 ml-6' }, 'If enabled, the ATC script runs for tools with a defined position. Otherwise, a manual change is prompted.'),
                         h(ScriptInput, { label: 'Startup Script (on connect)', value: localSettings.scripts.startup, onChange: e => handleScriptChange('startup', e.target.value), placeholder: 'e.g., G21 G90' }),
                         h(ScriptInput, { label: 'Automatic Tool Change Script', value: localSettings.scripts.automaticToolChange, onChange: e => handleScriptChange('automaticToolChange', e.target.value), placeholder: 'e.g., M6 T{T}', help: 'Use {T} for tool number.' }),
                         h(ScriptInput, { label: 'Manual Tool Change Script', value: localSettings.scripts.manualToolChange, onChange: e => handleScriptChange('manualToolChange', e.target.value), placeholder: 'e.g., M5 G0 Z10', help: 'Runs before pause. Do not include M0.' }),

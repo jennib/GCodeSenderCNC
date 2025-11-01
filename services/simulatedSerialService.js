@@ -27,6 +27,7 @@ export class SimulatedSerialManager {
     totalLines = 0;
     gcode = [];
     jobToolLibrary = [];
+    machineSettings = null;
     positioningMode = 'absolute'; // 'absolute' (G90) or 'incremental' (G91)
     
     constructor(callbacks) {
@@ -231,6 +232,7 @@ export class SimulatedSerialManager {
 
         this.gcode = gcodeLines;
         this.jobToolLibrary = toolLibrary;
+        this.machineSettings = machineSettings;
         this.totalLines = gcodeLines.length;
         this.currentLineIndex = startLine;
         this.isDryRun = isDryRun;
@@ -291,8 +293,9 @@ export class SimulatedSerialManager {
             const tMatch = upperLine.match(/T(\d+)/);
             if (tMatch) {
                 const toolNumber = parseInt(tMatch[1], 10);
+                const isATCEnabled = this.machineSettings?.hasATC;
                 const atcTool = this.jobToolLibrary.find(t => t.position === toolNumber);
-                if (atcTool) {
+                if (isATCEnabled && atcTool) {
                     this.callbacks.onLog({ type: 'status', message: `(Simulated) ATC change for T${toolNumber}.` });
                 } else {
                     this.callbacks.onLog({ type: 'status', message: `(Simulated) Manual tool change for T${toolNumber}.` });

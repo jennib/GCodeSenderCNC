@@ -47,6 +47,7 @@ export interface MachineSettings {
     workArea: { x: number; y: number; z: number };
     spindle: { min: number; max: number };
     probe: { xOffset: number; yOffset: number; zOffset: number; feedRate: number; };
+    hasATC: boolean;
     scripts: {
         startup: string;
         /** G-code to execute for an automatic tool change. Use {T} as a placeholder for the tool number. */

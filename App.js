@@ -114,6 +114,7 @@ const DEFAULT_SETTINGS = {
     workArea: { x: 300, y: 300, z: 80 },
     spindle: { min: 0, max: 12000 },
     probe: { xOffset: 3.0, yOffset: 3.0, zOffset: 15.0, feedRate: 25 },
+    hasATC: false,
     scripts: {
         startup: ['G21', 'G90'].join('\n'), // Set units to mm, absolute positioning
         automaticToolChange: 'M6 T{T}', // Standard ATC command
@@ -219,6 +220,9 @@ const App = () => {
                 if (typeof parsed.scripts.manualToolChange === 'undefined') {
                     parsed.scripts.manualToolChange = DEFAULT_SETTINGS.scripts.manualToolChange;
                 }
+            }
+            if (typeof parsed.hasATC === 'undefined') {
+                parsed.hasATC = false;
             }
             return parsed;
         } catch {
@@ -840,6 +844,9 @@ const App = () => {
                 else {
                     if (typeof imported.machineSettings.scripts.automaticToolChange === 'undefined') imported.machineSettings.scripts.automaticToolChange = DEFAULT_SETTINGS.scripts.automaticToolChange;
                     if (typeof imported.machineSettings.scripts.manualToolChange === 'undefined') imported.machineSettings.scripts.manualToolChange = DEFAULT_SETTINGS.scripts.manualToolChange;
+                }
+                if (typeof imported.machineSettings.hasATC === 'undefined') {
+                    imported.machineSettings.hasATC = false;
                 }
                 setMachineSettings(imported.machineSettings);
                 setMacros(imported.macros);
