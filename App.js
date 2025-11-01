@@ -838,11 +838,21 @@ const App = () => {
         return () => document.removeEventListener('keydown', handleKeyDown);
     }, [isConnected, jogStep, handleJog, flashControl, handleEmergencyStop, isAlarm, handleManualCommand, unit]);
 
-    const handleHome = useCallback(async (axes) => {
+    const handleHome = useCallback((axes) => {
         const manager = serialManagerRef.current;
         if (!manager) return;
 
-        addLog({ type: 'status', message: `Starting homing for: ${axes.toUpperCase()}...` });
+        // Optimistically set the machine state to 'Home' to immediately lock the UI.
+        // The regular status polling will then take over to keep the state in sync.
+        setMachineState(prev => {
+            const newPrev = prev || {
+                status: 'Idle', code: null, wpos: { x: 0, y: 0, z: 0 }, mpos: { x: 0, y: 0, z: 0 },
+                spindle: { state: 'off', speed: 0 }, ov: [100, 100, 100]
+            };
+            return { ...newPrev, status: 'Home' };
+        });
+
+        addLog({ type: 'status', message: `Starting homing cycle for: ${axes.toUpperCase()}...` });
 
         const commandMap = {
             all: ['$H'],
@@ -858,16 +868,12 @@ const App = () => {
             return;
         }
 
-        try {
-            for (const cmd of commands) {
-                await manager.sendLineAndWaitForOk(cmd);
-            }
-        } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : "Unknown error";
-            addLog({ type: 'error', message: `Homing failed: ${errorMessage}` });
-            setError(`Homing failed: ${errorMessage}`);
+        for (const cmd of commands) {
+            // Homing is a long process. We send the command and rely on status updates 
+            // to manage the UI state, rather than waiting for an 'ok' that comes back immediately.
+            manager.sendLine(cmd);
         }
-    }, [addLog, setError]);
+    }, [addLog]);
 
     const handleSetZero = useCallback((axes) => {
         let command = 'G10 L20 P1';

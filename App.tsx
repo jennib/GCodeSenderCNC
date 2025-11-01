@@ -1,15 +1,16 @@
 
 
 
+
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { SerialManager } from './services/serialService.js';
-import { SimulatedSerialManager } from './services/simulatedSerialService.js';
+import { SerialManager } from './services/serialService';
+import { SimulatedSerialManager } from './services/simulatedSerialService';
 // FIX: Import MachineState type to correctly type component state.
-import { JobStatus, MachineState } from './types.js';
-import SerialConnector from './components/SerialConnector.js';
-import GCodePanel from './components/GCodePanel.js';
-import Console from './components/Console.js';
-import JogPanel from './components/JogPanel.js';
+import { JobStatus, MachineState } from './types';
+import SerialConnector from './components/SerialConnector';
+import GCodePanel from './components/GCodePanel';
+import Console from './components/Console';
+import JogPanel from './components/JogPanel';
 import MacrosPanel from './components/MacrosPanel.js';
 import WebcamPanel from './components/WebcamPanel.js';
 import PreflightChecklistModal from './components/PreflightChecklistModal.js';
@@ -19,7 +20,7 @@ import ToolLibraryModal from './components/ToolLibraryModal.js';
 import { NotificationContainer } from './components/Notification.js';
 import ThemeToggle from './components/ThemeToggle.js';
 import StatusBar from './components/StatusBar.js';
-import { AlertTriangle, OctagonAlert, Unlock, Settings } from './components/Icons.js';
+import { AlertTriangle, OctagonAlert, Unlock, Settings } from './components/Icons';
 import { estimateGCodeTime } from './services/gcodeTimeEstimator.js';
 import { analyzeGCode } from './services/gcodeAnalyzer.js';
 import { Analytics } from '@vercel/analytics/react';
@@ -799,11 +800,21 @@ const App: React.FC = () => {
         return () => document.removeEventListener('keydown', handleKeyDown);
     }, [isConnected, jogStep, handleJog, flashControl, handleEmergencyStop, isAlarm, handleManualCommand, unit]);
 
-    const handleHome = useCallback(async (axes: 'all' | 'x' | 'y' | 'z' | 'xy') => {
+    const handleHome = useCallback((axes: 'all' | 'x' | 'y' | 'z' | 'xy') => {
         const manager = serialManagerRef.current;
         if (!manager) return;
 
-        addLog({ type: 'status', message: `Starting homing for: ${axes.toUpperCase()}...` });
+        // Optimistically set the machine state to 'Home' to immediately lock the UI.
+        // The regular status polling will then take over to keep the state in sync.
+        setMachineState(prev => {
+            const newPrev = prev || {
+                status: 'Idle', code: null, wpos: { x: 0, y: 0, z: 0 }, mpos: { x: 0, y: 0, z: 0 },
+                spindle: { state: 'off', speed: 0 }, ov: [100, 100, 100]
+            };
+            return { ...newPrev, status: 'Home' };
+        });
+
+        addLog({ type: 'status', message: `Starting homing cycle for: ${axes.toUpperCase()}...` });
 
         const commandMap = {
             all: ['$H'],
@@ -819,16 +830,12 @@ const App: React.FC = () => {
             return;
         }
 
-        try {
-            for (const cmd of commands) {
-                await manager.sendLineAndWaitForOk(cmd);
-            }
-        } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : "Unknown error";
-            addLog({ type: 'error', message: `Homing failed: ${errorMessage}` });
-            setError(`Homing failed: ${errorMessage}`);
+        for (const cmd of commands) {
+            // Homing is a long process. We send the command and rely on status updates 
+            // to manage the UI state, rather than waiting for an 'ok' that comes back immediately.
+            manager.sendLine(cmd);
         }
-    }, [addLog, setError]);
+    }, [addLog]);
 
     const handleSetZero = useCallback((axes: 'all' | 'x' | 'y' | 'z' | 'xy') => {
         let command = 'G10 L20 P1';
