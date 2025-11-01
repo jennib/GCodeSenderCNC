@@ -1,6 +1,6 @@
 
 import React, { useRef, useEffect, useState, useCallback, useImperativeHandle, ForwardedRef } from 'react';
-import { parseGCode } from '../services/gcodeParser.js';
+import { parseGCode } from '../services/gcodeParser';
 
 // --- WebGL Helper Functions ---
 const createShader = (gl: WebGLRenderingContext, type: number, source: string) => {

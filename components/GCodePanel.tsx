@@ -1,8 +1,8 @@
 
 import React, { useRef, useState, useEffect, DragEvent } from 'react';
-import { JobStatus } from '../types.js';
-import { Play, Pause, Square, Upload, FileText, Code, Eye, Maximize, Pencil, CheckCircle, X, Save, Plus, Minus, RefreshCw, Percent, ZoomIn, ZoomOut, Clock, BookOpen, Crosshair } from './Icons.js';
-import GCodeVisualizer from './GCodeVisualizer.js';
+import { JobStatus } from '../types';
+import { Play, Pause, Square, Upload, FileText, Code, Eye, Maximize, Pencil, CheckCircle, X, Save, Plus, Minus, RefreshCw, Percent, ZoomIn, ZoomOut, Clock, BookOpen, Crosshair } from './Icons';
+import GCodeVisualizer from './GCodeVisualizer';
 import GCodeLine from './GCodeLine.js';
 
 interface FeedrateOverrideControlProps {

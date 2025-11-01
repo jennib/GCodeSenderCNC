@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Power, PowerOff, Radio } from './Icons.js';
+import { Power, PowerOff, Radio } from './Icons';
 
 interface SerialConnectorProps {
     isConnected: boolean;

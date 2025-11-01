@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, ChevronRight, ChevronsLeft, ChevronsRight, Info, AlertTriangle, Maximize, Minimize } from './Icons.js';
+import { Send, ChevronRight, ChevronsLeft, ChevronsRight, Info, AlertTriangle, Maximize, Minimize } from './Icons';
 
 interface ConsoleProps {
     logs: any[];
