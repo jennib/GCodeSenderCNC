@@ -8,6 +8,7 @@ interface ConsoleProps {
     isJobActive: boolean;
     isMacroRunning: boolean;
     isLightMode: boolean;
+    // FIX: Add missing props to control verbose logging.
     isVerbose: boolean;
     onVerboseChange: (verbose: boolean) => void;
 }
@@ -100,7 +101,7 @@ const Console: React.FC<ConsoleProps> = ({ logs, onSendCommand, isConnected, isJ
                     </button>
                 </div>
             </h2>
-            <div ref={logContainerRef} className="h-40 bg-background rounded p-2 overflow-y-auto mb-4 font-mono text-sm">
+            <div ref={logContainerRef} className="flex-grow bg-background rounded p-2 overflow-y-auto mb-4 font-mono text-sm min-h-[5rem]">
                 {logs.map((log, index) => (
                     <div key={index} className={`flex items-start ${getLogColor(log.type)}`}>
                         {getLogIcon(log.type)}

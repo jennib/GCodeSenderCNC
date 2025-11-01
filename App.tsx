@@ -1,6 +1,4 @@
 
-
-
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { SerialManager } from './services/serialService';
 import { SimulatedSerialManager } from './services/simulatedSerialService';
@@ -19,7 +17,7 @@ import ToolLibraryModal from './components/ToolLibraryModal.js';
 import { NotificationContainer } from './components/Notification.js';
 import ThemeToggle from './components/ThemeToggle.js';
 import StatusBar from './components/StatusBar.js';
-import { AlertTriangle, OctagonAlert, Unlock, Settings, Maximize, Minimize } from './components/Icons';
+import { AlertTriangle, OctagonAlert, Unlock, Settings, Maximize, Minimize, BookOpen } from './components/Icons';
 import { estimateGCodeTime } from './services/gcodeTimeEstimator.js';
 import { analyzeGCode } from './services/gcodeAnalyzer.js';
 import { Analytics } from '@vercel/analytics/react';
@@ -132,7 +130,7 @@ const usePrevious = <T,>(value: T): T | undefined => {
     return ref.current;
 };
 
-const buildTimestamp = new Date().toISOString().replace('T', ' ').substring(0, 19);
+const buildTimestamp = 'v24.07.30.1'; // Static version identifier
 
 const App: React.FC = () => {
     // FIX: Initialize `isConnected` state with `false`.
@@ -172,7 +170,7 @@ const App: React.FC = () => {
     const [isToolLibraryModalOpen, setIsToolLibraryModalOpen] = useState(false);
     const [isContactModalOpen, setIsContactModalOpen] = useState(false);
     const [selectedToolId, setSelectedToolId] = useState<number | null>(null);
-    // FIX: Add state for verbose console output to satisfy ConsoleProps interface.
+    // FIX: Add isVerbose state for Console component.
     const [isVerbose, setIsVerbose] = useState(false);
 
     // FIX: Add state for manual tool change modal.
@@ -511,6 +509,7 @@ const App: React.FC = () => {
             },
             onStatus: (status: MachineState, rawStatus?: string) => {
                 setMachineState(status);
+                // FIX: Add verbose logging for machine status.
                 if (isVerbose && rawStatus) {
                     addLog({ type: 'status', message: rawStatus });
                 }
@@ -957,73 +956,6 @@ const App: React.FC = () => {
             setIsMacroRunning(false);
         }
     }, [addLog, unit, setError]);
-
-    // --- Macro Editor Handlers ---
-    const handleOpenMacroEditor = useCallback((index: number | null) => {
-        setEditingMacroIndex(index);
-        setIsMacroEditorOpen(true);
-    }, []);
-
-    const handleCloseMacroEditor = useCallback(() => {
-        setIsMacroEditorOpen(false);
-        setEditingMacroIndex(null);
-    }, []);
-
-    const handleSaveMacro = useCallback((macro: any, index: number | null) => {
-        setMacros(prevMacros => {
-            const newMacros = [...prevMacros];
-            if (index !== null && index >= 0) {
-                // Editing existing macro
-                newMacros[index] = macro;
-            } else {
-                // Adding new macro
-                newMacros.push(macro);
-            }
-            return newMacros;
-        });
-        addNotification('Macro saved!', 'success');
-    }, [addNotification]);
-    
-    const handleDeleteMacro = useCallback((index: number) => {
-        setMacros(prevMacros => prevMacros.filter((_, i) => i !== index));
-        addNotification('Macro deleted!', 'success');
-    }, [addNotification]);
-
-    // FIX: Add handlers for importing and exporting settings to resolve missing props on SettingsModal.
-    const handleExportSettings = useCallback(() => {
-        const settingsToExport = {
-            machineSettings,
-            macros,
-            toolLibrary,
-        };
-        const blob = new Blob([JSON.stringify(settingsToExport, null, 2)], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `mycnc-app-settings-${new Date().toISOString().slice(0,10)}.json`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-        addNotification('Settings exported successfully!', 'success');
-    }, [machineSettings, macros, toolLibrary, addNotification]);
-
-    const handleImportSettings = useCallback((imported: any) => {
-        if (window.confirm("This will overwrite your current macros, settings, and tool library. Are you sure?")) {
-            // Basic validation
-            if (imported.machineSettings && !imported.machineSettings.probe) {
-                imported.machineSettings.probe = DEFAULT_SETTINGS.probe;
-            }
-            if (imported.machineSettings && imported.macros && imported.toolLibrary) {
-                setMachineSettings(imported.machineSettings);
-                setMacros(imported.macros);
-                setToolLibrary(imported.toolLibrary);
-                addNotification("Settings imported successfully!", 'success');
-            } else {
-                addNotification("Invalid settings file.", 'error');
-            }
-        }
-    }, [addNotification]);
     
     const handleToggleFullscreen = () => {
         if (!document.fullscreenElement) {
@@ -1037,89 +969,118 @@ const App: React.FC = () => {
         }
     };
 
-    const isMobile = /Mobi|Android/i.test(navigator.userAgent);
+    const isJobActive = jobStatus === JobStatus.Running || jobStatus === JobStatus.Paused;
+    const isMobile = typeof window.orientation !== 'undefined' || navigator.userAgent.indexOf('IEMobile') !== -1;
 
     if (!isSerialApiSupported || isMobile) {
         return <UnsupportedBrowser />;
     }
-
-    const alarmInfo = isAlarm ? (GRBL_ALARM_CODES[machineState!.code!] || GRBL_ALARM_CODES.default) : null;
-    const isJobActive = jobStatus === JobStatus.Running || jobStatus === JobStatus.Paused;
-
-    useEffect(() => {
-        const handleBeforeUnload = (event: BeforeUnloadEvent) => {
-            if (isJobActive) {
-                event.preventDefault();
-                event.returnValue = ''; // Required for Chrome
-                return ''; // For other browsers
-            }
-        };
-
-        window.addEventListener('beforeunload', handleBeforeUnload);
-
-        return () => {
-            window.removeEventListener('beforeunload', handleBeforeUnload);
-        };
-    }, [isJobActive]);
-
-
+    
+    const alarmInfo = isAlarm ? (GRBL_ALARM_CODES[machineState.code!] || GRBL_ALARM_CODES.default) : null;
     const isAnyControlLocked = !isConnected || isJobActive || isJogging || isMacroRunning || (machineState?.status && ['Alarm', 'Home'].includes(machineState.status));
-    const selectedTool = toolLibrary.find(t => t.id === selectedToolId) || null;
+    
+    const handleSaveSettings = (newSettings: any) => {
+        setMachineSettings(newSettings);
+        setIsSettingsModalOpen(false);
+    };
+
+    const handleSaveToolLibrary = (newLibrary: any) => {
+        setToolLibrary(newLibrary);
+        setIsToolLibraryModalOpen(false);
+    };
+    
+    const handleSaveMacro = useCallback((macro: any, index: number | null) => {
+        setMacros(prevMacros => {
+            const newMacros = [...prevMacros];
+            if (index !== null && index >= 0) {
+                newMacros[index] = macro;
+            } else {
+                newMacros.push(macro);
+            }
+            return newMacros;
+        });
+        addNotification('Macro saved!', 'success');
+        setIsMacroEditorOpen(false);
+    }, [addNotification]);
+    
+    const handleDeleteMacro = useCallback((index: number) => {
+        setMacros(prevMacros => prevMacros.filter((_, i) => i !== index));
+        addNotification('Macro deleted!', 'success');
+        setIsMacroEditorOpen(false);
+    }, [addNotification]);
+
+    // FIX: Add handlers for settings import/export and dialog reset.
+    const handleExportSettings = useCallback(() => {
+        const settingsToExport = { machineSettings, macros, toolLibrary };
+        const blob = new Blob([JSON.stringify(settingsToExport, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `mycnc-app-settings-${new Date().toISOString().slice(0, 10)}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        addNotification('Settings exported successfully!', 'success');
+    }, [machineSettings, macros, toolLibrary, addNotification]);
+
+    const handleImportSettings = useCallback((imported: any) => {
+        if (window.confirm("This will overwrite your current macros, settings, and tool library. Are you sure?")) {
+            if (imported.machineSettings && imported.macros && imported.toolLibrary) {
+                // Backwards compatibility for imported settings
+                if (!imported.machineSettings.probe) {
+                    imported.machineSettings.probe = { ...DEFAULT_SETTINGS.probe };
+                }
+                if (imported.machineSettings.probe && typeof imported.machineSettings.probe.feedRate === 'undefined') {
+                    imported.machineSettings.probe.feedRate = DEFAULT_SETTINGS.probe.feedRate;
+                }
+                if (!imported.machineSettings.scripts) {
+                    imported.machineSettings.scripts = { ...DEFAULT_SETTINGS.scripts };
+                } else {
+                    if (typeof imported.machineSettings.scripts.automaticToolChange === 'undefined') {
+                        imported.machineSettings.scripts.automaticToolChange = DEFAULT_SETTINGS.scripts.automaticToolChange;
+                    }
+                    if (typeof imported.machineSettings.scripts.manualToolChange === 'undefined') {
+                        imported.machineSettings.scripts.manualToolChange = DEFAULT_SETTINGS.scripts.manualToolChange;
+                    }
+                }
+                
+                setMachineSettings(imported.machineSettings);
+                setMacros(imported.macros);
+                setToolLibrary(imported.toolLibrary);
+                addNotification("Settings imported successfully!", 'success');
+            } else {
+                addNotification("Invalid settings file.", 'error');
+            }
+        }
+    }, [addNotification]);
+
+    const handleResetDialogs = useCallback(() => {
+        localStorage.removeItem('cnc-app-skip-preflight');
+        addNotification("Dialog settings have been reset.", 'info');
+    }, [addNotification]);
+
 
     return (
         <div className="min-h-screen bg-background font-sans text-text-primary flex flex-col">
             <Analytics />
-            {!isAudioUnlocked && (
-                <div className="bg-accent-yellow/20 text-accent-yellow text-center p-2 text-sm font-semibold animate-pulse">
-                    Click anywhere or press any key to enable sound notifications
-                </div>
-            )}
-            <NotificationContainer
-                notifications={notifications}
-                onDismiss={removeNotification}
-            />
-             <ContactModal
-                isOpen={isContactModalOpen}
-                onClose={() => setIsContactModalOpen(false)}
-            />
-            <PreflightChecklistModal
-                isOpen={isPreflightModalOpen}
-                onCancel={() => setIsPreflightModalOpen(false)}
-                onConfirm={handleStartJobConfirmed}
-                jobInfo={{ fileName, gcodeLines, timeEstimate, startLine: jobStartOptions.startLine }}
-                isHomed={isHomedSinceConnect}
-                warnings={preflightWarnings}
-                selectedTool={selectedTool}
-            />
-            <MacroEditorModal
-                isOpen={isMacroEditorOpen}
-                onCancel={handleCloseMacroEditor}
-                onSave={handleSaveMacro}
-                onDelete={handleDeleteMacro}
-                macro={editingMacroIndex !== null ? macros[editingMacroIndex] : null}
-                index={editingMacroIndex}
-            />
-            
-            <SettingsModal
-                isOpen={isSettingsModalOpen}
-                onCancel={() => setIsSettingsModalOpen(false)}
-                onSave={setMachineSettings}
-                settings={machineSettings}
-                onResetDialogs={() => {
-                    localStorage.removeItem('cnc-app-skip-preflight');
-                    addNotification("Dialog settings have been reset.", 'info');
-                }}
-                // FIX: Pass onExport and onImport handlers to SettingsModal to satisfy its prop requirements.
+            {!isAudioUnlocked && <div className="bg-accent-yellow/20 text-accent-yellow text-center p-2 text-sm font-semibold animate-pulse">Click anywhere or press any key to enable sound notifications</div>}
+            <NotificationContainer notifications={notifications} onDismiss={removeNotification} />
+            <ContactModal isOpen={isContactModalOpen} onClose={() => setIsContactModalOpen(false)} />
+
+            <PreflightChecklistModal isOpen={isPreflightModalOpen} onCancel={() => setIsPreflightModalOpen(false)} onConfirm={handleStartJobConfirmed} jobInfo={{ fileName, gcodeLines, timeEstimate, startLine: jobStartOptions.startLine }} isHomed={isHomedSinceConnect} warnings={preflightWarnings} selectedTool={toolLibrary.find(t => t.id === selectedToolId) || null} />
+            <MacroEditorModal isOpen={isMacroEditorOpen} onCancel={() => setIsMacroEditorOpen(false)} onSave={handleSaveMacro} onDelete={handleDeleteMacro} macro={editingMacroIndex !== null ? macros[editingMacroIndex] : null} index={editingMacroIndex} />
+            <SettingsModal 
+                isOpen={isSettingsModalOpen} 
+                onCancel={() => setIsSettingsModalOpen(false)} 
+                onSave={handleSaveSettings} 
+                settings={machineSettings} 
                 onExport={handleExportSettings}
                 onImport={handleImportSettings}
+                onResetDialogs={handleResetDialogs}
             />
-            <ToolLibraryModal
-                isOpen={isToolLibraryModalOpen}
-                onCancel={() => setIsToolLibraryModalOpen(false)}
-                onSave={setToolLibrary}
-                library={toolLibrary}
-            />
-            {/* FIX: Add ManualToolChangeModal to the DOM */}
+            <ToolLibraryModal isOpen={isToolLibraryModalOpen} onCancel={() => setIsToolLibraryModalOpen(false)} onSave={handleSaveToolLibrary} library={toolLibrary} />
+            
             <ManualToolChangeModal
                 isOpen={isToolChangeModalOpen}
                 onContinue={() => {
@@ -1135,78 +1096,49 @@ const App: React.FC = () => {
                         toolChangePromiseRef.current.reject(new Error("Job stopped by user during tool change."));
                         toolChangePromiseRef.current = null;
                     }
+                    handleJobControl('stop');
                 }}
                 toolInfo={toolChangeInfo}
             />
+
             <header className="bg-surface shadow-md p-4 flex justify-between items-center z-10 flex-shrink-0 gap-4">
                 <div className="flex items-center gap-4">
-                    <svg
-                        viewBox="0 0 460 100"
-                        className="h-8 w-auto"
-                        aria-label="mycnc.app logo"
-                    >
-                        <g transform="translate(48,48)" fill="none" stroke="var(--color-text-primary)" strokeWidth="4">
-                            <circle r="48" cx="0" cy="0" />
-                            <path d="M 0,-48 A 48,48 0 0 1 30,16 L 10,6 A 12,12 0 0 0 0,-12 Z" />
-                            <path d="M 0,-48 A 48,48 0 0 1 30,16 L 10,6 A 12,12 0 0 0 0,-12 Z" transform="rotate(120)" />
-                            <path d="M 0,-48 A 48,48 0 0 1 30,16 L 10,6 A 12,12 0 0 0 0,-12 Z" transform="rotate(-120)" />
-                            <circle r="12" cx="0" cy="0" />
+                    <svg viewBox='0 0 460 100' className='h-8 w-auto' aria-label='mycnc.app logo'>
+                        <g transform='translate(48,48)' fill='none' stroke='var(--color-text-primary)' strokeWidth='4'>
+                            <circle r='48' cx='0' cy='0' />
+                            <path d='M 0,-48 A 48,48 0 0 1 30,16 L 10,6 A 12,12 0 0 0 0,-12 Z' />
+                            <path d='M 0,-48 A 48,48 0 0 1 30,16 L 10,6 A 12,12 0 0 0 0,-12 Z' transform='rotate(120)' />
+                            <path d='M 0,-48 A 48,48 0 0 1 30,16 L 10,6 A 12,12 0 0 0 0,-12 Z' transform='rotate(-120)' />
+                            <circle r='12' cx='0' cy='0' />
                         </g>
-                        <text
-                            x="108"
-                            y="66"
-                            fontFamily="Inter, 'Segoe UI', Roboto, Arial, sans-serif"
-                            fontWeight="700"
-                            fontSize="64px"
-                            letterSpacing="-0.02em"
-                            fill="var(--color-text-primary)">
-                            <tspan style={{fill: 'var(--color-primary)'}}>mycnc</tspan>.app
+                        <text x='108' y='66' fontFamily="Inter, 'Segoe UI', Roboto, Arial, sans-serif" fontWeight='700' fontSize='64px' letterSpacing='-0.02em' fill='var(--color-text-primary)'>
+                            <tspan style={{ fill: 'var(--color-primary)' }}>mycnc</tspan>.app
                         </text>
                     </svg>
                     <span className='text-xs text-text-secondary font-mono pt-1'>{buildTimestamp}</span>
                 </div>
                 <div className="flex items-center gap-4">
-                    <button
-                        onClick={handleToggleFullscreen}
-                        title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
-                         className="p-2 rounded-md bg-secondary text-text-primary hover:bg-secondary-focus focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-surface"
-                    >
+                    <button onClick={handleToggleFullscreen} title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"} className="p-2 rounded-md bg-secondary text-text-primary hover:bg-secondary-focus focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-surface">
                         {isFullscreen ? <Minimize className='w-5 h-5' /> : <Maximize className='w-5 h-5' />}
                     </button>
-                    <button
-                        onClick={() => setIsSettingsModalOpen(true)}
-                        title="Machine Settings"
-                        className="p-2 rounded-md bg-secondary text-text-primary hover:bg-secondary-focus focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-surface"
-                    >
+                    <button onClick={() => setIsToolLibraryModalOpen(true)} title="Tool Library" className="p-2 rounded-md bg-secondary text-text-primary hover:bg-secondary-focus focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-surface">
+                        <BookOpen className='w-5 h-5' />
+                    </button>
+                    <button onClick={() => setIsSettingsModalOpen(true)} title="Machine Settings" className="p-2 rounded-md bg-secondary text-text-primary hover:bg-secondary-focus focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-surface">
                         <Settings className='w-5 h-5' />
                     </button>
-                    <ThemeToggle
-                        isLightMode={isLightMode}
-                        onToggle={() => setIsLightMode(prev => !prev)}
-                    />
-                    <SerialConnector
-                        isConnected={isConnected}
-                        portInfo={portInfo}
-                        onConnect={handleConnect}
-                        onDisconnect={handleDisconnect}
-                        isApiSupported={isSerialApiSupported}
-                        isSimulated={isSimulatedConnection}
-                        useSimulator={useSimulator}
-                        onSimulatorChange={setUseSimulator}
-                    />
+                    <ThemeToggle isLightMode={isLightMode} onToggle={() => setIsLightMode((prev: boolean) => !prev)} />
+                    <SerialConnector isConnected={isConnected} portInfo={portInfo} onConnect={handleConnect} onDisconnect={handleDisconnect} isApiSupported={isSerialApiSupported} isSimulated={isSimulatedConnection} useSimulator={useSimulator} onSimulatorChange={setUseSimulator} />
                 </div>
             </header>
+
             <div className="bg-accent-yellow/20 text-accent-yellow text-center p-2 text-sm font-semibold flex items-center justify-center gap-2">
                 <AlertTriangle className="w-4 h-4" />
                 Work in Progress: This software is for demonstration purposes only. Use at your own risk.
             </div>
-            <StatusBar
-                isConnected={isConnected}
-                machineState={machineState}
-                unit={unit}
-                onEmergencyStop={handleEmergencyStop}
-                flashingButton={flashingButton}
-            />
+
+            <StatusBar isConnected={isConnected} machineState={machineState} unit={unit} onEmergencyStop={handleEmergencyStop} flashingButton={flashingButton} />
+
             {isAlarm && (
                 <div className="bg-accent-red/20 border-b-4 border-accent-red text-accent-red p-4 m-4 flex items-start" role="alert">
                     <OctagonAlert className="h-8 w-8 mr-4 flex-shrink-0" />
@@ -1215,92 +1147,29 @@ const App: React.FC = () => {
                         <p className="text-sm">{alarmInfo!.desc}</p>
                         <p className="text-sm mt-2"><strong>Resolution: </strong>{alarmInfo!.resolution}</p>
                     </div>
-                    <button
-                        id='unlock-button'
-                        title='Unlock Machine (Hotkey: x)'
-                        onClick={() => handleManualCommand('$X')}
-                        className={`ml-4 flex items-center gap-2 px-4 py-2 bg-accent-red text-white font-semibold rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-background transition-all duration-100 ${flashingButton === 'unlock-button' ? 'ring-4 ring-white ring-inset' : ''}`}
-                    >
+                    <button id="unlock-button" title="Unlock Machine (Hotkey: x)" onClick={() => handleManualCommand('$X')} className={`ml-4 flex items-center gap-2 px-4 py-2 bg-accent-red text-white font-semibold rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-background transition-all duration-100 ${flashingButton === 'unlock-button' ? 'ring-4 ring-white ring-inset' : ''}`}>
                         <Unlock className="w-5 h-5" />
                         Unlock ($X)
                     </button>
                 </div>
             )}
-            {!isSerialApiSupported && !useSimulator && (
-                <div className="bg-accent-yellow/20 border-l-4 border-accent-yellow text-accent-yellow p-4 m-4 flex items-start" role="alert">
-                    <AlertTriangle className="h-6 w-6 mr-3 flex-shrink-0" />
-                    <div>
-                        <p className="font-bold">Browser Not Supported</p>
-                        <p>{error}</p>
-                    </div>
-                </div>
-            )}
-            {error && (isSerialApiSupported || useSimulator) && (
+            {error && (
                 <div className="bg-accent-red/20 border-l-4 border-accent-red text-accent-red p-4 m-4 flex items-start" role="alert">
                     <AlertTriangle className="h-6 w-6 mr-3 flex-shrink-0" />
                     <p>{error}</p>
                     <button onClick={() => setError(null)} className="ml-auto font-bold">X</button>
                 </div>
             )}
+
             <main className="flex-grow p-4 grid grid-cols-1 lg:grid-cols-2 gap-4 min-h-0">
                 <div className="min-h-[60vh] lg:min-h-0">
-                    <GCodePanel
-                        onFileLoad={handleFileLoad}
-                        fileName={fileName}
-                        gcodeLines={gcodeLines}
-                        onJobControl={handleJobControl}
-                        jobStatus={jobStatus}
-                        progress={progress}
-                        isConnected={isConnected}
-                        unit={unit}
-                        onGCodeChange={handleGCodeChange}
-                        machineState={machineState}
-                        onFeedOverride={handleFeedOverride}
-                        timeEstimate={timeEstimate}
-                        machineSettings={machineSettings}
-                        toolLibrary={toolLibrary}
-                        selectedToolId={selectedToolId}
-                        onToolSelect={setSelectedToolId}
-                    />
+                    <GCodePanel onFileLoad={handleFileLoad} fileName={fileName} gcodeLines={gcodeLines} onJobControl={handleJobControl} jobStatus={jobStatus} progress={progress} isConnected={isConnected} unit={unit} onGCodeChange={handleGCodeChange} machineState={machineState} onFeedOverride={handleFeedOverride} timeEstimate={timeEstimate} machineSettings={machineSettings} toolLibrary={toolLibrary} selectedToolId={selectedToolId} onToolSelect={setSelectedToolId} />
                 </div>
                 <div className="flex flex-col gap-4 overflow-hidden min-h-0">
-                    <JogPanel
-                        isConnected={isConnected}
-                        machineState={machineState}
-                        onJog={handleJog}
-                        onHome={handleHome}
-                        onSetZero={handleSetZero}
-                        onSpindleCommand={handleSpindleCommand}
-                        onProbe={handleProbe}
-                        jogStep={jogStep}
-                        onStepChange={setJogStep}
-                        flashingButton={flashingButton}
-                        onFlash={flashControl}
-                        unit={unit}
-                        onUnitChange={handleUnitChange}
-                        isJobActive={isJobActive}
-                        isJogging={isJogging}
-                        isMacroRunning={isMacroRunning}
-                    />
+                    <JogPanel isConnected={isConnected} machineState={machineState} onJog={handleJog} onHome={handleHome} onSetZero={handleSetZero} onSpindleCommand={handleSpindleCommand} onProbe={handleProbe} jogStep={jogStep} onStepChange={setJogStep} flashingButton={flashingButton} onFlash={flashControl} unit={unit} onUnitChange={handleUnitChange} isJobActive={isJobActive} isJogging={isJogging} isMacroRunning={isMacroRunning} />
                     <WebcamPanel />
-                    <MacrosPanel
-                        macros={macros}
-                        onRunMacro={handleRunMacro}
-                        onOpenEditor={handleOpenMacroEditor}
-                        isEditMode={isMacroEditMode}
-                        onToggleEditMode={() => setIsMacroEditMode(prev => !prev)}
-                        disabled={isAnyControlLocked}
-                    />
-                    <Console
-                        logs={consoleLogs}
-                        onSendCommand={handleManualCommand}
-                        isConnected={isConnected}
-                        isJobActive={isJobActive}
-                        isMacroRunning={isMacroRunning}
-                        isLightMode={isLightMode}
-                        isVerbose={isVerbose}
-                        onVerboseChange={setIsVerbose}
-                    />
+                    <MacrosPanel macros={macros} onRunMacro={handleRunMacro} onOpenEditor={(index: number) => { setEditingMacroIndex(index); setIsMacroEditorOpen(true); }} isEditMode={isMacroEditMode} onToggleEditMode={() => setIsMacroEditMode(prev => !prev)} disabled={isAnyControlLocked} />
+                    <Console logs={consoleLogs} onSendCommand={handleManualCommand} isConnected={isConnected} isJobActive={isJobActive} isMacroRunning={isMacroRunning} isLightMode={isLightMode} isVerbose={isVerbose} onVerboseChange={setIsVerbose} />
                 </div>
             </main>
             <Footer onContactClick={() => setIsContactModalOpen(true)} />
@@ -1308,5 +1177,4 @@ const App: React.FC = () => {
     );
 };
 
-// FIX: Add default export to make it importable in index.tsx
 export default App;

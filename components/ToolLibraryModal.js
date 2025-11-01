@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Save, X, Plus, Trash2, Pencil } from './Icons.js';
 
@@ -81,9 +80,9 @@ const ToolLibraryModal = ({ isOpen, onCancel, onSave, library }) => {
                     }, h(Plus, { className: 'w-5 h-5' }), 'Add New Tool')
                 :
                     h('div', { className: 'bg-background p-4 rounded-md border border-primary' },
-                        h('h3', { className: 'font-bold mb-2' }, currentTool.id ? 'Edit Tool' : 'Add Tool'),
-                         h('div', { className: 'grid grid-cols-1 md:grid-cols-3 gap-4' },
-                            h('div', { className: 'md:col-span-3' },
+                        h('h3', { className: 'font-bold mb-4' }, currentTool.id ? 'Edit Tool' : 'Add Tool'),
+                         h('div', { className: 'space-y-4' },
+                            h('div', null,
                                 h('label', { className: 'block text-sm font-medium text-text-secondary mb-1' }, 'Tool Name'),
                                 h('input', {
                                     type: 'text',
@@ -93,25 +92,27 @@ const ToolLibraryModal = ({ isOpen, onCancel, onSave, library }) => {
                                     className: 'w-full bg-secondary border border-secondary rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary'
                                 })
                             ),
-                             h('div', null,
-                                h('label', { className: 'block text-sm font-medium text-text-secondary mb-1' }, 'Diameter (mm)'),
-                                h('input', {
-                                    type: 'number',
-                                    placeholder: 'e.g., 6.35',
-                                    value: currentTool.diameter,
-                                    onChange: e => setCurrentTool(prev => ({ ...prev, diameter: e.target.value })),
-                                    className: 'w-full bg-secondary border border-secondary rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary'
-                                })
-                            ),
-                             h('div', null,
-                                h('label', { className: 'block text-sm font-medium text-text-secondary mb-1' }, 'Position (for ATC)'),
-                                h('input', {
-                                    type: 'number',
-                                    placeholder: 'Optional',
-                                    value: currentTool.position,
-                                    onChange: e => setCurrentTool(prev => ({ ...prev, position: e.target.value })),
-                                    className: 'w-full bg-secondary border border-secondary rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary'
-                                })
+                             h('div', { className: 'grid grid-cols-2 gap-4'},
+                                h('div', null,
+                                    h('label', { className: 'block text-sm font-medium text-text-secondary mb-1' }, 'Diameter (mm)'),
+                                    h('input', {
+                                        type: 'number',
+                                        placeholder: 'e.g., 6.35',
+                                        value: currentTool.diameter,
+                                        onChange: e => setCurrentTool(prev => ({ ...prev, diameter: e.target.value })),
+                                        className: 'w-full bg-secondary border border-secondary rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary'
+                                    })
+                                ),
+                                 h('div', null,
+                                    h('label', { className: 'block text-sm font-medium text-text-secondary mb-1' }, 'Position (for ATC)'),
+                                    h('input', {
+                                        type: 'number',
+                                        placeholder: 'Optional',
+                                        value: currentTool.position,
+                                        onChange: e => setCurrentTool(prev => ({ ...prev, position: e.target.value })),
+                                        className: 'w-full bg-secondary border border-secondary rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary'
+                                    })
+                                )
                             )
                         ),
                         h('div', { className: 'flex gap-2 mt-4 justify-end' },
@@ -127,7 +128,7 @@ const ToolLibraryModal = ({ isOpen, onCancel, onSave, library }) => {
                             className: 'flex items-center justify-between bg-background p-3 rounded-md'
                         },
                             h('div', { className: 'flex items-center gap-3' },
-                                tool.position && h('span', { className: 'text-xs font-bold bg-secondary text-text-primary rounded-full w-6 h-6 flex items-center justify-center' }, `T${tool.position}`),
+                                tool.position != null && h('span', { className: 'text-xs font-bold bg-secondary text-text-primary rounded-full w-6 h-6 flex items-center justify-center' }, `T${tool.position}`),
                                 h('div', { className: 'flex flex-col' },
                                     h('span', { className: 'font-semibold' }, tool.name),
                                     h('span', { className: 'text-xs text-text-secondary' }, `Ø ${tool.diameter} mm`)
