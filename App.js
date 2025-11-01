@@ -1125,27 +1125,35 @@ const App = () => {
         }),
         React.createElement('header', { className: "bg-surface shadow-md p-4 flex justify-between items-center z-10 flex-shrink-0 gap-4" },
             React.createElement('div', { className: "flex items-center gap-2" },
-                 React.createElement('svg', {
-                    viewBox: "0 0 100 100",
-                    className: "h-8 w-8",
-                    'aria-label': "mycnc.app logo"
-                },
-                    React.createElement('path', {
-                        stroke: "var(--color-primary)",
-                        strokeWidth: "12",
-                        strokeLinecap: "round",
-                        strokeLinejoin: "round",
-                        fill: "none",
-                        d: "M 10 85 L 10 15 L 30 50 L 50 15 L 50 85"
-                    }),
-                    React.createElement('path', {
-                        stroke: "var(--color-primary)",
-                        strokeWidth: "12",
-                        strokeLinecap: "round",
-                        strokeLinejoin: "round",
-                        fill: "none",
-                        d: "M 90 15 C 65 15, 65 85, 90 85"
-                    })
+                React.createElement('svg', {
+                    viewBox: '0 0 400 100',
+                    className: 'h-8 w-auto',
+                    'aria-label': 'mycnc.app logo'
+                }, 
+                    React.createElement('g', {
+                        transform: 'translate(48,48)',
+                        fill: 'none',
+                        stroke: 'var(--color-text-primary)',
+                        strokeWidth: '4'
+                    },
+                        React.createElement('circle', { r: '48', cx: '0', cy: '0' }),
+                        React.createElement('path', { d: 'M 0,-48 A 48,48 0 0 1 30,16 L 10,6 A 12,12 0 0 0 0,-12 Z' }),
+                        React.createElement('path', { d: 'M 0,-48 A 48,48 0 0 1 30,16 L 10,6 A 12,12 0 0 0 0,-12 Z', transform: 'rotate(120)' }),
+                        React.createElement('path', { d: 'M 0,-48 A 48,48 0 0 1 30,16 L 10,6 A 12,12 0 0 0 0,-12 Z', transform: 'rotate(-120)' }),
+                        React.createElement('circle', { r: '12', cx: '0', cy: '0' })
+                    ),
+                    React.createElement('text', {
+                        x: '108',
+                        y: '66',
+                        fontFamily: "Inter, 'Segoe UI', Roboto, Arial, sans-serif",
+                        fontWeight: '700',
+                        fontSize: '64px',
+                        letterSpacing: '-0.02em',
+                        fill: 'var(--color-text-primary)'
+                    },
+                        React.createElement('tspan', { style: { fill: 'var(--color-primary)' } }, 'mycnc'),
+                        '.app'
+                    )
                 ),
                  React.createElement('span', { className: 'text-xs text-text-secondary font-mono' }, version)
             ),
