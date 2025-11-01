@@ -977,10 +977,10 @@ const App = () => {
                 }),
                 h(WebcamPanel, {}),
                 h(MacrosPanel, { 
-                    macros, 
+                    macros: macros, 
                     onRunMacro: handleRunMacro, 
                     onOpenEditor: (index) => { setEditingMacroIndex(index); setIsMacroEditorOpen(true); }, 
-                    isEditMode, 
+                    isEditMode: isMacroEditMode, 
                     onToggleEditMode: () => setIsMacroEditMode(prev => !prev), 
                     disabled: isAnyControlLocked 
                 }),
