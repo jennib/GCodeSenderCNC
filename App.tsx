@@ -20,7 +20,6 @@ import { AlertTriangle, OctagonAlert, Unlock, Settings } from './components/Icon
 import { estimateGCodeTime } from './services/gcodeTimeEstimator.js';
 import { analyzeGCode } from './services/gcodeAnalyzer.js';
 import { Analytics } from '@vercel/analytics/react';
-import ContactModal from './components/ContactModal.js';
 import Footer from './components/Footer.js';
 
 const GRBL_ALARM_CODES: { [key: number | string]: { name: string; desc: string; resolution: string } } = {
@@ -137,7 +136,6 @@ const App: React.FC = () => {
     // Advanced Features State
     const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
     const [isToolLibraryModalOpen, setIsToolLibraryModalOpen] = useState(false);
-    const [isContactModalOpen, setIsContactModalOpen] = useState(false);
     const [selectedToolId, setSelectedToolId] = useState<number | null>(null);
     const [isVerbose, setIsVerbose] = useState(false);
 
@@ -968,9 +966,7 @@ const App: React.FC = () => {
     const isAnyControlLocked = !isConnected || isJobActive || isJogging || isMacroRunning || (machineState?.status && ['Alarm', 'Home'].includes(machineState.status));
     const selectedTool = toolLibrary.find(t => t.id === selectedToolId) || null;
     
-    const now = new Date();
-    const pad = (num: number) => num.toString().padStart(2, '0');
-    const version = `0.${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}${pad(now.getHours())}:${pad(now.getMinutes())}`;
+    const version = '0.5.0';
 
 
     return (
@@ -984,10 +980,6 @@ const App: React.FC = () => {
             <NotificationContainer
                 notifications={notifications}
                 onDismiss={removeNotification}
-            />
-             <ContactModal
-                isOpen={isContactModalOpen}
-                onClose={() => setIsContactModalOpen(false)}
             />
             <PreflightChecklistModal
                 isOpen={isPreflightModalOpen}
@@ -1162,7 +1154,7 @@ const App: React.FC = () => {
                     />
                 </div>
             </main>
-            <Footer onOpenContact={() => setIsContactModalOpen(true)} />
+            <Footer />
         </div>
     );
 };

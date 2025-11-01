@@ -21,7 +21,6 @@ import { AlertTriangle, OctagonAlert, Unlock, Settings, BookOpen } from './compo
 import { estimateGCodeTime } from './services/gcodeTimeEstimator.js';
 import { analyzeGCode } from './services/gcodeAnalyzer.js';
 import { Analytics } from '@vercel/analytics/react';
-import ContactModal from './components/ContactModal.js';
 import Footer from './components/Footer.js';
 
 const GRBL_ALARM_CODES = {
@@ -141,7 +140,6 @@ const App = () => {
     const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
     const [isToolLibraryModalOpen, setIsToolLibraryModalOpen] = useState(false);
     const [isGCodeGeneratorModalOpen, setIsGCodeGeneratorModalOpen] = useState(false);
-    const [isContactModalOpen, setIsContactModalOpen] = useState(false);
     const [selectedToolId, setSelectedToolId] = useState(null);
     const [isVerbose, setIsVerbose] = useState(false);
 
@@ -1008,9 +1006,7 @@ const App = () => {
     const isAnyControlLocked = !isConnected || isJobActive || isJogging || isMacroRunning || (machineState?.status && ['Alarm', 'Home'].includes(machineState.status));
     const selectedTool = toolLibrary.find(t => t.id === selectedToolId) || null;
     
-    const now = new Date();
-    const pad = (num) => num.toString().padStart(2, '0');
-    const version = `0.${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}${pad(now.getHours())}:${pad(now.getMinutes())}`;
+    const version = '0.5.0';
     
     // --- Welcome & Onboarding Handlers ---
     const handleCloseWelcomeModal = () => {
@@ -1075,10 +1071,6 @@ const App = () => {
         React.createElement(NotificationContainer, {
             notifications: notifications,
             onDismiss: removeNotification
-        }),
-        React.createElement(ContactModal, {
-            isOpen: isContactModalOpen,
-            onClose: () => setIsContactModalOpen(false)
         }),
         React.createElement(WelcomeModal, {
             isOpen: isWelcomeModalOpen,
@@ -1266,9 +1258,7 @@ const App = () => {
                 })
             )
         ),
-        React.createElement(Footer, {
-            onOpenContact: () => setIsContactModalOpen(true)
-        })
+        React.createElement(Footer, null)
     );
 };
 
