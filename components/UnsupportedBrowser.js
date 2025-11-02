@@ -54,5 +54,4 @@ const UnsupportedBrowser = () => {
     );
 };
 
-// FIX: Add default export to allow this component to be imported.
 export default UnsupportedBrowser;

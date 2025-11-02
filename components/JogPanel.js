@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, memo } from 'react';
 import { ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Pin, RotateCw, RotateCcw, PowerOff, Probe } from './Icons.js';
 
 const h = React.createElement;
 
-const JogPanel = ({
+const JogPanel = memo(({
     isConnected,
     machineState,
     onJog,
@@ -137,6 +137,6 @@ const JogPanel = ({
             )
         )
     );
-};
+});
 
 export default JogPanel;

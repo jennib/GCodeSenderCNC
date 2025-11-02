@@ -257,13 +257,6 @@ const App = () => {
         }
     }, [toolLibrary]);
     
-    useEffect(() => {
-        // We are no longer jogging if the machine reports back that it is idle or has an alarm.
-        if (machineState?.status === 'Idle' || machineState?.status === 'Alarm') {
-            setIsJogging(false);
-        }
-    }, [machineState?.status]);
-
     const removeNotification = useCallback((id) => {
         setNotifications(prev => {
             const notificationToRemove = prev.find(n => n.id === id);
@@ -281,6 +274,8 @@ const App = () => {
         }, duration);
         setNotifications(prev => [...prev, { id, message, type, timerId }]);
     }, [removeNotification]);
+
+    
 
     useEffect(() => {
         // This effect runs once on mount to initialize the audio system.
@@ -393,6 +388,13 @@ const App = () => {
             return [...prev, processedLog].slice(-200); // Keep last 200 logs
         });
     }, [isVerbose]);
+
+    useEffect(() => {
+        // We are no longer jogging if the machine reports back that it is idle or has an alarm.
+        if (machineState?.status === 'Idle' || machineState?.status === 'Alarm') {
+            setIsJogging(false);
+        }
+    }, [machineState?.status]);
     
     useEffect(() => {
         if (prevState?.status === 'Home' && machineState?.status === 'Idle') {
@@ -530,7 +532,7 @@ const App = () => {
         setSelectedToolId(null);
         setTimeEstimate({ totalSeconds: 0, cumulativeSeconds: [] });
         addLog({ type: 'status', message: 'G-code cleared from preview.' });
-    }, [addLog]);
+    }, []);
     
     const handleGeneratedGCodeLoad = (gcode, name) => {
         handleFileLoad(gcode, name);
@@ -1030,7 +1032,7 @@ const App = () => {
     const isMobile = /Mobi|Android/i.test(navigator.userAgent);
     if (!isSerialApiSupported || isMobile) {
         return React.createElement(UnsupportedBrowser, null);
-    }
+    }    
 
     const alarmInfo = isAlarm ? (GRBL_ALARM_CODES[machineState.code] || GRBL_ALARM_CODES.default) : null;
     const isJobActive = jobStatus === JobStatus.Running || jobStatus === JobStatus.Paused;
