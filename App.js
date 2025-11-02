@@ -858,7 +858,6 @@ const App = () => {
 
         document.addEventListener('keydown', handleKeyDown);
         return () => document.removeEventListener('keydown', handleKeyDown);
-    }, [isConnected, jogStep, handleJog, flashControl, handleEmergencyStop, isAlarm, handleManualCommand, unit]);
     }, [
         isConnected, 
         jogStep, 
@@ -868,13 +867,13 @@ const App = () => {
         isAlarm, 
         handleManualCommand, 
         unit,
-        isSettingsModalOpen,
-        isToolLibraryModalOpen,
-        isGCodeGeneratorModalOpen,
-        isPreflightModalOpen,
-        isMacroEditorOpen,
-        isWelcomeModalOpen,
-        isContactModalOpen
+        isSettingsModalOpen, 
+        isToolLibraryModalOpen, 
+        isGCodeGeneratorModalOpen, 
+        isPreflightModalOpen, 
+        isMacroEditorOpen, 
+        isWelcomeModalOpen, 
+        isContactModalOpen,
     ]);
 
     const handleHome = useCallback((axes) => {
