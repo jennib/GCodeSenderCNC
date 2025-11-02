@@ -7,7 +7,7 @@ const UnsupportedBrowser = () => {
     return h('div', { className: "bg-background text-text-primary min-h-screen flex flex-col items-center justify-center p-8 text-center" },
         h('div', { className: 'max-w-2xl' },
             h('svg', {
-                viewBox: '0 0 400 100',
+                viewBox: '0 0 420 100',
                 className: 'h-16 w-auto mx-auto mb-8',
                 'aria-label': 'mycnc.app logo'
             }, 

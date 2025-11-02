@@ -1184,7 +1184,7 @@ const App = () => {
         React.createElement('header', { className: "bg-surface shadow-md p-4 flex justify-between items-center z-10 flex-shrink-0 gap-4" },
             React.createElement('div', { className: "flex items-center gap-4" },
                 React.createElement('svg', {
-                    viewBox: '0 0 400 100',
+                    viewBox: '0 0 420 100',
                     className: 'h-8 w-auto',
                     'aria-label': 'mycnc.app logo'
                 }, 
