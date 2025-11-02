@@ -332,7 +332,9 @@ const GCodeGeneratorModal = ({ isOpen, onCancel, onLoadGCode, unit, settings, to
     };
 
     const generateSurfacingCode = () => {
-        const selectedTool = toolLibrary.find(t => t.id === surfaceParams.toolId);
+        const toolIndex = toolLibrary.findIndex(t => t.id === surfaceParams.toolId);
+        if (toolIndex === -1) return { error: "Please select a tool." };
+        const selectedTool = toolLibrary[toolIndex];
         if (!selectedTool) return { error: "Please select a tool." };
         const toolDiameter = selectedTool.diameter;
 
@@ -344,7 +346,7 @@ const GCodeGeneratorModal = ({ isOpen, onCancel, onLoadGCode, unit, settings, to
             `(Tool: ${selectedTool.name} - Ø${toolDiameter}${unit})`,
             `(Width: ${width}, Length: ${length}, Depth: ${depth})`,
             `(Stepover: ${stepover}%, Direction: ${direction})`,
-            `T${selectedTool.id} M6`,
+            `T${toolIndex + 1} M6`,
             `G21 G90`, // mm, absolute
             `M3 S${spindle}`,
             `G0 Z${safeZ}`,
@@ -404,7 +406,9 @@ const GCodeGeneratorModal = ({ isOpen, onCancel, onLoadGCode, unit, settings, to
     };
 
     const generateDrillingCode = () => {
-        const selectedTool = toolLibrary.find(t => t.id === drillParams.toolId);
+        const toolIndex = toolLibrary.findIndex(t => t.id === drillParams.toolId);
+        if (toolIndex === -1) return { error: "Please select a tool." };
+        const selectedTool = toolLibrary[toolIndex];
         if (!selectedTool) return { error: "Please select a tool." };
 
         const { depth, peck, retract, feed, spindle, safeZ } = drillParams;
@@ -414,7 +418,7 @@ const GCodeGeneratorModal = ({ isOpen, onCancel, onLoadGCode, unit, settings, to
             `(--- Drilling Operation: ${drillType} ---)`,
             `(Tool: ${selectedTool.name})`,
             `(Depth: ${depth}, Peck: ${peck}, Retract: ${retract})`,
-            `T${selectedTool.id} M6`,
+            `T${toolIndex + 1} M6`,
             `G21 G90`, // mm, absolute
             `M3 S${spindle}`,
         ];
@@ -470,7 +474,9 @@ const GCodeGeneratorModal = ({ isOpen, onCancel, onLoadGCode, unit, settings, to
     };
 
     const generateBoreCode = () => {
-        const selectedTool = toolLibrary.find(t => t.id === boreParams.toolId);
+        const toolIndex = toolLibrary.findIndex(t => t.id === boreParams.toolId);
+        if (toolIndex === -1) return { error: "Please select a tool." };
+        const selectedTool = toolLibrary[toolIndex];
         if (!selectedTool) return { error: "Please select a tool." };
         const toolDiameter = selectedTool.diameter;
 
@@ -485,7 +491,7 @@ const GCodeGeneratorModal = ({ isOpen, onCancel, onLoadGCode, unit, settings, to
         const code = [
             `(--- Bore/Counterbore Operation ---)`,
             `(Tool: ${selectedTool.name} - Ø${toolDiameter}${unit})`,
-            `T${selectedTool.id} M6`,
+            `T${toolIndex + 1} M6`,
             `G21 G90`,
             `M3 S${spindle}`,
         ];
@@ -524,7 +530,9 @@ const GCodeGeneratorModal = ({ isOpen, onCancel, onLoadGCode, unit, settings, to
     };
 
     const generatePocketCode = () => {
-        const selectedTool = toolLibrary.find(t => t.id === pocketParams.toolId);
+        const toolIndex = toolLibrary.findIndex(t => t.id === pocketParams.toolId);
+        if (toolIndex === -1) return { error: "Please select a tool." };
+        const selectedTool = toolLibrary[toolIndex];
         if (!selectedTool) return { error: "Please select a tool." };
         const toolDiameter = selectedTool.diameter;
 
@@ -534,7 +542,7 @@ const GCodeGeneratorModal = ({ isOpen, onCancel, onLoadGCode, unit, settings, to
         const code = [
             `(--- Pocket Operation: ${shape} ---)`,
             `(Tool: ${selectedTool.name} - Ø${toolDiameter}${unit})`,
-            `T${selectedTool.id} M6`,
+            `T${toolIndex + 1} M6`,
             `G21 G90`, `M3 S${spindle}`, `G0 Z${safeZ}`
         ];
         const paths = [];
@@ -612,7 +620,9 @@ const GCodeGeneratorModal = ({ isOpen, onCancel, onLoadGCode, unit, settings, to
     };
 
     const generateProfileCode = () => {
-        const selectedTool = toolLibrary.find(t => t.id === profileParams.toolId);
+        const toolIndex = toolLibrary.findIndex(t => t.id === profileParams.toolId);
+        if (toolIndex === -1) return { error: "Please select a tool." };
+        const selectedTool = toolLibrary[toolIndex];
         if (!selectedTool) return { error: "Please select a tool." };
         const toolDiameter = selectedTool.diameter;
 
@@ -621,7 +631,7 @@ const GCodeGeneratorModal = ({ isOpen, onCancel, onLoadGCode, unit, settings, to
         const code = [
             `(--- Profile Operation: ${shape}, ${cutSide} ---)`,
             `(Tool: ${selectedTool.name} - Ø${toolDiameter}${unit})`,
-            `T${selectedTool.id} M6`,
+            `T${toolIndex + 1} M6`,
             `G21 G90`, `M3 S${spindle}`];
         const paths = [];
         const toolRadius = toolDiameter / 2;
@@ -688,7 +698,9 @@ const GCodeGeneratorModal = ({ isOpen, onCancel, onLoadGCode, unit, settings, to
     };
 
     const generateSlotCode = () => {
-        const selectedTool = toolLibrary.find(t => t.id === slotParams.toolId);
+        const toolIndex = toolLibrary.findIndex(t => t.id === slotParams.toolId);
+        if (toolIndex === -1) return { error: "Please select a tool." };
+        const selectedTool = toolLibrary[toolIndex];
         if (!selectedTool) return { error: "Please select a tool." };
         const toolDiameter = selectedTool.diameter;
         
@@ -699,7 +711,7 @@ const GCodeGeneratorModal = ({ isOpen, onCancel, onLoadGCode, unit, settings, to
         const code = [
             `(--- Slot Operation: ${type} ---)`,
             `(Tool: ${selectedTool.name} - Ø${toolDiameter}${unit})`,
-            `T${selectedTool.id} M6`,
+            `T${toolIndex + 1} M6`,
             `G21 G90`, `M3 S${spindle}`
         ];
         const paths = [];
@@ -791,7 +803,9 @@ const GCodeGeneratorModal = ({ isOpen, onCancel, onLoadGCode, unit, settings, to
     };
     
     const generateTextCode = () => {
-        const selectedTool = toolLibrary.find(t => t.id === textParams.toolId);
+        const toolIndex = toolLibrary.findIndex(t => t.id === textParams.toolId);
+        if (toolIndex === -1) return { error: "Please select a tool." };
+        const selectedTool = toolLibrary[toolIndex];
         if (!selectedTool) return { error: "Please select a tool." };
 
         const { text, font, height, spacing, startX, startY, alignment, depth, feed, spindle, safeZ } = textParams;
@@ -823,7 +837,7 @@ const GCodeGeneratorModal = ({ isOpen, onCancel, onLoadGCode, unit, settings, to
         code.push(`(--- Text Engraving ---)`);
         code.push(`(Tool: ${selectedTool.name})`);
         code.push(`(Text: ${text}, Font: ${font})`);
-        code.push(`T${selectedTool.id} M6`);
+        code.push(`T${toolIndex + 1} M6`);
         code.push(`G21 G90`);
         code.push(`M3 S${spindle}`);
 
@@ -889,7 +903,9 @@ const GCodeGeneratorModal = ({ isOpen, onCancel, onLoadGCode, unit, settings, to
     };
 
     const generateThreadMillingCode = () => {
-        const selectedTool = toolLibrary.find(t => t.id === threadParams.toolId);
+        const toolIndex = toolLibrary.findIndex(t => t.id === threadParams.toolId);
+        if (toolIndex === -1) return { error: "Please select a tool." };
+        const selectedTool = toolLibrary[toolIndex];
         if (!selectedTool) return { error: "Please select a tool." };
         const toolDiameter = selectedTool.diameter;
 
@@ -907,7 +923,7 @@ const GCodeGeneratorModal = ({ isOpen, onCancel, onLoadGCode, unit, settings, to
             `(Type: ${type}, Hand: ${hand})`,
             `(Diameter: ${diameter}, Pitch: ${pitch}, Depth: ${depth})`,
             `(Feed: ${feed}, Spindle: ${spindle})`,
-            `T${selectedTool.id} M6`,
+            `T${toolIndex + 1} M6`,
             `G21 G90`,
             `M3 S${spindle}`,
             `G0 Z${safeZ}`,
