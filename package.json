@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "cross-env VITE_BUILD_VERSION=$(git rev-list --count HEAD) vite build",
+    "build": "VITE_BUILD_VERSION=$(git rev-list --count HEAD) vite build",
     "preview": "vite preview"
   },
   "dependencies": {
