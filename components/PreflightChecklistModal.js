@@ -47,7 +47,7 @@ const PreflightChecklistModal = ({ isOpen, onCancel, onConfirm, jobInfo, isHomed
         onConfirm({ isDryRun });
     };
     
-    const allChecksPassed = isHomed && isWorkZeroSet && isToolpathChecked && (selectedTool ? isToolConfirmed : true);
+    const allChecksPassed = isWorkZeroSet && isToolpathChecked && (selectedTool ? isToolConfirmed : true);
     const { startLine = 0 } = jobInfo;
     const hasErrors = warnings.some(w => w.type === 'error');
 
@@ -103,7 +103,7 @@ const PreflightChecklistModal = ({ isOpen, onCancel, onConfirm, jobInfo, isHomed
 
                 h('ul', { className: 'space-y-2' },
                     h(ChecklistItem, { isMet: isHomed, text: 'Machine is Homed' },
-                        !isHomed && h('p', null, 'The machine must be homed before starting a job. Use the "Home" command in the jog panel.')
+                        !isHomed && h('p', null, 'Machine has not been homed since connecting. Ensure work zero is set correctly relative to the current machine position.')
                     ),
                     selectedTool && h(ChecklistItem, { isMet: isToolConfirmed, text: 'Correct Tool is Loaded' },
                         h('label', { className: 'flex items-center gap-2 mt-2 cursor-pointer' },
