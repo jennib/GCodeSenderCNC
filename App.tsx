@@ -2,6 +2,7 @@ import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { SerialManager } from './services/serialService';
 import { SimulatedSerialManager } from './services/simulatedSerialService';
 // FIX: Import MachineState type to correctly type component state.
+import { completionSound } from './sounds';
 import { JobStatus, MachineState } from './types';
 import SerialConnector from './components/SerialConnector';
 import GCodePanel from './components/GCodePanel';
@@ -283,22 +284,25 @@ const App: React.FC = () => {
         const context = new AudioContext();
         audioContextRef.current = context;
 
-        // Pre-load the audio file to be ready for playback.
-        fetch('/completion-sound.mp3')
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                return response.arrayBuffer();
-            })
-            .then(arrayBuffer => context.decodeAudioData(arrayBuffer))
-            .then(decodedData => {
+        // Decode the base64 sound data.
+        try {
+            const base64Data = completionSound.split(',')[1];
+            const binaryString = window.atob(base64Data);
+            const len = binaryString.length;
+            const bytes = new Uint8Array(len);
+            for (let i = 0; i < len; i++) {
+                bytes[i] = binaryString.charCodeAt(i);
+            }
+            context.decodeAudioData(bytes.buffer).then(decodedData => {
                 audioBufferRef.current = decodedData;
-            })
-            .catch(error => {
-                console.error("Failed to load or decode completion sound:", error);
+            }).catch(error => {
+                console.error("Failed to decode completion sound:", error);
                 addNotification('Could not load notification sound.', 'error');
             });
+        } catch (error) {
+            console.error("Failed to process completion sound:", error);
+            addNotification('Could not load notification sound.', 'error');
+        }
 
         const unlockAudio = () => {
             if (context.state === 'suspended') {
