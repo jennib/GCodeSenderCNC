@@ -209,6 +209,11 @@ const App = () => {
     const audioBufferRef = useRef(null);
     
     useEffect(() => {
+        // Set the application title on initial render.
+        document.title = 'mycnc.app';
+    }, []);
+
+    useEffect(() => {
         const onboardingComplete = localStorage.getItem('cnc-app-onboarding-complete');
         if (onboardingComplete !== 'true') {
             setIsWelcomeModalOpen(true);
