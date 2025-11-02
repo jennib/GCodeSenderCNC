@@ -31,9 +31,9 @@ const SettingsModal = ({ isOpen, onCancel, onSave, settings, onResetDialogs, onE
 
     useEffect(() => {
         if (isOpen) {
-            setLocalSettings(settings);
+            setLocalSettings(JSON.parse(JSON.stringify(settings)));
         }
-    }, [isOpen]);
+    }, [isOpen, settings]);
 
     if (!isOpen) return null;
 
