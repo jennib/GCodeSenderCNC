@@ -97,7 +97,7 @@ export class SerialManager {
     async disconnect() {
         if (this.isDisconnecting || !this.port) return;
         this.isDisconnecting = true;
-
+    
         if (this.statusInterval) {
             clearInterval(this.statusInterval);
             this.statusInterval = null;
@@ -105,20 +105,24 @@ export class SerialManager {
         if (this.isJobRunning) {
             this.stopJob();
         }
-        
-        await new Promise(resolve => setTimeout(resolve, 100));
-
-        if (this.reader) {
-            await this.reader.cancel().catch(() => {});
-            this.reader = null;
-        }
-        if (this.writer) {
-            await this.writer.abort().catch(() => {});
-            this.writer = null;
-        }
-        if (this.port) {
-            await this.port.close().catch(() => {});
-            this.port = null;
+    
+        // The reader and writer must be released before the port can be closed.
+        // Awaiting these cancellations prevents a race condition.
+        try {
+            if (this.reader) {
+                await this.reader.cancel();
+            }
+            if (this.writer) {
+                await this.writer.abort();
+            }
+            if (this.port) {
+                await this.port.close();
+            }
+        } catch (error) {
+            // Ignore errors during disconnection, as the port may have already been lost.
+        } finally {
+            this.port = this.reader = this.writer = null;
+            this.isDisconnecting = false;
         }
         this.callbacks.onDisconnect();
     }
