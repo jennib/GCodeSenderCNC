@@ -20,6 +20,7 @@ import { AlertTriangle, OctagonAlert, Unlock, Settings, Maximize, Minimize, Book
 import { estimateGCodeTime } from './services/gcodeTimeEstimator.js';
 import { analyzeGCode } from './services/gcodeAnalyzer.js';
 import { Analytics } from '@vercel/analytics/react';
+import GCodeGeneratorModal from './components/GCodeGeneratorModal.js';
 import Footer from './components/Footer.js';
 import ContactModal from './components/ContactModal.js';
 import UnsupportedBrowser from './components/UnsupportedBrowser.js';
@@ -143,6 +144,7 @@ const App: React.FC = () => {
     const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
     const [isToolLibraryModalOpen, setIsToolLibraryModalOpen] = useState(false);
     const [isContactModalOpen, setIsContactModalOpen] = useState(false);
+    const [isGeneratorModalOpen, setIsGeneratorModalOpen] = useState(false);
     const [selectedToolId, setSelectedToolId] = useState<number | null>(null);
     const [isVerbose, setIsVerbose] = useState(false);
 
@@ -540,6 +542,11 @@ const App: React.FC = () => {
         setTimeEstimate(estimateGCodeTime(lines));
         addLog({ type: 'status', message: `G-code modified (${lines.length} lines).` });
     };
+
+    const handleLoadGeneratedGCode = useCallback((gcode: string, name: string) => {
+        handleFileLoad(gcode, name);
+        setIsGeneratorModalOpen(false);
+    }, [handleFileLoad]);
 
     const handleStartJobConfirmed = useCallback((options: { isDryRun: boolean }) => {
         const manager = serialManagerRef.current;
@@ -1061,6 +1068,15 @@ const App: React.FC = () => {
                 onSave={setToolLibrary}
                 library={toolLibrary}
             />
+            <GCodeGeneratorModal
+                isOpen={isGeneratorModalOpen}
+                onCancel={() => setIsGeneratorModalOpen(false)}
+                onLoadGCode={handleLoadGeneratedGCode}
+                unit={unit}
+                settings={machineSettings}
+                toolLibrary={toolLibrary}
+            />
+
             <header className="bg-surface shadow-md p-4 flex justify-between items-center z-10 flex-shrink-0 gap-4">
                 <div className="flex items-center gap-4">
                     <svg
@@ -1188,8 +1204,8 @@ const App: React.FC = () => {
                         machineSettings={machineSettings}
                         toolLibrary={toolLibrary}
                         selectedToolId={selectedToolId}
-                        onToolSelect={setSelectedToolId}
-                        onOpenGenerator={() => {}}
+                        onToolSelect={setSelectedToolId} 
+                        onOpenGenerator={() => setIsGeneratorModalOpen(true)}
                     />
                 </div>
                 <div className="flex flex-col gap-4 overflow-hidden min-h-0">
