@@ -782,6 +782,10 @@ const App = () => {
 
     useEffect(() => {
         const handleKeyDown = (e) => {
+            // Disable hotkeys if any modal is open to prevent accidental machine control.
+            if (isSettingsModalOpen || isToolLibraryModalOpen || isGCodeGeneratorModalOpen || isPreflightModalOpen || isMacroEditorOpen || isWelcomeModalOpen || isContactModalOpen) {
+                return;
+            }
             if (!isConnected) return;
             if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName)) {
                 return;
@@ -855,6 +859,23 @@ const App = () => {
         document.addEventListener('keydown', handleKeyDown);
         return () => document.removeEventListener('keydown', handleKeyDown);
     }, [isConnected, jogStep, handleJog, flashControl, handleEmergencyStop, isAlarm, handleManualCommand, unit]);
+    }, [
+        isConnected, 
+        jogStep, 
+        handleJog, 
+        flashControl, 
+        handleEmergencyStop, 
+        isAlarm, 
+        handleManualCommand, 
+        unit,
+        isSettingsModalOpen,
+        isToolLibraryModalOpen,
+        isGCodeGeneratorModalOpen,
+        isPreflightModalOpen,
+        isMacroEditorOpen,
+        isWelcomeModalOpen,
+        isContactModalOpen
+    ]);
 
     const handleHome = useCallback((axes) => {
         const manager = serialManagerRef.current;
