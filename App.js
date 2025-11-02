@@ -103,7 +103,7 @@ const usePrevious = (value) => {
     return ref.current;
 };
 
-const buildTimestamp = new Date().toISOString().replace('T', ' ').substring(0, 19);
+const buildVersion = import.meta.env.VITE_BUILD_VERSION;
 
 const App = () => {
     const [isConnected, setIsConnected] = useState(false);
@@ -1213,7 +1213,7 @@ const App = () => {
                         '.app'
                     )
                 ),
-                 React.createElement('span', { className: 'text-xs text-text-secondary font-mono pt-1' }, buildTimestamp)
+                 React.createElement('span', { className: 'text-xs text-text-secondary font-mono pt-1' }, buildVersion ? `v${buildVersion}` : 'dev')
             ),
             React.createElement('div', { className: "flex items-center gap-4" },
                  React.createElement('button', {
