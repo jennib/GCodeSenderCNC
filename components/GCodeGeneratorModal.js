@@ -346,7 +346,7 @@ const GCodeGeneratorModal = ({ isOpen, onCancel, onLoadGCode, unit, settings, to
             `(Tool: ${selectedTool.name} - Ø${toolDiameter}${unit})`,
             `(Width: ${width}, Length: ${length}, Depth: ${depth})`,
             `(Stepover: ${stepover}%, Direction: ${direction})`,
-            `T${toolIndex + 1} M6`,
+            // `T${toolIndex + 1} M6`, // Tool change disabled for non-ATC setups
             `G21 G90`, // mm, absolute
             `M3 S${spindle}`,
             `G0 Z${safeZ}`,
@@ -418,7 +418,7 @@ const GCodeGeneratorModal = ({ isOpen, onCancel, onLoadGCode, unit, settings, to
             `(--- Drilling Operation: ${drillType} ---)`,
             `(Tool: ${selectedTool.name})`,
             `(Depth: ${depth}, Peck: ${peck}, Retract: ${retract})`,
-            `T${toolIndex + 1} M6`,
+            // `T${toolIndex + 1} M6`, // Tool change disabled for non-ATC setups
             `G21 G90`, // mm, absolute
             `M3 S${spindle}`,
         ];
@@ -491,7 +491,7 @@ const GCodeGeneratorModal = ({ isOpen, onCancel, onLoadGCode, unit, settings, to
         const code = [
             `(--- Bore/Counterbore Operation ---)`,
             `(Tool: ${selectedTool.name} - Ø${toolDiameter}${unit})`,
-            `T${toolIndex + 1} M6`,
+            // `T${toolIndex + 1} M6`, // Tool change disabled for non-ATC setups
             `G21 G90`,
             `M3 S${spindle}`,
         ];
@@ -542,7 +542,7 @@ const GCodeGeneratorModal = ({ isOpen, onCancel, onLoadGCode, unit, settings, to
         const code = [
             `(--- Pocket Operation: ${shape} ---)`,
             `(Tool: ${selectedTool.name} - Ø${toolDiameter}${unit})`,
-            `T${toolIndex + 1} M6`,
+            // `T${toolIndex + 1} M6`, // Tool change disabled for non-ATC setups
             `G21 G90`, `M3 S${spindle}`, `G0 Z${safeZ}`
         ];
         const paths = [];
@@ -631,7 +631,7 @@ const GCodeGeneratorModal = ({ isOpen, onCancel, onLoadGCode, unit, settings, to
         const code = [
             `(--- Profile Operation: ${shape}, ${cutSide} ---)`,
             `(Tool: ${selectedTool.name} - Ø${toolDiameter}${unit})`,
-            `T${toolIndex + 1} M6`,
+            // `T${toolIndex + 1} M6`, // Tool change disabled for non-ATC setups
             `G21 G90`, `M3 S${spindle}`];
         const paths = [];
         const toolRadius = toolDiameter / 2;
@@ -711,7 +711,7 @@ const GCodeGeneratorModal = ({ isOpen, onCancel, onLoadGCode, unit, settings, to
         const code = [
             `(--- Slot Operation: ${type} ---)`,
             `(Tool: ${selectedTool.name} - Ø${toolDiameter}${unit})`,
-            `T${toolIndex + 1} M6`,
+            // `T${toolIndex + 1} M6`, // Tool change disabled for non-ATC setups
             `G21 G90`, `M3 S${spindle}`
         ];
         const paths = [];
@@ -837,7 +837,7 @@ const GCodeGeneratorModal = ({ isOpen, onCancel, onLoadGCode, unit, settings, to
         code.push(`(--- Text Engraving ---)`);
         code.push(`(Tool: ${selectedTool.name})`);
         code.push(`(Text: ${text}, Font: ${font})`);
-        code.push(`T${toolIndex + 1} M6`);
+        // code.push(`T${toolIndex + 1} M6`); // Tool change disabled for non-ATC setups
         code.push(`G21 G90`);
         code.push(`M3 S${spindle}`);
 
@@ -923,7 +923,7 @@ const GCodeGeneratorModal = ({ isOpen, onCancel, onLoadGCode, unit, settings, to
             `(Type: ${type}, Hand: ${hand})`,
             `(Diameter: ${diameter}, Pitch: ${pitch}, Depth: ${depth})`,
             `(Feed: ${feed}, Spindle: ${spindle})`,
-            `T${toolIndex + 1} M6`,
+            // `T${toolIndex + 1} M6`, // Tool change disabled for non-ATC setups
             `G21 G90`,
             `M3 S${spindle}`,
             `G0 Z${safeZ}`,
