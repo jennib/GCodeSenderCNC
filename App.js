@@ -1305,6 +1305,7 @@ const App = () => {
                     onSetZero: handleSetZero,
                     onSpindleCommand: handleSpindleCommand,
                     onProbe: handleProbe,
+                    onCommand: handleManualCommand,
                     jogStep: jogStep,
                     onStepChange: setJogStep,
                     flashingButton: flashingButton,
