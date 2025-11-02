@@ -16,12 +16,12 @@ import ToolLibraryModal from './components/ToolLibraryModal.js';
 import { NotificationContainer } from './components/Notification.js';
 import ThemeToggle from './components/ThemeToggle.js';
 import StatusBar from './components/StatusBar.js';
-import { AlertTriangle, OctagonAlert, Unlock, Settings, Maximize, Minimize } from './components/Icons';
+import { AlertTriangle, OctagonAlert, Unlock, Settings, Maximize, Minimize, BookOpen } from './components/Icons';
 import { estimateGCodeTime } from './services/gcodeTimeEstimator.js';
 import { analyzeGCode } from './services/gcodeAnalyzer.js';
 import { Analytics } from '@vercel/analytics/react';
 import Footer from './components/Footer.js';
-import ContactModal from './components/ContactModal';
+import ContactModal from './components/ContactModal.js';
 import UnsupportedBrowser from './components/UnsupportedBrowser.js';
 
 const GRBL_ALARM_CODES: { [key: number | string]: { name: string; desc: string; resolution: string } } = {
@@ -108,7 +108,7 @@ const buildTimestamp = new Date().toISOString().replace('T', ' ').substring(0, 1
 
 const App: React.FC = () => {
     // FIX: Initialize `isConnected` state with `false`.
-    const [isConnected, setIsConnected] = useState(false);
+    const [isConnected, setIsConnected] = useState<boolean>(false);
     const [isSimulatedConnection, setIsSimulatedConnection] = useState(false);
     const [portInfo, setPortInfo] = useState(null);
     const [gcodeLines, setGcodeLines] = useState<string[]>([]);
@@ -1064,7 +1064,7 @@ const App: React.FC = () => {
             <header className="bg-surface shadow-md p-4 flex justify-between items-center z-10 flex-shrink-0 gap-4">
                 <div className="flex items-center gap-4">
                     <svg
-                        viewBox="0 0 400 100"
+                        viewBox="0 0 420 100"
                         className="h-8 w-auto"
                         aria-label="mycnc.app logo"
                     >
@@ -1096,6 +1096,11 @@ const App: React.FC = () => {
                     >
                         {isFullscreen ? <Minimize className='w-5 h-5' /> : <Maximize className='w-5 h-5' />}
                     </button>
+                    <button
+                        onClick={() => setIsToolLibraryModalOpen(true)}
+                        title="Tool Library"
+                        className="p-2 rounded-md bg-secondary text-text-primary hover:bg-secondary-focus focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-surface"
+                    ><BookOpen className='w-5 h-5' /></button>
                     <button
                         onClick={() => setIsSettingsModalOpen(true)}
                         title="Machine Settings"
@@ -1184,6 +1189,7 @@ const App: React.FC = () => {
                         toolLibrary={toolLibrary}
                         selectedToolId={selectedToolId}
                         onToolSelect={setSelectedToolId}
+                        onOpenGenerator={() => {}}
                     />
                 </div>
                 <div className="flex flex-col gap-4 overflow-hidden min-h-0">
@@ -1195,6 +1201,7 @@ const App: React.FC = () => {
                         onSetZero={handleSetZero}
                         onSpindleCommand={handleSpindleCommand}
                         onProbe={handleProbe}
+                        onCommand={handleManualCommand}
                         jogStep={jogStep}
                         onStepChange={setJogStep}
                         flashingButton={flashingButton}
@@ -1226,7 +1233,7 @@ const App: React.FC = () => {
                     />
                 </div>
             </main>
-            <Footer onContactClick={() => setIsContactModalOpen(true)} />
+            <Footer onContactClick={() => setIsContactModalOpen(false)} />
         </div>
     );
 };
