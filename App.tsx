@@ -1086,7 +1086,7 @@ const App: React.FC = () => {
                             <tspan style={{fill: 'var(--color-primary)'}}>mycnc</tspan>.app
                         </text>
                     </svg>
-                    <span className='text-xs text-text-secondary font-mono pt-1'>{buildTimestamp}</span>
+                    <span className='text-xs text-text-secondary font-mono pt-1'>v235</span>
                 </div>
                 <div className="flex items-center gap-4">
                     <button
