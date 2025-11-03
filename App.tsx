@@ -768,13 +768,13 @@ const App: React.FC = () => {
             };
 
             if (axes.includes('X') && offsets.x !== undefined) {
-                await probeAxis('X', offsets.x);
+                await probeAxis('X', offsets.x, -1);
             }
             if (axes.includes('Y') && offsets.y !== undefined) {
-                await probeAxis('Y', offsets.y);
+                await probeAxis('Y', offsets.y, -1);
             }
             if (axes.includes('Z') && offsets.z !== undefined) {
-                await probeAxis('Z', offsets.z);
+                await probeAxis('Z', offsets.z, 1);
             }
     
             addLog({ type: 'status', message: 'Probe cycle complete.' });

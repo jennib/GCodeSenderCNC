@@ -177,6 +177,7 @@ interface GCodeVisualizerProps {
     gcodeLines: string[];
     currentLine: number;
     machineSettings: MachineSettings;
+    unit: 'mm' | 'in';
 }
 
 export interface GCodeVisualizerHandle {
@@ -186,7 +187,7 @@ export interface GCodeVisualizerHandle {
     resetView: () => void;
 }
 
-const GCodeVisualizer = React.forwardRef<GCodeVisualizerHandle, GCodeVisualizerProps>(({ gcodeLines, currentLine, machineSettings }, ref) => {
+const GCodeVisualizer = React.forwardRef<GCodeVisualizerHandle, GCodeVisualizerProps>(({ gcodeLines, currentLine, machineSettings, unit }, ref) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const glRef = useRef<WebGLRenderingContext | null>(null);
     const programInfoRef = useRef<any>(null);

@@ -3,7 +3,7 @@
 
 import React, { useRef, useState, useEffect, DragEvent } from 'react';
 import { JobStatus, MachineState, Tool, MachineSettings } from '../types';
-import { Play, Pause, Square, Upload, FileText, Code, Eye, Maximize, Pencil, CheckCircle, X, Save, Plus, Minus, RefreshCw, Percent, ZoomIn, ZoomOut, Clock, BookOpen, Crosshair, Zap } from './Icons.js';
+import { Play, Pause, Square, Upload, FileText, Code, Eye, Maximize, Pencil, CheckCircle, X, Save, Plus, Minus, RefreshCw, Percent, ZoomIn, ZoomOut, Clock, BookOpen, Crosshair, Zap } from './Icons';
 import GCodeVisualizer, { GCodeVisualizerHandle } from './GCodeVisualizer';
 import GCodeLine from './GCodeLine';
 

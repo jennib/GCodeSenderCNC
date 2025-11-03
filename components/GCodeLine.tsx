@@ -1,6 +1,6 @@
 import React from 'react';
 import Tooltip from './Tooltip';
-import { Play } from './Icons.js';
+import { Play } from './Icons';
 
 const GCODE_DEFINITIONS = {
     // G-Codes
