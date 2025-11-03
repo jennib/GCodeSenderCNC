@@ -1,14 +1,20 @@
 import React from 'react';
 import { PowerOff, RotateCw, RotateCcw, OctagonAlert } from './Icons';
+import { MachineState } from '../types';
 
-const StatusIndicator = ({ isConnected, machineState }) => {
+interface StatusIndicatorProps {
+    isConnected: boolean;
+    machineState: MachineState | null;
+}
+
+const StatusIndicator: React.FC<StatusIndicatorProps> = ({ isConnected, machineState }) => {
     const getStatusIndicatorClass = () => {
         if (!isConnected) return 'bg-accent-yellow/20 text-accent-yellow';
         if (machineState?.status === 'Alarm') return 'bg-accent-red/20 text-accent-red';
         return 'bg-accent-green/20 text-accent-green';
     };
 
-    const statusText = isConnected 
+    const statusText = isConnected
         ? (machineState?.status === 'Home' ? 'Homing' : machineState?.status || 'Connected') 
         : 'Disconnected';
 
@@ -20,7 +26,12 @@ const StatusIndicator = ({ isConnected, machineState }) => {
     );
 };
 
-const SpindleStatusIndicator = ({ machineState, isConnected }) => {
+interface SpindleStatusIndicatorProps {
+    machineState: MachineState | null;
+    isConnected: boolean;
+}
+
+const SpindleStatusIndicator: React.FC<SpindleStatusIndicatorProps> = ({ machineState, isConnected }) => {
     if (!isConnected) {
         return (
             <div className="flex items-center gap-2 text-sm text-text-secondary">
@@ -55,9 +66,14 @@ const SpindleStatusIndicator = ({ machineState, isConnected }) => {
     );
 };
 
-const formatCoordinate = (val) => val?.toFixed(3) ?? '0.000';
+const formatCoordinate = (val: number | undefined | null) => val?.toFixed(3) ?? '0.000';
 
-const PositionDisplay = ({ title, pos, unit }) => (
+interface PositionDisplayProps {
+    title: string;
+    pos: { x: number; y: number; z: number } | null | undefined;
+    unit: 'mm' | 'in';
+}
+const PositionDisplay: React.FC<PositionDisplayProps> = ({ title, pos, unit }) => (
     <div className="flex items-center gap-3">
         <h4 className="text-sm font-bold text-text-secondary">{title}</h4>
         <div className="flex gap-3 text-center font-mono bg-background px-2 py-1 rounded-md text-sm">
@@ -69,7 +85,15 @@ const PositionDisplay = ({ title, pos, unit }) => (
     </div>
 );
 
-const StatusBar = ({ isConnected, machineState, unit, onEmergencyStop, flashingButton }) => (
+interface StatusBarProps {
+    isConnected: boolean;
+    machineState: MachineState | null;
+    unit: 'mm' | 'in';
+    onEmergencyStop: () => void;
+    flashingButton: string | null;
+}
+
+const StatusBar: React.FC<StatusBarProps> = ({ isConnected, machineState, unit, onEmergencyStop, flashingButton }) => (
     <div className="bg-surface/50 border-b border-t border-secondary shadow-sm p-2 flex justify-between items-center z-10 flex-shrink-0 gap-4">
         <div className="flex items-center gap-6">
             <StatusIndicator isConnected={isConnected} machineState={machineState} />

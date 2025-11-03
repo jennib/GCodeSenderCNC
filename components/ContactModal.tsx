@@ -28,7 +28,7 @@ const ContactModal: React.FC<ContactModalProps> = ({ isOpen, onClose }) => {
         }
         setError('');
 
-        const subject = encodeURIComponent("Contact from CNC Sender App");
+        const subject = encodeURIComponent("Contact from mycnc.app");
         const body = encodeURIComponent(
 `Name: ${name}
 Email: ${email}

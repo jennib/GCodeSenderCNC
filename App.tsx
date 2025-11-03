@@ -17,7 +17,7 @@ import SettingsModal from './components/SettingsModal.jsx';
 import ToolLibraryModal from './components/ToolLibraryModal.jsx';
 import { NotificationContainer } from './components/Notification.jsx';
 import ThemeToggle from './components/ThemeToggle';
-import StatusBar from './components/StatusBar.jsx';
+import StatusBar from './components/StatusBar';
 import { AlertTriangle, OctagonAlert, Unlock, Settings, Maximize, Minimize, BookOpen } from './components/Icons';
 import { estimateGCodeTime } from './services/gcodeTimeEstimator.js';
 import { analyzeGCode } from './services/gcodeAnalyzer.js';
