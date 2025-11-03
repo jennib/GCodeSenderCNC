@@ -383,6 +383,12 @@ const App: React.FC = () => {
     const addLog = useCallback((log: { type: string, message: string }) => {
         let processedLog = { ...log, timestamp: new Date() };
 
+        // Filter out GRBL status reports unless in verbose mode.
+        // These start with '<' and end with '>'.
+        if (!isVerbose && processedLog.type === 'received' && processedLog.message.startsWith('<') && processedLog.message.endsWith('>')) {
+            return; // Don't add the log
+        }
+
         // Add explanation for GRBL errors, preserving the original message context.
         if (processedLog.type === 'error' && processedLog.message.includes('error:')) {
             const codeMatch = processedLog.message.match(/error:(\d+)/);
@@ -496,9 +502,9 @@ const App: React.FC = () => {
             },
             onStatus: (status: MachineState, rawStatus?: string) => {
                 setMachineState(status);
-                if (isVerbose && rawStatus) {
-                    addLog({ type: 'status', message: rawStatus });
-                }
+                // Always send the raw status to addLog.
+                // addLog itself will filter it based on the current isVerbose state.
+                addLog({ type: 'received', message: rawStatus || '' });
             }
         };
 
@@ -515,7 +521,7 @@ const App: React.FC = () => {
             setError(`Failed to connect: ${errorMessage}`);
             addLog({ type: 'error', message: `Failed to connect: ${errorMessage}` });
         }
-    }, [addLog, isSerialApiSupported, useSimulator, addNotification, playCompletionSound, machineSettings.scripts.startup, isVerbose]);
+    }, [addLog, isSerialApiSupported, useSimulator, addNotification, playCompletionSound, machineSettings.scripts.startup]);
 
     const handleDisconnect = useCallback(async () => {
         if (jobStatus === JobStatus.Running || jobStatus === JobStatus.Paused) {
