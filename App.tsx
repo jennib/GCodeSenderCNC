@@ -138,6 +138,7 @@ const App: React.FC = () => {
     const [isWelcomeModalOpen, setIsWelcomeModalOpen] = useState(false);
     const [isFullscreen, setIsFullscreen] = useState(false);
 
+
     // Macro Editing State
     const [isMacroEditorOpen, setIsMacroEditorOpen] = useState(false);
     const [editingMacroIndex, setEditingMacroIndex] = useState<number | null>(null);
@@ -151,6 +152,7 @@ const App: React.FC = () => {
     const [selectedToolId, setSelectedToolId] = useState<number | null>(null);
     const [isVerbose, setIsVerbose] = useState(false);
 
+    const [returnToWelcome, setReturnToWelcome] = useState(false);
 
     // Persisted State
     const [jogStep, setJogStep] = useState(() => {
@@ -336,11 +338,15 @@ const App: React.FC = () => {
     }, [addNotification]);
     
     useEffect(() => {
+        const isMachineSetupComplete = machineSettings.workArea.x > 0 && machineSettings.workArea.y > 0;
+        const isToolLibrarySetupComplete = toolLibrary.length > 0;
         const hasSeenWelcome = localStorage.getItem('cnc-app-seen-welcome');
-        if (!hasSeenWelcome) {
+        
+        // Show welcome modal if setup is incomplete and it hasn't been permanently dismissed.
+        if (hasSeenWelcome !== 'true' && (!isMachineSetupComplete || !isToolLibrarySetupComplete)) {
             setIsWelcomeModalOpen(true);
         }
-    }, []);
+    }, []); // Run only once on initial mount
 
     useEffect(() => {
         const onFullscreenChange = () => {
@@ -1034,15 +1040,23 @@ const App: React.FC = () => {
             <WelcomeModal
                 isOpen={isWelcomeModalOpen}
                 onClose={() => {
-                    setIsWelcomeModalOpen(false);
-                    localStorage.setItem('cnc-app-seen-welcome', 'true');
+                    const isMachineSetupComplete = machineSettings.workArea.x > 0 && machineSettings.workArea.y > 0;
+                    const isToolLibrarySetupComplete = toolLibrary.length > 0;
+                    if (isMachineSetupComplete && isToolLibrarySetupComplete) {
+                        setIsWelcomeModalOpen(false);
+                        localStorage.setItem('cnc-app-seen-welcome', 'true');
+                    } else {
+                        addNotification("Please complete all setup tasks to dismiss this window.", "info");
+                    }
                 }}
                 onOpenSettings={() => {
                     setIsWelcomeModalOpen(false);
+                    setReturnToWelcome(true);
                     setIsSettingsModalOpen(true);
                 }}
                 onOpenToolLibrary={() => {
                     setIsWelcomeModalOpen(false);
+                    setReturnToWelcome(true);
                     setIsToolLibraryModalOpen(true);
                 }}
                 isMachineSetupComplete={machineSettings.workArea.x > 0 && machineSettings.workArea.y > 0}
@@ -1076,7 +1090,13 @@ const App: React.FC = () => {
             
             <SettingsModal
                 isOpen={isSettingsModalOpen}
-                onCancel={() => setIsSettingsModalOpen(false)}
+                onCancel={() => {
+                    setIsSettingsModalOpen(false);
+                    if (returnToWelcome) {
+                        setIsWelcomeModalOpen(true);
+                        setReturnToWelcome(false);
+                    }
+                }}
                 onSave={setMachineSettings}
                 settings={machineSettings}
                 onResetDialogs={() => {
@@ -1089,7 +1109,13 @@ const App: React.FC = () => {
             />
             <ToolLibraryModal
                 isOpen={isToolLibraryModalOpen}
-                onCancel={() => setIsToolLibraryModalOpen(false)}
+                onCancel={() => {
+                    setIsToolLibraryModalOpen(false);
+                    if (returnToWelcome) {
+                        setIsWelcomeModalOpen(true);
+                        setReturnToWelcome(false);
+                    }
+                }}
                 onSave={setToolLibrary}
                 library={toolLibrary}
             />
@@ -1143,7 +1169,10 @@ const App: React.FC = () => {
                         className="p-2 rounded-md bg-secondary text-text-primary hover:bg-secondary-focus focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-surface"
                     ><BookOpen className='w-5 h-5' /></button>
                     <button
-                        onClick={() => setIsSettingsModalOpen(true)}
+                        onClick={() => {
+                            setReturnToWelcome(false);
+                            setIsSettingsModalOpen(true);
+                        }}
                         title="Machine Settings"
                         className="p-2 rounded-md bg-secondary text-text-primary hover:bg-secondary-focus focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-surface"
                     >
