@@ -1321,7 +1321,7 @@ const App: React.FC = () => {
                         onOpenEditor={handleOpenMacroEditor}
                         isEditMode={isMacroEditMode}
                         onToggleEditMode={() => setIsMacroEditMode(prev => !prev)}
-                        disabled={isAnyControlLocked}
+                        disabled={isJobActive}
                     />
                     <Console
                         logs={consoleLogs}
