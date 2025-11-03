@@ -1,28 +1,32 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Save, X, Upload, Download } from './Icons';
 
-const h = React.createElement;
-
-const InputGroup = ({ label, children }) => h('div', null,
-    h('label', { className: 'block text-sm font-bold text-text-secondary mb-2' }, label),
-    h('div', { className: 'flex items-center gap-2' }, children)
+const InputGroup = ({ label, children }) => (
+    <div>
+        <label className="block text-sm font-bold text-text-secondary mb-2">{label}</label>
+        <div className="flex items-center gap-2">{children}</div>
+    </div>
 );
 
-const NumberInput = ({ id, value, onChange, unit }) => h('div', { className: 'relative flex-grow' },
-    h('input', {
-        id, type: 'number', value, onChange,
-        className: 'w-full bg-background border border-secondary rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary'
-    }),
-    unit && h('span', { className: 'absolute right-3 top-1/2 -translate-y-1/2 text-sm text-text-secondary' }, unit)
+const NumberInput = ({ id, value, onChange, unit }) => (
+    <div className="relative flex-grow">
+        <input
+            id={id} type="number" value={value} onChange={onChange}
+            className="w-full bg-background border border-secondary rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+        />
+        {unit && <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-text-secondary">{unit}</span>}
+    </div>
 );
 
-const ScriptInput = ({ label, value, onChange, placeholder }) => h('div', null,
-    h('label', { className: 'block text-sm font-medium text-text-secondary mb-1' }, label),
-    h('textarea', {
-        value, onChange, rows: 4, placeholder,
-        className: 'w-full bg-background border border-secondary rounded-md py-2 px-3 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary',
-        spellCheck: 'false'
-    })
+const ScriptInput = ({ label, value, onChange, placeholder }) => (
+    <div>
+        <label className="block text-sm font-medium text-text-secondary mb-1">{label}</label>
+        <textarea
+            value={value} onChange={onChange} rows={4} placeholder={placeholder}
+            className="w-full bg-background border border-secondary rounded-md py-2 px-3 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+            spellCheck="false"
+        />
+    </div>
 );
 
 const SettingsModal = ({ isOpen, onCancel, onSave, settings, onResetDialogs, onExport, onImport }) => {
@@ -103,81 +107,82 @@ const SettingsModal = ({ isOpen, onCancel, onSave, settings, onResetDialogs, onE
         event.target.value = null; // Reset file input
     };
 
-    return h('div', {
-        className: 'fixed inset-0 bg-background/80 backdrop-blur-sm z-40 flex items-center justify-center',
-        onClick: onCancel, 'aria-modal': true, role: 'dialog'
-    },
-        h('div', {
-            className: 'bg-surface rounded-lg shadow-2xl w-full max-w-2xl border border-secondary transform transition-all max-h-[90vh] flex flex-col',
-            onClick: e => e.stopPropagation()
-        },
-            h('div', { className: 'p-6 border-b border-secondary flex justify-between items-center flex-shrink-0' },
-                h('h2', { className: 'text-2xl font-bold text-text-primary' }, 'Machine Settings'),
-                h('button', { onClick: onCancel, className: "p-1 rounded-md text-text-secondary hover:text-text-primary hover:bg-secondary" }, h(X, { className: 'w-6 h-6' }))
-            ),
-            h('div', { className: 'p-6 space-y-6 overflow-y-auto' },
-                h('div', { className: 'grid grid-cols-1 md:grid-cols-2 gap-6' },
-                    h('div', { className: 'space-y-4 bg-background p-4 rounded-md' },
-                        h(InputGroup, { label: 'Work Area Dimensions (mm)' },
-                            h(NumberInput, { id: 'work-x', value: localSettings.workArea.x, onChange: e => handleNestedNumericChange('workArea', 'x', e.target.value), unit: 'X' }),
-                            h(NumberInput, { id: 'work-y', value: localSettings.workArea.y, onChange: e => handleNestedNumericChange('workArea', 'y', e.target.value), unit: 'Y' }),
-                            h(NumberInput, { id: 'work-z', value: localSettings.workArea.z, onChange: e => handleNestedNumericChange('workArea', 'z', e.target.value), unit: 'Z' })
-                        ),
-                        h(InputGroup, { label: 'Spindle Speed Range (RPM)' },
-                            h(NumberInput, { id: 'spindle-min', value: localSettings.spindle.min, onChange: e => handleNestedNumericChange('spindle', 'min', e.target.value), unit: 'Min' }),
-                            h(NumberInput, { id: 'spindle-max', value: localSettings.spindle.max, onChange: e => handleNestedNumericChange('spindle', 'max', e.target.value), unit: 'Max' })
-                        ),
-                        h(InputGroup, { label: 'Probe Offsets (mm)' },
-                             h(NumberInput, { id: 'probe-x', value: localSettings.probe.xOffset, onChange: e => handleNestedNumericChange('probe', 'xOffset', e.target.value), unit: 'X Offset' }),
-                             h(NumberInput, { id: 'probe-y', value: localSettings.probe.yOffset, onChange: e => handleNestedNumericChange('probe', 'yOffset', e.target.value), unit: 'Y Offset' }),
-                             h(NumberInput, { id: 'probe-z', value: localSettings.probe.zOffset, onChange: e => handleNestedNumericChange('probe', 'zOffset', e.target.value), unit: 'Z Offset' })
-                        ),
-                        h(InputGroup, { label: 'Probe Feed Rate'},
-                            h(NumberInput, { id: 'probe-feed', value: localSettings.probe.feedRate, onChange: e => handleNestedNumericChange('probe', 'feedRate', e.target.value), unit: 'mm/min' })
-                        )
-                    ),
-                    h('div', { className: 'space-y-4 bg-background p-4 rounded-md' },
-                        h('h3', { className: 'text-sm font-bold text-text-secondary mb-2' }, 'Custom G-Code Scripts'),
-                        h(ScriptInput, { label: 'Startup Script (on connect)', value: localSettings.scripts.startup, onChange: e => handleScriptChange('startup', e.target.value), placeholder: 'e.g., G21 G90' }),
-                        h(ScriptInput, { label: 'Tool Change Script', value: localSettings.scripts.toolChange, onChange: e => handleScriptChange('toolChange', e.target.value), placeholder: 'e.g., M5 G0 Z10' }),
-                        h(ScriptInput, { label: 'Shutdown Script (on disconnect)', value: localSettings.scripts.shutdown, onChange: e => handleScriptChange('shutdown', e.target.value), placeholder: 'e.g., M5 G0 X0 Y0' })
-                    )
-                ),
-                h('div', { className: 'bg-background p-4 rounded-md' },
-                    h('h3', { className: 'text-sm font-bold text-text-secondary mb-2' }, 'Configuration'),
-                    h('div', { className: 'flex items-center justify-between' },
-                        h('p', { className: 'text-sm' }, 'Export/Import all settings, macros, and tools.'),
-                        h('div', { className: 'flex gap-2' },
-                            h('input', { type: 'file', ref: importFileRef, className: 'hidden', accept: '.json', onChange: handleFileImport }),
-                            h('button', {
-                                onClick: () => importFileRef.current.click(),
-                                className: 'flex items-center gap-2 px-4 py-2 bg-secondary text-white text-sm font-semibold rounded-md hover:bg-secondary-focus'
-                            }, h(Upload, { className: 'w-4 h-4' }), 'Import'),
-                            h('button', {
-                                onClick: onExport,
-                                className: 'flex items-center gap-2 px-4 py-2 bg-secondary text-white text-sm font-semibold rounded-md hover:bg-secondary-focus'
-                            }, h(Download, { className: 'w-4 h-4' }), 'Export')
-                        )
-                    )
-                ),
-                h('div', { className: 'bg-background p-4 rounded-md' },
-                    h('h3', { className: 'text-sm font-bold text-text-secondary mb-2' }, 'Interface Settings'),
-                    h('div', { className: 'flex items-center justify-between' },
-                        h('p', { className: 'text-sm' }, 'Reset "Don\'t show again" dialogs.'),
-                        h('button', {
-                            onClick: onResetDialogs,
-                            className: 'px-4 py-2 bg-secondary text-white text-sm font-semibold rounded-md hover:bg-secondary-focus focus:outline-none focus:ring-2 focus:ring-secondary'
-                        }, 'Reset Dialogs')
-                    )
-                )
-            ),
-            h('div', { className: 'bg-background px-6 py-4 flex justify-end items-center rounded-b-lg flex-shrink-0' },
-                h('div', { className: 'flex items-center gap-4' },
-                    h('button', { onClick: onCancel, className: 'px-4 py-2 bg-secondary text-white font-semibold rounded-md hover:bg-secondary-focus' }, 'Cancel'),
-                    h('button', { onClick: handleSave, className: 'px-6 py-2 bg-primary text-white font-bold rounded-md hover:bg-primary-focus flex items-center gap-2' }, h(Save, { className: 'w-5 h-5' }), 'Save Settings')
-                )
-            )
-        )
+    return (
+        <div
+            className="fixed inset-0 bg-background/80 backdrop-blur-sm z-40 flex items-center justify-center"
+            onClick={onCancel} aria-modal="true" role="dialog"
+        >
+            <div
+                className="bg-surface rounded-lg shadow-2xl w-full max-w-2xl border border-secondary transform transition-all max-h-[90vh] flex flex-col"
+                onClick={e => e.stopPropagation()}
+            >
+                <div className="p-6 border-b border-secondary flex justify-between items-center flex-shrink-0">
+                    <h2 className="text-2xl font-bold text-text-primary">Machine Settings</h2>
+                    <button onClick={onCancel} className="p-1 rounded-md text-text-secondary hover:text-text-primary hover:bg-secondary"><X className="w-6 h-6" /></button>
+                </div>
+                <div className="p-6 space-y-6 overflow-y-auto">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-4 bg-background p-4 rounded-md">
+                            <InputGroup label="Work Area Dimensions (mm)">
+                                <NumberInput id="work-x" value={localSettings.workArea.x} onChange={e => handleNestedNumericChange('workArea', 'x', e.target.value)} unit="X" />
+                                <NumberInput id="work-y" value={localSettings.workArea.y} onChange={e => handleNestedNumericChange('workArea', 'y', e.target.value)} unit="Y" />
+                                <NumberInput id="work-z" value={localSettings.workArea.z} onChange={e => handleNestedNumericChange('workArea', 'z', e.target.value)} unit="Z" />
+                            </InputGroup>
+                            <InputGroup label="Spindle Speed Range (RPM)">
+                                <NumberInput id="spindle-min" value={localSettings.spindle.min} onChange={e => handleNestedNumericChange('spindle', 'min', e.target.value)} unit="Min" />
+                                <NumberInput id="spindle-max" value={localSettings.spindle.max} onChange={e => handleNestedNumericChange('spindle', 'max', e.target.value)} unit="Max" />
+                            </InputGroup>
+                            <InputGroup label="Probe Offsets (mm)">
+                                <NumberInput id="probe-x" value={localSettings.probe.xOffset} onChange={e => handleNestedNumericChange('probe', 'xOffset', e.target.value)} unit="X Offset" />
+                                <NumberInput id="probe-y" value={localSettings.probe.yOffset} onChange={e => handleNestedNumericChange('probe', 'yOffset', e.target.value)} unit="Y Offset" />
+                                <NumberInput id="probe-z" value={localSettings.probe.zOffset} onChange={e => handleNestedNumericChange('probe', 'zOffset', e.target.value)} unit="Z Offset" />
+                            </InputGroup>
+                            <InputGroup label="Probe Feed Rate">
+                                <NumberInput id="probe-feed" value={localSettings.probe.feedRate} onChange={e => handleNestedNumericChange('probe', 'feedRate', e.target.value)} unit="mm/min" />
+                            </InputGroup>
+                        </div>
+                        <div className="space-y-4 bg-background p-4 rounded-md">
+                            <h3 className="text-sm font-bold text-text-secondary mb-2">Custom G-Code Scripts</h3>
+                            <ScriptInput label="Startup Script (on connect)" value={localSettings.scripts.startup} onChange={e => handleScriptChange('startup', e.target.value)} placeholder="e.g., G21 G90" />
+                            <ScriptInput label="Tool Change Script" value={localSettings.scripts.toolChange} onChange={e => handleScriptChange('toolChange', e.target.value)} placeholder="e.g., M5 G0 Z10" />
+                            <ScriptInput label="Shutdown Script (on disconnect)" value={localSettings.scripts.shutdown} onChange={e => handleScriptChange('shutdown', e.target.value)} placeholder="e.g., M5 G0 X0 Y0" />
+                        </div>
+                    </div>
+                    <div className="bg-background p-4 rounded-md">
+                        <h3 className="text-sm font-bold text-text-secondary mb-2">Configuration</h3>
+                        <div className="flex items-center justify-between">
+                            <p className="text-sm">Export/Import all settings, macros, and tools.</p>
+                            <div className="flex gap-2">
+                                <input type="file" ref={importFileRef} className="hidden" accept=".json" onChange={handleFileImport} />
+                                <button onClick={() => importFileRef.current.click()} className="flex items-center gap-2 px-4 py-2 bg-secondary text-white text-sm font-semibold rounded-md hover:bg-secondary-focus">
+                                    <Upload className="w-4 h-4" />Import
+                                </button>
+                                <button onClick={onExport} className="flex items-center gap-2 px-4 py-2 bg-secondary text-white text-sm font-semibold rounded-md hover:bg-secondary-focus">
+                                    <Download className="w-4 h-4" />Export
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="bg-background p-4 rounded-md">
+                        <h3 className="text-sm font-bold text-text-secondary mb-2">Interface Settings</h3>
+                        <div className="flex items-center justify-between">
+                            <p className="text-sm">Reset "Don't show again" dialogs.</p>
+                            <button onClick={onResetDialogs} className="px-4 py-2 bg-secondary text-white text-sm font-semibold rounded-md hover:bg-secondary-focus focus:outline-none focus:ring-2 focus:ring-secondary">
+                                Reset Dialogs
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div className="bg-background px-6 py-4 flex justify-end items-center rounded-b-lg flex-shrink-0">
+                    <div className="flex items-center gap-4">
+                        <button onClick={onCancel} className="px-4 py-2 bg-secondary text-white font-semibold rounded-md hover:bg-secondary-focus">Cancel</button>
+                        <button onClick={handleSave} className="px-6 py-2 bg-primary text-white font-bold rounded-md hover:bg-primary-focus flex items-center gap-2">
+                            <Save className="w-5 h-5" />Save Settings
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
     );
 };
 

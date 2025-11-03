@@ -694,9 +694,9 @@ const GCodeVisualizer = React.forwardRef(({ gcodeLines, currentLine, hoveredLine
     }, []);
 
 
-    return React.createElement('div', { className: "w-full h-full bg-background rounded cursor-grab active:cursor-grabbing" },
-        React.createElement('canvas', { ref: canvasRef, className: "w-full h-full" })
-    );
+    return <div className="w-full h-full bg-background rounded cursor-grab active:cursor-grabbing">
+        <canvas ref={canvasRef} className="w-full h-full" />
+    </div>;
 });
 
 export default GCodeVisualizer;

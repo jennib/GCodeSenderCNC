@@ -135,6 +135,7 @@ const App: React.FC = () => {
     const [isHomedSinceConnect, setIsHomedSinceConnect] = useState(false);
     const [isMacroRunning, setIsMacroRunning] = useState(false);
     const [preflightWarnings, setPreflightWarnings] = useState<any[]>([]);
+    const [isWelcomeModalOpen, setIsWelcomeModalOpen] = useState(false);
     const [isFullscreen, setIsFullscreen] = useState(false);
 
     // Macro Editing State
@@ -1036,8 +1037,14 @@ const App: React.FC = () => {
                     setIsWelcomeModalOpen(false);
                     localStorage.setItem('cnc-app-seen-welcome', 'true');
                 }}
-                onOpenSettings={() => setIsSettingsModalOpen(true)}
-                onOpenToolLibrary={() => setIsToolLibraryModalOpen(true)}
+                onOpenSettings={() => {
+                    setIsWelcomeModalOpen(false);
+                    setIsSettingsModalOpen(true);
+                }}
+                onOpenToolLibrary={() => {
+                    setIsWelcomeModalOpen(false);
+                    setIsToolLibraryModalOpen(true);
+                }}
                 isMachineSetupComplete={machineSettings.workArea.x > 0 && machineSettings.workArea.y > 0}
                 isToolLibrarySetupComplete={toolLibrary.length > 0}
             />

@@ -1113,200 +1113,204 @@ const GCodeGeneratorModal = ({ isOpen, onCancel, onLoadGCode, unit, settings, to
     
     if (!isOpen) return null;
     
-    const renderSurfaceForm = () => h('div', { className: 'space-y-4' },
-        h(ToolSelector, { selectedId: surfaceParams.toolId, onChange: (id) => setSurfaceParams(p => ({ ...p, toolId: id })), unit, toolLibrary }),
-        h('hr', { className: 'border-secondary' }),
-        h('div', { className: 'grid grid-cols-2 gap-4' },
-             h(Input, { label: `Width (X)`, value: surfaceParams.width, onChange: e => handleParamChange(setSurfaceParams, surfaceParams, 'width', e.target.value), unit }),
-             h(Input, { label: `Length (Y)`, value: surfaceParams.length, onChange: e => handleParamChange(setSurfaceParams, surfaceParams, 'length', e.target.value), unit })
-        ),
-        h(RadioGroup, {
-            label: 'Milling Direction',
-            options: [
+   const renderSurfaceForm = () => <div className='space-y-4'>
+        <ToolSelector selectedId={surfaceParams.toolId} onChange={(id) => setSurfaceParams(p => ({ ...p, toolId: id }))} unit={unit} toolLibrary={toolLibrary} />
+        <hr className='border-secondary' />
+        <div className='grid grid-cols-2 gap-4'>
+             <Input label={`Width (X)`} value={surfaceParams.width} onChange={e => handleParamChange(setSurfaceParams, surfaceParams, 'width', e.target.value)} unit={unit} />
+             <Input label={`Length (Y)`} value={surfaceParams.length} onChange={e => handleParamChange(setSurfaceParams, surfaceParams, 'length', e.target.value)} unit={unit} />
+        </div>
+        <RadioGroup
+            label='Milling Direction'
+            options={[
                 { value: 'horizontal', label: 'Horizontal (X)' },
                 { value: 'vertical', label: 'Vertical (Y)' }
-            ],
-            selected: surfaceParams.direction,
-            onChange: val => setSurfaceParams(p => ({ ...p, direction: val }))
-        }),
-        h(Input, { label: 'Final Depth', value: surfaceParams.depth, onChange: e => handleParamChange(setSurfaceParams, surfaceParams, 'depth', e.target.value), unit, help: 'Should be negative' }),
-        h(Input, { label: 'Stepover', value: surfaceParams.stepover, onChange: e => handleParamChange(setSurfaceParams, surfaceParams, 'stepover', e.target.value), unit: '%' }),
-        h(SpindleAndFeedControls, { params: surfaceParams, onParamChange: (field, value) => handleParamChange(setSurfaceParams, surfaceParams, field, value), unit })
-    );
+            ]}
+            selected={surfaceParams.direction}
+            onChange={val => setSurfaceParams(p => ({ ...p, direction: val }))}
+        />
+        <Input label='Final Depth' value={surfaceParams.depth} onChange={e => handleParamChange(setSurfaceParams, surfaceParams, 'depth', e.target.value)} unit={unit} help='Should be negative' />
+        <Input label='Stepover' value={surfaceParams.stepover} onChange={e => handleParamChange(setSurfaceParams, surfaceParams, 'stepover', e.target.value)} unit='%' />
+        <SpindleAndFeedControls params={surfaceParams} onParamChange={(field, value) => handleParamChange(setSurfaceParams, surfaceParams, field, value)} unit={unit} />
+    </div>;
     
-    const renderDrillForm = () => h('div', { className: 'space-y-4' },
-        h(ToolSelector, { selectedId: drillParams.toolId, onChange: (id) => setDrillParams(p => ({ ...p, toolId: id })), unit, toolLibrary }),
-        h('hr', { className: 'border-secondary' }),
-        h(RadioGroup, { options: [
+ const renderDrillForm = () => <div className='space-y-4'>
+        <ToolSelector selectedId={drillParams.toolId} onChange={(id) => setDrillParams(p => ({ ...p, toolId: id }))} unit={unit} toolLibrary={toolLibrary} />
+        <hr className='border-secondary' />
+        <RadioGroup options={[
             { value: 'single', label: 'Single' }, 
             { value: 'rect', label: 'Rectangular' },
             { value: 'circ', label: 'Circular' }
-        ], selected: drillType, onChange: setDrillType }),
+         ]} selected={drillType} onChange={setDrillType} />
         
-        drillType === 'single' && h(Input, { label: 'Center X, Y', valueX: drillParams.singleX, valueY: drillParams.singleY, onChangeX: e => handleParamChange(setDrillParams, drillParams, 'singleX', e.target.value), onChangeY: e => handleParamChange(setDrillParams, drillParams, 'singleY', e.target.value), isXY: true, unit }),
-        drillType === 'rect' && h(React.Fragment, null,
-            h(Input, { label: 'Columns, Rows', valueX: drillParams.rectCols, valueY: drillParams.rectRows, onChangeX: e => handleParamChange(setDrillParams, drillParams, 'rectCols', e.target.value), onChangeY: e => handleParamChange(setDrillParams, drillParams, 'rectRows', e.target.value), isXY: true }),
-            h(Input, { label: 'Spacing X, Y', valueX: drillParams.rectSpacingX, valueY: drillParams.rectSpacingY, onChangeX: e => handleParamChange(setDrillParams, drillParams, 'rectSpacingX', e.target.value), onChangeY: e => handleParamChange(setDrillParams, drillParams, 'rectSpacingY', e.target.value), isXY: true, unit }),
-            h(Input, { label: 'Start X, Y', valueX: drillParams.rectStartX, valueY: drillParams.rectStartY, onChangeX: e => handleParamChange(setDrillParams, drillParams, 'rectStartX', e.target.value), onChangeY: e => handleParamChange(setDrillParams, drillParams, 'rectStartY', e.target.value), isXY: true, unit })
-        ),
-        drillType === 'circ' && h(React.Fragment, null,
-            h(Input, { label: 'Center X, Y', valueX: drillParams.circCenterX, valueY: drillParams.circCenterY, onChangeX: e => handleParamChange(setDrillParams, drillParams, 'circCenterX', e.target.value), onChangeY: e => handleParamChange(setDrillParams, drillParams, 'circCenterY', e.target.value), isXY: true, unit }),
-            h(Input, { label: 'Radius', value: drillParams.circRadius, onChange: e => handleParamChange(setDrillParams, drillParams, 'circRadius', e.target.value), unit }),
-            h('div', { className: 'grid grid-cols-2 gap-4' },
-                h(Input, { label: '# of Holes', value: drillParams.circHoles, onChange: e => handleParamChange(setDrillParams, drillParams, 'circHoles', e.target.value) }),
-                h(Input, { label: 'Start Angle', value: drillParams.circStartAngle, onChange: e => handleParamChange(setDrillParams, drillParams, 'circStartAngle', e.target.value), unit: '°' }),
-            )
-        ),
+        {drillType === 'single' && <Input label='Center X, Y' valueX={drillParams.singleX} valueY={drillParams.singleY} onChangeX={e => handleParamChange(setDrillParams, drillParams, 'singleX', e.target.value)} onChangeY={e => handleParamChange(setDrillParams, drillParams, 'singleY', e.target.value)} isXY={true} unit={unit} />}
+        {drillType === 'rect' && <>
+            <Input label='Columns, Rows' valueX={drillParams.rectCols} valueY={drillParams.rectRows} onChangeX={e => handleParamChange(setDrillParams, drillParams, 'rectCols', e.target.value)} onChangeY={e => handleParamChange(setDrillParams, drillParams, 'rectRows', e.target.value)} isXY={true} />
+            <Input label='Spacing X, Y' valueX={drillParams.rectSpacingX} valueY={drillParams.rectSpacingY} onChangeX={e => handleParamChange(setDrillParams, drillParams, 'rectSpacingX', e.target.value)} onChangeY={e => handleParamChange(setDrillParams, drillParams, 'rectSpacingY', e.target.value)} isXY={true} unit={unit} />
+            <Input label='Start X, Y' valueX={drillParams.rectStartX} valueY={drillParams.rectStartY} onChangeX={e => handleParamChange(setDrillParams, drillParams, 'rectStartX', e.target.value)} onChangeY={e => handleParamChange(setDrillParams, drillParams, 'rectStartY', e.target.value)} isXY={true} unit={unit} />
+        </>}
+        {drillType === 'circ' && <>
+            <Input label='Center X, Y' valueX={drillParams.circCenterX} valueY={drillParams.circCenterY} onChangeX={e => handleParamChange(setDrillParams, drillParams, 'circCenterX', e.target.value)} onChangeY={e => handleParamChange(setDrillParams, drillParams, 'circCenterY', e.target.value)} isXY={true} unit={unit} />
+            <Input label='Radius' value={drillParams.circRadius} onChange={e => handleParamChange(setDrillParams, drillParams, 'circRadius', e.target.value)} unit={unit} />
+            <div className='grid grid-cols-2 gap-4'>
+                <Input label='# of Holes' value={drillParams.circHoles} onChange={e => handleParamChange(setDrillParams, drillParams, 'circHoles', e.target.value)} />
+                <Input label='Start Angle' value={drillParams.circStartAngle} onChange={e => handleParamChange(setDrillParams, drillParams, 'circStartAngle', e.target.value)} unit='°' />
+            </div>
+        </>}
         
-        h('hr', { className: 'border-secondary' }),
-        h('div', { className: 'grid grid-cols-2 gap-4' },
-            h(Input, { label: 'Final Depth', value: drillParams.depth, onChange: e => handleParamChange(setDrillParams, drillParams, 'depth', e.target.value), unit, help: 'Should be negative' }),
-            h(Input, { label: 'Peck Depth', value: drillParams.peck, onChange: e => handleParamChange(setDrillParams, drillParams, 'peck', e.target.value), unit, help: 'Depth per plunge' })
-        ),
-         h('div', { className: 'grid grid-cols-2 gap-4' },
-            h(Input, { label: 'Retract Height', value: drillParams.retract, onChange: e => handleParamChange(setDrillParams, drillParams, 'retract', e.target.value), unit, help: 'Height after each peck' }),
-            h(Input, { label: 'Plunge Feed', value: drillParams.feed, onChange: e => handleParamChange(setDrillParams, drillParams, 'feed', e.target.value), unit: unit + '/min' })
-        ),
-        h(SpindleAndFeedControls, { params: drillParams, feedLabel: "Drill Feed", onParamChange: (field, value) => handleParamChange(setDrillParams, drillParams, field, value), unit })
-    );
+        <hr className='border-secondary' />
+        <div className='grid grid-cols-2 gap-4'>
+            <Input label='Final Depth' value={drillParams.depth} onChange={e => handleParamChange(setDrillParams, drillParams, 'depth', e.target.value)} unit={unit} help='Should be negative' />
+            <Input label='Peck Depth' value={drillParams.peck} onChange={e => handleParamChange(setDrillParams, drillParams, 'peck', e.target.value)} unit={unit} help='Depth per plunge' />
+        </div>
+         <div className='grid grid-cols-2 gap-4'>
+            <Input label='Retract Height' value={drillParams.retract} onChange={e => handleParamChange(setDrillParams, drillParams, 'retract', e.target.value)} unit={unit} help='Height after each peck' />
+            <Input label='Plunge Feed' value={drillParams.feed} onChange={e => handleParamChange(setDrillParams, drillParams, 'feed', e.target.value)} unit={unit + '/min'} />
+        </div>
+        <SpindleAndFeedControls params={drillParams} feedLabel="Drill Feed" onParamChange={(field, value) => handleParamChange(setDrillParams, drillParams, field, value)} unit={unit} />
+    </div>;
     
-    const renderBoreForm = () => h('div', { className: 'space-y-4' },
-        h(ToolSelector, { selectedId: boreParams.toolId, onChange: (id) => setBoreParams(p => ({ ...p, toolId: id })), unit, toolLibrary }),
-        h('hr', { className: 'border-secondary' }),
-        h(Input, { label: 'Center Point (X, Y)', valueX: boreParams.centerX, valueY: boreParams.centerY, onChangeX: e => handleParamChange(setBoreParams, boreParams, 'centerX', e.target.value), onChangeY: e => handleParamChange(setBoreParams, boreParams, 'centerY', e.target.value), isXY: true, unit }),
-        h('div', { className: 'grid grid-cols-2 gap-4' },
-             h(Input, { label: `Hole Diameter`, value: boreParams.holeDiameter, onChange: e => handleParamChange(setBoreParams, boreParams, 'holeDiameter', e.target.value), unit }),
-             h(Input, { label: `Hole Depth`, value: boreParams.holeDepth, onChange: e => handleParamChange(setBoreParams, boreParams, 'holeDepth', e.target.value), unit, help: 'Negative value' })
-        ),
-         h('hr', { className: 'border-secondary' }),
-        h('label', { className: 'flex items-center gap-2 cursor-pointer font-semibold' },
-            h('input', { type: 'checkbox', checked: boreParams.counterboreEnabled, onChange: e => setBoreParams(p => ({ ...p, counterboreEnabled: e.target.checked })), className: 'h-4 w-4 rounded border-secondary text-primary' }),
-            'Add Counterbore'
-        ),
-        boreParams.counterboreEnabled && h('div', { className: 'grid grid-cols-2 gap-4 pl-6' },
-             h(Input, { label: `CB Diameter`, value: boreParams.cbDiameter, onChange: e => handleParamChange(setBoreParams, boreParams, 'cbDiameter', e.target.value), unit }),
-             h(Input, { label: `CB Depth`, value: boreParams.cbDepth, onChange: e => handleParamChange(setBoreParams, boreParams, 'cbDepth', e.target.value), unit, help: 'Negative value' })
-        ),
-        h(SpindleAndFeedControls, { params: boreParams, onParamChange: (field, value) => handleParamChange(setBoreParams, boreParams, field, value), plunge: true, unit })
+   const renderBoreForm = () => <div className='space-y-4'>
+        <ToolSelector selectedId={boreParams.toolId} onChange={(id) => setBoreParams(p => ({ ...p, toolId: id }))} unit={unit} toolLibrary={toolLibrary} />
+        <hr className='border-secondary' />
+        <Input label='Center Point (X, Y)' valueX={boreParams.centerX} valueY={boreParams.centerY} onChangeX={e => handleParamChange(setBoreParams, boreParams, 'centerX', e.target.value)} onChangeY={e => handleParamChange(setBoreParams, boreParams, 'centerY', e.target.value)} isXY={true} unit={unit} />
+        <div className='grid grid-cols-2 gap-4'>
+             <Input label={`Hole Diameter`} value={boreParams.holeDiameter} onChange={e => handleParamChange(setBoreParams, boreParams, 'holeDiameter', e.target.value)} unit={unit} />
+             <Input label={`Hole Depth`} value={boreParams.holeDepth} onChange={e => handleParamChange(setBoreParams, boreParams, 'holeDepth', e.target.value)} unit={unit} help='Negative value' />
+        </div>
+         <hr className='border-secondary' />
+        <label className='flex items-center gap-2 cursor-pointer font-semibold'>
+            <input type='checkbox' checked={boreParams.counterboreEnabled} onChange={e => setBoreParams(p => ({ ...p, counterboreEnabled: e.target.checked }))} className='h-4 w-4 rounded border-secondary text-primary' />
+                                            Add Counterbore
+       </label>
+        {boreParams.counterboreEnabled && <div className='grid grid-cols-2 gap-4 pl-6'>
+             <Input label={`CB Diameter`} value={boreParams.cbDiameter} onChange={e => handleParamChange(setBoreParams, boreParams, 'cbDiameter', e.target.value)} unit={unit} />
+             <Input label={`CB Depth`} value={boreParams.cbDepth} onChange={e => handleParamChange(setBoreParams, boreParams, 'cbDepth', e.target.value)} unit={unit} help='Negative value' />
+        </div>}
+        <SpindleAndFeedControls params={boreParams} onParamChange={(field, value) => handleParamChange(setBoreParams, boreParams, field, value)} plunge={true} unit={unit} />
+    </div>;
+
+  const renderPocketForm = () => <div className='space-y-4'>
+        <ToolSelector selectedId={pocketParams.toolId} onChange={(id) => setPocketParams(p => ({ ...p, toolId: id }))} unit={unit} toolLibrary={toolLibrary} />
+        <hr className='border-secondary' />
+        <RadioGroup options={[{ value: 'rect', label: 'Rectangle' }, { value: 'circ', label: 'Circle' }]} selected={pocketParams.shape} onChange={val => setPocketParams(p => ({...p, shape: val}))} />
+        {pocketParams.shape === 'rect' ? <>
+            <Input label='Width (X), Length (Y)' valueX={pocketParams.width} valueY={pocketParams.length} onChangeX={e => handleParamChange(setPocketParams, pocketParams, 'width', e.target.value)} onChangeY={e => handleParamChange(setPocketParams, pocketParams, 'length', e.target.value)} isXY={true} unit={unit} />
+            <Input label='Corner Radius' value={pocketParams.cornerRadius} onChange={e => handleParamChange(setPocketParams, pocketParams, 'cornerRadius', e.target.value)} unit={unit} />
+        </> : <>
+            <Input label='Diameter' value={pocketParams.diameter} onChange={e => handleParamChange(setPocketParams, pocketParams, 'diameter', e.target.value)} unit={unit} />
+        </>}
+        <hr className='border-secondary' />
+        <div className='grid grid-cols-2 gap-4'>
+            <Input label='Total Depth' value={pocketParams.depth} onChange={e => handleParamChange(setPocketParams, pocketParams, 'depth', e.target.value)} unit={unit} help='Negative value' />
+            <Input label='Depth per Pass' value={pocketParams.depthPerPass} onChange={e => handleParamChange(setPocketParams, pocketParams, 'depthPerPass', e.target.value)} unit={unit} />
+        </div>
+        <Input label='Stepover' value={pocketParams.stepover} onChange={e => handleParamChange(setPocketParams, pocketParams, 'stepover', e.target.value)} unit='%' />
+        <SpindleAndFeedControls params={pocketParams} onParamChange={(field, value) => handleParamChange(setPocketParams, pocketParams, field, value)} plunge={true} unit={unit} />
+        <ArrayControls settings={arraySettings} onChange={setArraySettings} activeTab={activeTab} unit={unit} />
+    </div>;
+    
+     const renderProfileForm = () => <div className='space-y-4'>
+        <ToolSelector selectedId={profileParams.toolId} onChange={(id) => setProfileParams(p => ({ ...p, toolId: id }))} unit={unit} toolLibrary={toolLibrary} />
+        <hr className='border-secondary' />
+        <RadioGroup options={[{ value: 'rect', label: 'Rectangle' }, { value: 'circ', label: 'Circle' }]} selected={profileParams.shape} onChange={val => setProfileParams(p => ({...p, shape: val}))} />
+        {profileParams.shape === 'rect' ? <>
+            <Input label='Width (X), Length (Y)' valueX={profileParams.width} valueY={profileParams.length} onChangeX={e => handleParamChange(setProfileParams, profileParams, 'width', e.target.value)} onChangeY={e => handleParamChange(setProfileParams, profileParams, 'length', e.target.value)} isXY={true} unit={unit} />
+            <Input label='Corner Radius' value={profileParams.cornerRadius} onChange={e => handleParamChange(setProfileParams, profileParams, 'cornerRadius', e.target.value)} unit={unit} />
+        </> : <>
+            <Input label='Diameter' value={profileParams.diameter} onChange={e => handleParamChange(setProfileParams, profileParams, 'diameter', e.target.value)} unit={unit} />
+        </>}
+        <hr className='border-secondary' />
+        <RadioGroup label='Cut Side' options={[{ value: 'outside', label: 'Outside' }, { value: 'inside', label: 'Inside' }, { value: 'online', label: 'On-line' }]} selected={profileParams.cutSide} onChange={val => setProfileParams(p => ({...p, cutSide: val}))} />
+        <div className='grid grid-cols-2 gap-4'>
+            <Input label='Total Depth' value={profileParams.depth} onChange={e => handleParamChange(setProfileParams, profileParams, 'depth', e.target.value)} unit={unit} help='Negative value' />
+            <Input label='Depth per Pass' value={profileParams.depthPerPass} onChange={e => handleParamChange(setProfileParams, profileParams, 'depthPerPass', e.target.value)} unit={unit} />
+        </div>
+        <SpindleAndFeedControls params={profileParams} onParamChange={(field, value) => handleParamChange(setProfileParams, profileParams, field, value)} unit={unit} />
+        <hr className='border-secondary' />
+        <label className='flex items-center gap-2 cursor-pointer'>
+            <input type='checkbox' checked={profileParams.tabsEnabled} onChange={e => setProfileParams(p => ({...p, tabsEnabled: e.target.checked}))} className='h-4 w-4 rounded border-secondary text-primary' />
+            Add Hold-down Tabs
+      </label>
+        {profileParams.tabsEnabled && <div className='grid grid-cols-3 gap-4 pl-6'>
+             <Input label='# Tabs' value={profileParams.numTabs} onChange={e => handleParamChange(setProfileParams, profileParams, 'numTabs', e.target.value)} />
+             <Input label='Tab Width' value={profileParams.tabWidth} onChange={e => handleParamChange(setProfileParams, profileParams, 'tabWidth', e.target.value)} unit={unit} />
+             <Input label='Tab Height' value={profileParams.tabHeight} onChange={e => handleParamChange(setProfileParams, profileParams, 'tabHeight', e.target.value)} unit={unit} help='From bottom' />
+        </div>}
+        <ArrayControls settings={arraySettings} onChange={setArraySettings} activeTab={activeTab} unit={unit} />
+    </div>;
+
+    const renderSlotForm = () => <div className='space-y-4'>
+        <ToolSelector selectedId={slotParams.toolId} onChange={(id) => setSlotParams(p => ({ ...p, toolId: id }))} unit={unit} toolLibrary={toolLibrary} />
+        <hr className='border-secondary' />
+        <RadioGroup options={[{ value: 'straight', label: 'Straight' }, { value: 'arc', label: 'Arc' }]} selected={slotParams.type} onChange={val => setSlotParams(p => ({...p, type: val}))} />
+        {slotParams.type === 'straight' ? <>
+            <Input label='Start Point (X, Y)' valueX={slotParams.startX} valueY={slotParams.startY} onChangeX={e => handleParamChange(setSlotParams, slotParams, 'startX', e.target.value)} onChangeY={e => handleParamChange(setSlotParams, slotParams, 'startY', e.target.value)} isXY={true} unit={unit} />
+            <Input label='End Point (X, Y)' valueX={slotParams.endX} valueY={slotParams.endY} onChangeX={e => handleParamChange(setSlotParams, slotParams, 'endX', e.target.value)} onChangeY={e => handleParamChange(setSlotParams, slotParams, 'endY', e.target.value)} isXY={true} unit={unit} />
+        </> : <>
+            <Input label='Center Point (X, Y)' valueX={slotParams.centerX} valueY={slotParams.centerY} onChangeX={e => handleParamChange(setSlotParams, slotParams, 'centerX', e.target.value)} onChangeY={e => handleParamChange(setSlotParams, slotParams, 'centerY', e.target.value)} isXY={true} unit={unit} />
+            <Input label='Radius' value={slotParams.radius} onChange={e => handleParamChange(setSlotParams, slotParams, 'radius', e.target.value)} unit={unit} />
+            <Input label='Start, End Angle' valueX={slotParams.startAngle} valueY={slotParams.endAngle} onChangeX={e => handleParamChange(setSlotParams, slotParams, 'startAngle', e.target.value)} onChangeY={e => handleParamChange(setSlotParams, slotParams, 'endAngle', e.target.value)} isXY={true} unit='°' />
+        </>}
+        <hr className='border-secondary' />
+        <Input label='Slot Width' value={slotParams.slotWidth} onChange={e => handleParamChange(setSlotParams, slotParams, 'slotWidth', e.target.value)} unit={unit} />
+        <div className='grid grid-cols-2 gap-4'>
+            <Input label='Total Depth' value={slotParams.depth} onChange={e => handleParamChange(setSlotParams, slotParams, 'depth', e.target.value)} unit={unit} help='Negative value' />
+            <Input label='Depth per Pass' value={slotParams.depthPerPass} onChange={e => handleParamChange(setSlotParams, slotParams, 'depthPerPass', e.target.value)} unit={unit} />
+        </div>
+        <SpindleAndFeedControls params={slotParams} onParamChange={(field, value) => handleParamChange(setSlotParams, slotParams, field, value)} unit={unit} />
+        <ArrayControls settings={arraySettings} onChange={setArraySettings} activeTab={activeTab} unit={unit} />
+    </div>;
+    
+    const renderTextForm = () => (
+        <div className='space-y-4'>
+        <ToolSelector selectedId={textParams.toolId} onChange={(id) => setTextParams(p => ({ ...p, toolId: id }))} unit={unit} toolLibrary={toolLibrary} />
+        <hr className='border-secondary' />
+        <div>
+            <label className='block text-sm font-medium text-text-secondary mb-1'>Font</label>
+            <select
+                value={textParams.font}
+                onChange={e => setTextParams(p => ({ ...p, font: e.target.value }))}
+                className='w-full bg-background border-secondary rounded-md py-1 px-2 focus:outline-none focus:ring-1 focus:ring-primary'
+            >{Object.keys(FONTS).map(name => <option key={name} value={name}>{name}</option>)}</select>
+        </div>
+        <div>
+            <label className='block text-sm font-medium text-text-secondary mb-1'>Text Content</label>
+            <textarea
+                value={textParams.text}
+                onChange={e => setTextParams(p => ({ ...p, text: e.target.value }))}
+                rows={2}
+                className='w-full bg-background border-secondary rounded-md py-1 px-2 focus:outline-none focus:ring-1 focus:ring-primary font-mono uppercase'
+            />
+        </div>
+        <div className='grid grid-cols-2 gap-4'>
+            <Input label='Char Height' value={textParams.height} onChange={e => handleParamChange(setTextParams, textParams, 'height', e.target.value)} unit={unit} />
+            <Input label='Char Spacing' value={textParams.spacing} onChange={e => handleParamChange(setTextParams, textParams, 'spacing', e.target.value)} unit={unit} />
+        </div>
+        <RadioGroup label='Alignment' options={[{ value: 'left', label: 'Left' }, { value: 'center', label: 'Center' }, { value: 'right', label: 'Right' }]} selected={textParams.alignment} onChange={val => setTextParams(p => ({ ...p, alignment: val }))} />
+        <Input label='Start Point (X, Y)' valueX={textParams.startX} valueY={textParams.startY} onChangeX={e => handleParamChange(setTextParams, textParams, 'startX', e.target.value)} onChangeY={e => handleParamChange(setTextParams, textParams, 'startY', e.target.value)} isXY={true} unit={unit} help='Alignment reference point' />
+        <hr className='border-secondary' />
+        <Input label='Engraving Depth' value={textParams.depth} onChange={e => handleParamChange(setTextParams, textParams, 'depth', e.target.value)} unit={unit} help='Negative value' />
+        <SpindleAndFeedControls params={textParams} onParamChange={(field, value) => handleParamChange(setTextParams, textParams, field, value)} unit={unit} />
+        <ArrayControls settings={arraySettings} onChange={setArraySettings} activeTab={activeTab} unit={unit} />
+    </div>
     );
 
-    const renderPocketForm = () => h('div', { className: 'space-y-4' },
-        h(ToolSelector, { selectedId: pocketParams.toolId, onChange: (id) => setPocketParams(p => ({ ...p, toolId: id })), unit, toolLibrary }),
-        h('hr', { className: 'border-secondary' }),
-        h(RadioGroup, { options: [{ value: 'rect', label: 'Rectangle' }, { value: 'circ', label: 'Circle' }], selected: pocketParams.shape, onChange: val => setPocketParams(p => ({...p, shape: val})) }),
-        pocketParams.shape === 'rect' ? h(React.Fragment, null,
-            h(Input, { label: 'Width (X), Length (Y)', valueX: pocketParams.width, valueY: pocketParams.length, onChangeX: e => handleParamChange(setPocketParams, pocketParams, 'width', e.target.value), onChangeY: e => handleParamChange(setPocketParams, pocketParams, 'length', e.target.value), isXY: true, unit }),
-            h(Input, { label: 'Corner Radius', value: pocketParams.cornerRadius, onChange: e => handleParamChange(setPocketParams, pocketParams, 'cornerRadius', e.target.value), unit })
-        ) : h(React.Fragment, null,
-            h(Input, { label: 'Diameter', value: pocketParams.diameter, onChange: e => handleParamChange(setPocketParams, pocketParams, 'diameter', e.target.value), unit })
-        ),
-        h('hr', { className: 'border-secondary' }),
-        h('div', { className: 'grid grid-cols-2 gap-4' },
-            h(Input, { label: 'Total Depth', value: pocketParams.depth, onChange: e => handleParamChange(setPocketParams, pocketParams, 'depth', e.target.value), unit, help: 'Negative value' }),
-            h(Input, { label: 'Depth per Pass', value: pocketParams.depthPerPass, onChange: e => handleParamChange(setPocketParams, pocketParams, 'depthPerPass', e.target.value), unit })
-        ),
-        h(Input, { label: 'Stepover', value: pocketParams.stepover, onChange: e => handleParamChange(setPocketParams, pocketParams, 'stepover', e.target.value), unit: '%' }),
-        h(SpindleAndFeedControls, { params: pocketParams, onParamChange: (field, value) => handleParamChange(setPocketParams, pocketParams, field, value), plunge: true, unit }),
-        h(ArrayControls, { settings: arraySettings, onChange: setArraySettings, activeTab, unit })
-    );
-    
-    const renderProfileForm = () => h('div', { className: 'space-y-4' },
-        h(ToolSelector, { selectedId: profileParams.toolId, onChange: (id) => setProfileParams(p => ({ ...p, toolId: id })), unit, toolLibrary }),
-        h('hr', { className: 'border-secondary' }),
-        h(RadioGroup, { options: [{ value: 'rect', label: 'Rectangle' }, { value: 'circ', label: 'Circle' }], selected: profileParams.shape, onChange: val => setProfileParams(p => ({...p, shape: val})) }),
-        profileParams.shape === 'rect' ? h(React.Fragment, null,
-            h(Input, { label: 'Width (X), Length (Y)', valueX: profileParams.width, valueY: profileParams.length, onChangeX: e => handleParamChange(setProfileParams, profileParams, 'width', e.target.value), onChangeY: e => handleParamChange(setProfileParams, profileParams, 'length', e.target.value), isXY: true, unit }),
-            h(Input, { label: 'Corner Radius', value: profileParams.cornerRadius, onChange: e => handleParamChange(setProfileParams, profileParams, 'cornerRadius', e.target.value), unit })
-        ) : h(React.Fragment, null,
-            h(Input, { label: 'Diameter', value: profileParams.diameter, onChange: e => handleParamChange(setProfileParams, profileParams, 'diameter', e.target.value), unit })
-        ),
-        h('hr', { className: 'border-secondary' }),
-        h(RadioGroup, { label: 'Cut Side', options: [{ value: 'outside', label: 'Outside' }, { value: 'inside', label: 'Inside' }, { value: 'online', label: 'On-line' }], selected: profileParams.cutSide, onChange: val => setProfileParams(p => ({...p, cutSide: val})) }),
-        h('div', { className: 'grid grid-cols-2 gap-4' },
-            h(Input, { label: 'Total Depth', value: profileParams.depth, onChange: e => handleParamChange(setProfileParams, profileParams, 'depth', e.target.value), unit, help: 'Negative value' }),
-            h(Input, { label: 'Depth per Pass', value: profileParams.depthPerPass, onChange: e => handleParamChange(setProfileParams, profileParams, 'depthPerPass', e.target.value), unit })
-        ),
-        h(SpindleAndFeedControls, { params: profileParams, onParamChange: (field, value) => handleParamChange(setProfileParams, profileParams, field, value), unit }),
-        h('hr', { className: 'border-secondary' }),
-        h('label', { className: 'flex items-center gap-2 cursor-pointer' },
-            h('input', { type: 'checkbox', checked: profileParams.tabsEnabled, onChange: e => setProfileParams(p => ({...p, tabsEnabled: e.target.checked})), className: 'h-4 w-4 rounded border-secondary text-primary' }),
-            'Add Hold-down Tabs'
-        ),
-        profileParams.tabsEnabled && h('div', { className: 'grid grid-cols-3 gap-4 pl-6' },
-             h(Input, { label: '# Tabs', value: profileParams.numTabs, onChange: e => handleParamChange(setProfileParams, profileParams, 'numTabs', e.target.value) }),
-             h(Input, { label: 'Tab Width', value: profileParams.tabWidth, onChange: e => handleParamChange(setProfileParams, profileParams, 'tabWidth', e.target.value), unit }),
-             h(Input, { label: 'Tab Height', value: profileParams.tabHeight, onChange: e => handleParamChange(setProfileParams, profileParams, 'tabHeight', e.target.value), unit, help: 'From bottom' })
-        ),
-        h(ArrayControls, { settings: arraySettings, onChange: setArraySettings, activeTab, unit })
-    );
-
-    const renderSlotForm = () => h('div', { className: 'space-y-4' },
-        h(ToolSelector, { selectedId: slotParams.toolId, onChange: (id) => setSlotParams(p => ({ ...p, toolId: id })), unit, toolLibrary }),
-        h('hr', { className: 'border-secondary' }),
-        h(RadioGroup, { options: [{ value: 'straight', label: 'Straight' }, { value: 'arc', label: 'Arc' }], selected: slotParams.type, onChange: val => setSlotParams(p => ({...p, type: val})) }),
-        slotParams.type === 'straight' ? h(React.Fragment, null,
-            h(Input, { label: 'Start Point (X, Y)', valueX: slotParams.startX, valueY: slotParams.startY, onChangeX: e => handleParamChange(setSlotParams, slotParams, 'startX', e.target.value), onChangeY: e => handleParamChange(setSlotParams, slotParams, 'startY', e.target.value), isXY: true, unit }),
-            h(Input, { label: 'End Point (X, Y)', valueX: slotParams.endX, valueY: slotParams.endY, onChangeX: e => handleParamChange(setSlotParams, slotParams, 'endX', e.target.value), onChangeY: e => handleParamChange(setSlotParams, slotParams, 'endY', e.target.value), isXY: true, unit }),
-        ) : h(React.Fragment, null,
-            h(Input, { label: 'Center Point (X, Y)', valueX: slotParams.centerX, valueY: slotParams.centerY, onChangeX: e => handleParamChange(setSlotParams, slotParams, 'centerX', e.target.value), onChangeY: e => handleParamChange(setSlotParams, slotParams, 'centerY', e.target.value), isXY: true, unit }),
-            h(Input, { label: 'Radius', value: slotParams.radius, onChange: e => handleParamChange(setSlotParams, slotParams, 'radius', e.target.value), unit }),
-            h(Input, { label: 'Start, End Angle', valueX: slotParams.startAngle, valueY: slotParams.endAngle, onChangeX: e => handleParamChange(setSlotParams, slotParams, 'startAngle', e.target.value), onChangeY: e => handleParamChange(setSlotParams, slotParams, 'endAngle', e.target.value), isXY: true, unit: '°' }),
-        ),
-        h('hr', { className: 'border-secondary' }),
-        h(Input, { label: 'Slot Width', value: slotParams.slotWidth, onChange: e => handleParamChange(setSlotParams, slotParams, 'slotWidth', e.target.value), unit }),
-        h('div', { className: 'grid grid-cols-2 gap-4' },
-            h(Input, { label: 'Total Depth', value: slotParams.depth, onChange: e => handleParamChange(setSlotParams, slotParams, 'depth', e.target.value), unit, help: 'Negative value' }),
-            h(Input, { label: 'Depth per Pass', value: slotParams.depthPerPass, onChange: e => handleParamChange(setSlotParams, slotParams, 'depthPerPass', e.target.value), unit })
-        ),
-        h(SpindleAndFeedControls, { params: slotParams, onParamChange: (field, value) => handleParamChange(setSlotParams, slotParams, field, value), unit }),
-        h(ArrayControls, { settings: arraySettings, onChange: setArraySettings, activeTab, unit })
-    );
-    
-    const renderTextForm = () => h('div', { className: 'space-y-4' },
-        h(ToolSelector, { selectedId: textParams.toolId, onChange: (id) => setTextParams(p => ({ ...p, toolId: id })), unit, toolLibrary }),
-        h('hr', { className: 'border-secondary' }),
-        h('div', null,
-            h('label', { className: 'block text-sm font-medium text-text-secondary mb-1' }, 'Font'),
-            h('select', {
-                value: textParams.font,
-                onChange: e => setTextParams(p => ({...p, font: e.target.value})),
-                className: 'w-full bg-background border-secondary rounded-md py-1 px-2 focus:outline-none focus:ring-1 focus:ring-primary'
-            }, Object.keys(FONTS).map(name => h('option', { key: name, value: name }, name)))
-        ),
-        h('div', null,
-            h('label', { className: 'block text-sm font-medium text-text-secondary mb-1' }, 'Text Content'),
-            h('textarea', {
-                value: textParams.text,
-                onChange: e => setTextParams(p => ({ ...p, text: e.target.value })),
-                rows: 2,
-                className: 'w-full bg-background border-secondary rounded-md py-1 px-2 focus:outline-none focus:ring-1 focus:ring-primary font-mono uppercase'
-            })
-        ),
-        h('div', { className: 'grid grid-cols-2 gap-4' },
-            h(Input, { label: 'Char Height', value: textParams.height, onChange: e => handleParamChange(setTextParams, textParams, 'height', e.target.value), unit }),
-            h(Input, { label: 'Char Spacing', value: textParams.spacing, onChange: e => handleParamChange(setTextParams, textParams, 'spacing', e.target.value), unit })
-        ),
-        h(RadioGroup, { label: 'Alignment', options: [{ value: 'left', label: 'Left' }, { value: 'center', label: 'Center' }, { value: 'right', label: 'Right' }], selected: textParams.alignment, onChange: val => setTextParams(p => ({...p, alignment: val})) }),
-        h(Input, { label: 'Start Point (X, Y)', valueX: textParams.startX, valueY: textParams.startY, onChangeX: e => handleParamChange(setTextParams, textParams, 'startX', e.target.value), onChangeY: e => handleParamChange(setTextParams, textParams, 'startY', e.target.value), isXY: true, unit, help: 'Alignment reference point' }),
-        h('hr', { className: 'border-secondary' }),
-        h(Input, { label: 'Engraving Depth', value: textParams.depth, onChange: e => handleParamChange(setTextParams, textParams, 'depth', e.target.value), unit, help: 'Negative value' }),
-        h(SpindleAndFeedControls, { params: textParams, onParamChange: (field, value) => handleParamChange(setTextParams, textParams, field, value), unit }),
-        h(ArrayControls, { settings: arraySettings, onChange: setArraySettings, activeTab, unit })
-    );
-
-    const renderThreadMillingForm = () => h('div', { className: 'space-y-4' },
-        h(ToolSelector, { selectedId: threadParams.toolId, onChange: (id) => setThreadParams(p => ({ ...p, toolId: id })), unit, toolLibrary }),
-        h('hr', { className: 'border-secondary' }),
-        h(RadioGroup, { label: 'Type', options: [{ value: 'internal', label: 'Internal' }, { value: 'external', label: 'External' }], selected: threadParams.type, onChange: val => setThreadParams(p => ({...p, type: val})) }),
-        h(RadioGroup, { label: 'Hand', options: [{ value: 'right', label: 'Right-Hand' }, { value: 'left', label: 'Left-Hand' }], selected: threadParams.hand, onChange: val => setThreadParams(p => ({...p, hand: val})) }),
-        h('hr', { className: 'border-secondary' }),
-        h('div', { className: 'grid grid-cols-2 gap-4' },
-            h(Input, { label: 'Thread Diameter', value: threadParams.diameter, onChange: e => handleParamChange(setThreadParams, threadParams, 'diameter', e.target.value), unit, help: 'Major diameter' }),
-            h(Input, { label: 'Pitch', value: threadParams.pitch, onChange: e => handleParamChange(setThreadParams, threadParams, 'pitch', e.target.value), unit, help: 'Distance between threads' })
-        ),
-        h(Input, { label: 'Thread Depth', value: threadParams.depth, onChange: e => handleParamChange(setThreadParams, threadParams, 'depth', e.target.value), unit, help: 'Length of thread' }),
-        h(SpindleAndFeedControls, { params: threadParams, onParamChange: (field, value) => handleParamChange(setThreadParams, threadParams, field, value), unit }),
-        h(ArrayControls, { settings: arraySettings, onChange: setArraySettings, activeTab, unit })
+    const renderThreadMillingForm = () => (
+        <div className='space-y-4'>
+        <ToolSelector selectedId={threadParams.toolId} onChange={(id) => setThreadParams(p => ({ ...p, toolId: id }))} unit={unit} toolLibrary={toolLibrary} />
+        <hr className='border-secondary' />
+        <RadioGroup label='Type' options={[{ value: 'internal', label: 'Internal' }, { value: 'external', label: 'External' }]} selected={threadParams.type} onChange={val => setThreadParams(p => ({ ...p, type: val }))} />
+        <RadioGroup label='Hand' options={[{ value: 'right', label: 'Right-Hand' }, { value: 'left', label: 'Left-Hand' }]} selected={threadParams.hand} onChange={val => setThreadParams(p => ({ ...p, hand: val }))} />
+        <hr className='border-secondary' />
+        <div className='grid grid-cols-2 gap-4'>
+            <Input label='Thread Diameter' value={threadParams.diameter} onChange={e => handleParamChange(setThreadParams, threadParams, 'diameter', e.target.value)} unit={unit} help='Major diameter' />
+            <Input label='Pitch' value={threadParams.pitch} onChange={e => handleParamChange(setThreadParams, threadParams, 'pitch', e.target.value)} unit={unit} help='Distance between threads' />
+        </div>
+        <Input label='Thread Depth' value={threadParams.depth} onChange={e => handleParamChange(setThreadParams, threadParams, 'depth', e.target.value)} unit={unit} help='Length of thread' />
+        <SpindleAndFeedControls params={threadParams} onParamChange={(field, value) => handleParamChange(setThreadParams, threadParams, field, value)} unit={unit} />
+        <ArrayControls settings={arraySettings} onChange={setArraySettings} activeTab={activeTab} unit={unit} />
+    </div>
     );
     
     const getParamsForTab = (tab) => {
