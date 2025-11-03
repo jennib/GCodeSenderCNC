@@ -534,7 +534,12 @@ const App: React.FC = () => {
         }
 
         await serialManagerRef.current?.disconnect();
-    }, [jobStatus, isConnected, machineSettings.scripts.shutdown, addLog]);
+
+        // If we were in a simulated connection, uncheck the simulator box.
+        if (isSimulatedConnection) {
+            setUseSimulator(false);
+        }
+    }, [jobStatus, isConnected, isSimulatedConnection, machineSettings.scripts.shutdown, addLog, setUseSimulator]);
 
     const handleFileLoad = (content: string, name: string) => {
         // More robustly clean and filter g-code lines
