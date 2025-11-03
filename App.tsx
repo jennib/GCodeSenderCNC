@@ -1233,7 +1233,7 @@ const App: React.FC = () => {
             </header>
             <div className="bg-accent-yellow/20 text-accent-yellow text-center p-2 text-sm font-semibold flex items-center justify-center gap-2">
                 <AlertTriangle className="w-4 h-4" />
-                Work in Progress: This software is for demonstration purposes only. Use at your own risk.
+                Work in Progress: This software is in beta. Use at your own risk.  The simulator option lets you run the software safely without connectiung to a CNC machine.
             </div>
             <StatusBar
                 isConnected={isConnected}
