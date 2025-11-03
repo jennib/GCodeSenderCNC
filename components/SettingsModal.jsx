@@ -132,10 +132,15 @@ const SettingsModal = ({ isOpen, onCancel, onSave, settings, onResetDialogs, onE
                                 <NumberInput id="spindle-min" value={localSettings.spindle.min} onChange={e => handleNestedNumericChange('spindle', 'min', e.target.value)} unit="Min" />
                                 <NumberInput id="spindle-max" value={localSettings.spindle.max} onChange={e => handleNestedNumericChange('spindle', 'max', e.target.value)} unit="Max" />
                             </InputGroup>
-                            <InputGroup label="Probe Offsets (mm)">
-                                <NumberInput id="probe-x" value={localSettings.probe.xOffset} onChange={e => handleNestedNumericChange('probe', 'xOffset', e.target.value)} unit="X Offset" />
-                                <NumberInput id="probe-y" value={localSettings.probe.yOffset} onChange={e => handleNestedNumericChange('probe', 'yOffset', e.target.value)} unit="Y Offset" />
-                                <NumberInput id="probe-z" value={localSettings.probe.zOffset} onChange={e => handleNestedNumericChange('probe', 'zOffset', e.target.value)} unit="Z Offset" />
+                            <InputGroup label="Probe (mm)">
+                                <div className="flex items-center gap-2">
+                                    <span className="w-4 text-center text-text-secondary font-semibold">X</span>
+                                    <NumberInput id="probe-x" value={localSettings.probe.xOffset} onChange={e => handleNestedNumericChange('probe', 'xOffset', e.target.value)} />
+                                    <span className="w-4 text-center text-text-secondary font-semibold">Y</span>
+                                    <NumberInput id="probe-y" value={localSettings.probe.yOffset} onChange={e => handleNestedNumericChange('probe', 'yOffset', e.target.value)} />
+                                    <span className="w-4 text-center text-text-secondary font-semibold">Z</span>
+                                    <NumberInput id="probe-z" value={localSettings.probe.zOffset} onChange={e => handleNestedNumericChange('probe', 'zOffset', e.target.value)} />
+                                </div>
                             </InputGroup>
                             <InputGroup label="Probe Feed Rate">
                                 <NumberInput id="probe-feed" value={localSettings.probe.feedRate} onChange={e => handleNestedNumericChange('probe', 'feedRate', e.target.value)} unit="mm/min" />
