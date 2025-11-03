@@ -7,15 +7,16 @@ import { JobStatus, MachineState } from './types';
 import SerialConnector from './components/SerialConnector';
 import GCodePanel from './components/GCodePanel';
 import Console from './components/Console';
-import JogPanel from './components/JogPanel.jsx';
-import MacrosPanel from './components/MacrosPanel.jsx';
-import WebcamPanel from './components/WebcamPanel.js';
-import PreflightChecklistModal from './components/PreflightChecklistModal.js';
+import JogPanel from './components/JogPanel';
+import MacrosPanel from './components/MacrosPanel';
+import WebcamPanel from './components/WebcamPanel';
+import PreflightChecklistModal from './components/PreflightChecklistModal';
+import WelcomeModal from './components/WelcomeModal';
 import MacroEditorModal from './components/MacroEditorModal.js';
 import SettingsModal from './components/SettingsModal.js';
 import ToolLibraryModal from './components/ToolLibraryModal.js';
 import { NotificationContainer } from './components/Notification.js';
-import ThemeToggle from './components/ThemeToggle.js';
+import ThemeToggle from './components/ThemeToggle';
 import StatusBar from './components/StatusBar.js';
 import { AlertTriangle, OctagonAlert, Unlock, Settings, Maximize, Minimize, BookOpen } from './components/Icons';
 import { estimateGCodeTime } from './services/gcodeTimeEstimator.js';
@@ -99,7 +100,7 @@ const DEFAULT_SETTINGS = {
 // FIX: Properly type the usePrevious hook to be generic and type-safe.
 const usePrevious = <T,>(value: T): T | undefined => {
     // FIX: Provide an initial value to useRef to fix "Expected 1 arguments, but got 0" error.
-    const ref = useRef<T | undefined>(undefined);
+    const ref = useRef<T>();
     useEffect(() => {
         ref.current = value;
     });
@@ -333,6 +334,13 @@ const App: React.FC = () => {
         };
     }, [addNotification]);
     
+    useEffect(() => {
+        const hasSeenWelcome = localStorage.getItem('cnc-app-seen-welcome');
+        if (!hasSeenWelcome) {
+            setIsWelcomeModalOpen(true);
+        }
+    }, []);
+
     useEffect(() => {
         const onFullscreenChange = () => {
             setIsFullscreen(!!document.fullscreenElement);
@@ -1022,6 +1030,17 @@ const App: React.FC = () => {
     return (
         <div className="min-h-screen bg-background font-sans text-text-primary flex flex-col">
             <Analytics />
+            <WelcomeModal
+                isOpen={isWelcomeModalOpen}
+                onClose={() => {
+                    setIsWelcomeModalOpen(false);
+                    localStorage.setItem('cnc-app-seen-welcome', 'true');
+                }}
+                onOpenSettings={() => setIsSettingsModalOpen(true)}
+                onOpenToolLibrary={() => setIsToolLibraryModalOpen(true)}
+                isMachineSetupComplete={machineSettings.workArea.x > 0 && machineSettings.workArea.y > 0}
+                isToolLibrarySetupComplete={toolLibrary.length > 0}
+            />
             <NotificationContainer
                 notifications={notifications}
                 onDismiss={removeNotification}
@@ -1228,7 +1247,7 @@ const App: React.FC = () => {
                         isMacroRunning={isMacroRunning}
                     />
                     <WebcamPanel />
-                    <MacrosPanel
+                    <MacrosPanel // FIX: Pass correct props to MacrosPanel
                         macros={macros}
                         onRunMacro={handleRunMacro}
                         onOpenEditor={handleOpenMacroEditor}
@@ -1248,7 +1267,7 @@ const App: React.FC = () => {
                     />
                 </div>
             </main>
-            <Footer onContactClick={() => setIsContactModalOpen(false)} />
+            <Footer onContactClick={() => setIsContactModalOpen(true)} />
         </div>
     );
 };
