@@ -3,17 +3,18 @@ import { SerialManager } from './services/serialService';
 import { SimulatedSerialManager } from './services/simulatedSerialService';
 // FIX: Import MachineState type to correctly type component state.
 import { completionSound } from './sounds';
-import { JobStatus, MachineState } from './types';
+import { JobStatus, MachineState, Log, Tool, Macro, MachineSettings } from './types';
+import SerialConnector from './components/SerialConnector.jsx';
 import SerialConnector from './components/SerialConnector';
-import GCodePanel from './components/GCodePanel.jsx';
-import Console from './components/Console.jsx';
+import GCodePanel from './components/GCodePanel';
+import Console from './components/Console';
 import JogPanel from './components/JogPanel';
 import MacrosPanel from './components/MacrosPanel';
 import WebcamPanel from './components/WebcamPanel';
 import PreflightChecklistModal from './components/PreflightChecklistModal';
 import WelcomeModal from './components/WelcomeModal';
-import MacroEditorModal from './components/MacroEditorModal.jsx';
-import SettingsModal from './components/SettingsModal.jsx';
+import MacroEditorModal from './components/MacroEditorModal';
+import SettingsModal from './components/SettingsModal';
 import ToolLibraryModal from './components/ToolLibraryModal';
 import { NotificationContainer } from './components/Notification';
 import ThemeToggle from './components/ThemeToggle';
@@ -22,10 +23,10 @@ import { AlertTriangle, OctagonAlert, Unlock, Settings, Maximize, Minimize, Book
 import { estimateGCodeTime } from './services/gcodeTimeEstimator.js';
 import { analyzeGCode } from './services/gcodeAnalyzer.js';
 import { Analytics } from '@vercel/analytics/react';
-import GCodeGeneratorModal from './components/GCodeGeneratorModal.jsx';
-import Footer from './components/Footer.jsx';
-import ContactModal from './components/ContactModal.jsx';
-import UnsupportedBrowser from './components/UnsupportedBrowser.jsx';
+import GCodeGeneratorModal from './components/GCodeGeneratorModal';
+import Footer from './components/Footer';
+import ContactModal from './components/ContactModal';
+import UnsupportedBrowser from './components/UnsupportedBrowser';
 
 const GRBL_ALARM_CODES: { [key: number | string]: { name: string; desc: string; resolution: string } } = {
     1: { name: 'Hard limit', desc: 'A limit switch was triggered. Usually due to machine travel limits.', resolution: 'Check for obstructions. The machine may need to be moved off the switch manually. Use the "$X" command to unlock after clearing the issue, then perform a homing cycle ($H).' },
@@ -125,7 +126,7 @@ const App: React.FC = () => {
     const [gcodeLines, setGcodeLines] = useState<string[]>([]);
     const [fileName, setFileName] = useState('');
     const [jobStatus, setJobStatus] = useState(JobStatus.Idle);
-    const [progress, setProgress] = useState(0);
+    const [progress, setProgress] = useState<number>(0);
     const [consoleLogs, setConsoleLogs] = useState<any[]>([]);
     const [error, setError] = useState<string | null>(null);
     const [isSerialApiSupported, setIsSerialApiSupported] = useState(true);
@@ -135,7 +136,7 @@ const App: React.FC = () => {
     const [isJogging, setIsJogging] = useState(false);
     const [flashingButton, setFlashingButton] = useState<string | null>(null);
     const [notifications, setNotifications] = useState<any[]>([]);
-    const [isAudioUnlocked, setIsAudioUnlocked] = useState(false);
+    const [isAudioUnlocked, setIsAudioUnlocked] = useState<boolean>(false);
     const [timeEstimate, setTimeEstimate] = useState({ totalSeconds: 0, cumulativeSeconds: [] as number[] });
 
     const [isPreflightModalOpen, setIsPreflightModalOpen] = useState(false);
@@ -143,7 +144,7 @@ const App: React.FC = () => {
     const [isHomedSinceConnect, setIsHomedSinceConnect] = useState(false);
     const [isMacroRunning, setIsMacroRunning] = useState(false);
     const [preflightWarnings, setPreflightWarnings] = useState<any[]>([]);
-    const [isWelcomeModalOpen, setIsWelcomeModalOpen] = useState(false);
+    const [isWelcomeModalOpen, setIsWelcomeModalOpen] = useState<boolean>(false);
     const [isFullscreen, setIsFullscreen] = useState(false);
 
 
@@ -189,7 +190,7 @@ const App: React.FC = () => {
             return DEFAULT_MACROS;
         }
     });
-    const [machineSettings, setMachineSettings] = useState(() => {
+    const [machineSettings, setMachineSettings] = useState<MachineSettings>(() => {
         try {
             const saved = localStorage.getItem('cnc-app-settings');
             let parsed = saved ? JSON.parse(saved) : DEFAULT_SETTINGS;
@@ -205,7 +206,7 @@ const App: React.FC = () => {
             return DEFAULT_SETTINGS;
         }
     });
-    const [toolLibrary, setToolLibrary] = useState(() => {
+    const [toolLibrary, setToolLibrary] = useState<Tool[]>(() => {
         try {
             const saved = localStorage.getItem('cnc-app-tool-library');
             return saved ? JSON.parse(saved) : [];
@@ -451,7 +452,7 @@ const App: React.FC = () => {
         }
     }, []);
 
-    const handleConnect = useCallback(async () => {
+    const handleConnect = useCallback(async (): Promise<void> => {
         if (!isSerialApiSupported && !useSimulator) return;
 
         const commonCallbacks = {
@@ -518,7 +519,7 @@ const App: React.FC = () => {
         }
     }, [addLog, isSerialApiSupported, useSimulator, addNotification, playCompletionSound, machineSettings.scripts.startup, isVerboseRef]);
 
-    const handleDisconnect = useCallback(async () => {
+    const handleDisconnect = useCallback(async (): Promise<void> => {
         if (jobStatus === JobStatus.Running || jobStatus === JobStatus.Paused) {
             if (!window.confirm("A job is currently running or paused. Are you sure you want to disconnect? This will stop the job.")) {
                 return; // User cancelled the disconnect
@@ -542,7 +543,7 @@ const App: React.FC = () => {
         }
     }, [jobStatus, isConnected, isSimulatedConnection, machineSettings.scripts.shutdown, addLog, setUseSimulator]);
 
-    const handleFileLoad = (content: string, name: string) => {
+    const handleFileLoad = (content: string, name: string): void => {
         // More robustly clean and filter g-code lines
         const lines = content.split('\n')
             .map(l => l.replace(/\(.*\)/g, '')) // Remove parenthetical comments
@@ -559,7 +560,7 @@ const App: React.FC = () => {
         addLog({ type: 'status', message: `Loaded ${name} (${lines.length} lines).` });
     };
 
-    const handleGCodeChange = (content: string) => {
+    const handleGCodeChange = (content: string): void => {
         const lines = content.split('\n')
             .map(l => l.replace(/\(.*\)/g, ''))
             .map(l => l.split(';')[0])
@@ -578,12 +579,12 @@ const App: React.FC = () => {
         addLog({ type: 'status', message: `G-code modified (${lines.length} lines).` });
     };
 
-    const handleLoadGeneratedGCode = useCallback((gcode: string, name: string) => {
+    const handleLoadGeneratedGCode = useCallback((gcode: string, name: string): void => {
         handleFileLoad(gcode, name);
         setIsGeneratorModalOpen(false);
     }, [handleFileLoad]);
 
-    const handleStartJobConfirmed = useCallback((options: { isDryRun: boolean }) => {
+    const handleStartJobConfirmed = useCallback((options: { isDryRun: boolean }): void => {
         const manager = serialManagerRef.current;
         if (!manager || !isConnected || gcodeLines.length === 0) return;
 
@@ -595,7 +596,7 @@ const App: React.FC = () => {
         });
     }, [isConnected, gcodeLines, jobStartOptions]);
 
-    const handleJobControl = useCallback((action: 'start' | 'pause' | 'resume' | 'stop', options?: { startLine?: number }) => {
+    const handleJobControl = useCallback((action: 'start' | 'pause' | 'resume' | 'stop', options?: { startLine?: number }): void => {
         const manager = serialManagerRef.current;
         if (!manager || !isConnected) return;
 
@@ -639,11 +640,11 @@ const App: React.FC = () => {
         }
     }, [isConnected, gcodeLines, machineSettings]);
     
-    const handleManualCommand = useCallback((command: string) => {
+    const handleManualCommand = useCallback((command: string): void => {
         serialManagerRef.current?.sendLine(command);
     }, []);
 
-    const handleJog = (axis: string, direction: number, step: number) => {
+    const handleJog = (axis: string, direction: number, step: number): void => {
         if (!serialManagerRef.current) return;
 
         if (axis === 'Z' && unit === 'mm' && step > 10) {
@@ -668,21 +669,21 @@ const App: React.FC = () => {
         });
     };
 
-    const flashControl = useCallback((buttonId: string) => {
+    const flashControl = useCallback((buttonId: string): void => {
         setFlashingButton(buttonId);
         setTimeout(() => {
             setFlashingButton(null);
         }, 200);
     }, []);
     
-    const handleEmergencyStop = useCallback(() => {
+    const handleEmergencyStop = useCallback((): void => {
         serialManagerRef.current?.emergencyStop();
         setJobStatus(JobStatus.Stopped);
         setProgress(0);
         addLog({type: 'error', message: 'EMERGENCY STOP TRIGGERED (Soft Reset)'});
     }, [addLog]);
 
-    const handleSpindleCommand = useCallback((command: 'cw' | 'ccw' | 'off', speed: number) => {
+    const handleSpindleCommand = useCallback((command: 'cw' | 'ccw' | 'off', speed: number): void => {
         const manager = serialManagerRef.current;
         if (!manager || !isConnected) return;
 
@@ -704,7 +705,7 @@ const App: React.FC = () => {
         manager.sendLine(gcode);
     }, [isConnected]);
     
-    const handleFeedOverride = useCallback((command: 'reset' | 'inc10' | 'dec10' | 'inc1' | 'dec1') => {
+    const handleFeedOverride = useCallback((command: 'reset' | 'inc10' | 'dec10' | 'inc1' | 'dec1'): void => {
         const manager = serialManagerRef.current;
         if (!manager) return;
 
@@ -723,7 +724,7 @@ const App: React.FC = () => {
 
     const isAlarm = machineState?.status === 'Alarm';
 
-    const handleUnitChange = useCallback((newUnit: 'mm' | 'in') => {
+    const handleUnitChange = useCallback((newUnit: 'mm' | 'in'): void => {
         if (newUnit === unit || !serialManagerRef.current) return;
 
         const command = newUnit === 'mm' ? 'G21' : 'G20';
@@ -736,7 +737,7 @@ const App: React.FC = () => {
 
     }, [unit, addLog]);
 
-    const handleProbe = useCallback(async (axes: string) => {
+    const handleProbe = useCallback(async (axes: string): Promise<void> => {
         const manager = serialManagerRef.current;
         if (!manager || !isConnected) {
             addLog({ type: 'error', message: 'Cannot probe while disconnected.' });
@@ -790,7 +791,7 @@ const App: React.FC = () => {
     
     }, [isConnected, addLog, addNotification, unit, setError, machineSettings.probe]);
 
-    const handleTrySimulator = useCallback(() => {
+    const handleTrySimulator = useCallback((): void => {
         setMachineSettings({ ...DEFAULT_SETTINGS, isConfigured: true });
         setToolLibrary(DEFAULT_TOOLS);
         setUseSimulator(true);
@@ -800,7 +801,7 @@ const App: React.FC = () => {
     }, [setMachineSettings, setToolLibrary, setUseSimulator, setIsWelcomeModalOpen]);
 
     useEffect(() => {
-        const handleKeyDown = (e: KeyboardEvent) => {
+        const handleKeyDown = (e: KeyboardEvent): void => {
             if (!isConnected) return;
             if (document.activeElement && ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName)) {
                 return;
@@ -875,7 +876,7 @@ const App: React.FC = () => {
         return () => document.removeEventListener('keydown', handleKeyDown);
     }, [isConnected, jogStep, handleJog, flashControl, handleEmergencyStop, isAlarm, handleManualCommand, unit]);
 
-    const handleHome = useCallback((axes: 'all' | 'x' | 'y' | 'z' | 'xy') => {
+    const handleHome = useCallback((axes: 'all' | 'x' | 'y' | 'z' | 'xy'): void => {
         const manager = serialManagerRef.current;
         if (!manager) return;
 
@@ -912,7 +913,7 @@ const App: React.FC = () => {
         }
     }, [addLog]);
 
-    const handleSetZero = useCallback((axes: 'all' | 'x' | 'y' | 'z' | 'xy') => {
+    const handleSetZero = useCallback((axes: 'all' | 'x' | 'y' | 'z' | 'xy'): void => {
         let command = 'G10 L20 P1';
         switch (axes) {
             case 'all': command += ' X0 Y0 Z0'; break;
@@ -925,7 +926,7 @@ const App: React.FC = () => {
         addLog({type: 'status', message: `Work coordinate origin set for ${axes.toUpperCase()}.`});
     }, [addLog]);
 
-    const handleRunMacro = useCallback(async (commands: string[]) => {
+    const handleRunMacro = useCallback(async (commands: string[]): Promise<void> => {
         const manager = serialManagerRef.current;
         if (!manager) return;
 
@@ -952,12 +953,12 @@ const App: React.FC = () => {
     }, [addLog, unit, setError]);
 
     // --- Macro Editor Handlers ---
-    const handleOpenMacroEditor = useCallback((index: number | null) => {
+    const handleOpenMacroEditor = useCallback((index: number | null): void => {
         setEditingMacroIndex(index);
         setIsMacroEditorOpen(true);
     }, []);
 
-    const handleCloseMacroEditor = useCallback(() => {
+    const handleCloseMacroEditor = useCallback((): void => {
         setIsMacroEditorOpen(false);
         setEditingMacroIndex(null);
     }, []);
@@ -977,13 +978,13 @@ const App: React.FC = () => {
         addNotification('Macro saved!', 'success');
     }, [addNotification]);
     
-    const handleDeleteMacro = useCallback((index: number) => {
+    const handleDeleteMacro = useCallback((index: number): void => {
         setMacros(prevMacros => prevMacros.filter((_, i) => i !== index));
         addNotification('Macro deleted!', 'success');
     }, [addNotification]);
 
     // FIX: Add handlers for importing and exporting settings to resolve missing props on SettingsModal.
-    const handleExportSettings = useCallback(() => {
+    const handleExportSettings = useCallback((): void => {
         const settingsToExport = {
             machineSettings,
             macros,
@@ -1001,7 +1002,7 @@ const App: React.FC = () => {
         addNotification('Settings exported successfully!', 'success');
     }, [machineSettings, macros, toolLibrary, addNotification]);
 
-    const handleImportSettings = useCallback((imported: any) => {
+    const handleImportSettings = useCallback((imported: any): void => {
         if (window.confirm("This will overwrite your current macros, settings, and tool library. Are you sure?")) {
             // Basic validation
             if (imported.machineSettings && !imported.machineSettings.probe) {
@@ -1018,7 +1019,7 @@ const App: React.FC = () => {
         }
     }, [addNotification]);
     
-    const handleToggleFullscreen = () => {
+    const handleToggleFullscreen = (): void => {
         if (!document.fullscreenElement) {
             document.documentElement.requestFullscreen().catch(err => {
                 alert(`Error attempting to enable full-screen mode: ${err.message} (${err.name})`);
@@ -1040,7 +1041,7 @@ const App: React.FC = () => {
     const isJobActive = jobStatus === JobStatus.Running || jobStatus === JobStatus.Paused;
 
     useEffect(() => {
-        const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+        const handleBeforeUnload = (event: BeforeUnloadEvent): string | void => {
             if (isJobActive) {
                 event.preventDefault();
                 event.returnValue = ''; // Required for Chrome
@@ -1057,7 +1058,7 @@ const App: React.FC = () => {
 
 
     const isAnyControlLocked = !isConnected || isJobActive || isJogging || isMacroRunning || (machineState?.status && ['Alarm', 'Home'].includes(machineState.status));
-    const selectedTool = toolLibrary.find(t => t.id === selectedToolId) || null;
+    const selectedTool = toolLibrary.find((t: Tool) => t.id === selectedToolId) || null;
 
     // Effect to auto-connect when simulator mode is chosen from welcome modal
     useEffect(() => {

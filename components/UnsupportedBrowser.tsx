@@ -1,7 +1,7 @@
 import React from 'react';
 import { AlertTriangle } from './Icons';
 
-const UnsupportedBrowser = () => {
+const UnsupportedBrowser: React.FC = () => {
     return (
         <div className="bg-background text-text-primary min-h-screen flex flex-col items-center justify-center p-8 text-center">
             <div className="max-w-2xl">

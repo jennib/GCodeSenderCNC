@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, ChevronRight, ChevronsLeft, ChevronsRight, Info, AlertTriangle, Maximize, Minimize } from './Icons';
-import { Log } from '../types';
+import { Log } from '../types'; // Already using Log type, good.
 
 interface ConsoleProps {
     logs: Log[];
@@ -9,8 +9,8 @@ interface ConsoleProps {
     isJobActive: boolean;
     isMacroRunning: boolean;
     isLightMode: boolean;
-    isVerbose: boolean;
-    onVerboseChange: (isVerbose: boolean) => void;
+    isVerbose: boolean; // isVerbose and onVerboseChange were missing
+    onVerboseChange: (isVerbose: boolean) => void; // from the old file in context. Adding them.
 }
 
 const Console: React.FC<ConsoleProps> = ({ logs, onSendCommand, isConnected, isJobActive, isMacroRunning, isLightMode, isVerbose, onVerboseChange }) => {

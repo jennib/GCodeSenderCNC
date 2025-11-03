@@ -1,14 +1,27 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Save, X, Upload, Download } from './Icons';
+import { MachineSettings } from '../types';
 
-const InputGroup = ({ label, children }) => (
+interface InputGroupProps {
+    label: string;
+    children: React.ReactNode;
+}
+
+const InputGroup: React.FC<InputGroupProps> = ({ label, children }) => (
     <div>
         <label className="block text-sm font-bold text-text-secondary mb-2">{label}</label>
         <div className="flex items-center gap-2">{children}</div>
     </div>
 );
 
-const NumberInput = ({ id, value, onChange, unit }) => (
+interface NumberInputProps {
+    id: string;
+    value: string | number;
+    onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+    unit?: string;
+}
+
+const NumberInput: React.FC<NumberInputProps> = ({ id, value, onChange, unit }) => (
     <div className="relative flex-grow">
         <input
             id={id} type="number" value={value} onChange={onChange}
@@ -18,7 +31,14 @@ const NumberInput = ({ id, value, onChange, unit }) => (
     </div>
 );
 
-const ScriptInput = ({ label, value, onChange, placeholder }) => (
+interface ScriptInputProps {
+    label: string;
+    value: string;
+    onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
+    placeholder: string;
+}
+
+const ScriptInput: React.FC<ScriptInputProps> = ({ label, value, onChange, placeholder }) => (
     <div>
         <label className="block text-sm font-medium text-text-secondary mb-1">{label}</label>
         <textarea
@@ -29,9 +49,19 @@ const ScriptInput = ({ label, value, onChange, placeholder }) => (
     </div>
 );
 
-const SettingsModal = ({ isOpen, onCancel, onSave, settings, onResetDialogs, onExport, onImport }) => {
-    const [localSettings, setLocalSettings] = useState(settings);
-    const importFileRef = useRef(null);
+interface SettingsModalProps {
+    isOpen: boolean;
+    onCancel: () => void;
+    onSave: (settings: MachineSettings) => void;
+    settings: MachineSettings;
+    onResetDialogs: () => void;
+    onExport: () => void;
+    onImport: (imported: any) => void;
+}
+
+const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onCancel, onSave, settings, onResetDialogs, onExport, onImport }) => {
+    const [localSettings, setLocalSettings] = useState<MachineSettings>(settings);
+    const importFileRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
         if (isOpen) {
@@ -41,7 +71,7 @@ const SettingsModal = ({ isOpen, onCancel, onSave, settings, onResetDialogs, onE
 
     if (!isOpen) return null;
 
-    const handleNestedNumericChange = (category, field, value) => {
+    const handleNestedNumericChange = (category: keyof MachineSettings, field: string, value: string) => {
         // Keep the value as a string during editing to allow partial input like "1." or "-"
         setLocalSettings(prev => ({
             ...prev,
@@ -52,7 +82,7 @@ const SettingsModal = ({ isOpen, onCancel, onSave, settings, onResetDialogs, onE
         }));
     };
 
-    const handleScriptChange = (scriptName, value) => {
+    const handleScriptChange = (scriptName: keyof MachineSettings['scripts'], value: string) => {
         setLocalSettings(prev => ({
             ...prev,
             scripts: {
@@ -88,12 +118,12 @@ const SettingsModal = ({ isOpen, onCancel, onSave, settings, onResetDialogs, onE
         onCancel();
     };
 
-    const handleFileImport = (event) => {
-        const file = event.target.files[0];
+    const handleFileImport = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
         if (!file) return;
 
         const reader = new FileReader();
-        reader.onload = (e) => {
+        reader.onload = (e: ProgressEvent<FileReader>) => {
             try {
                 const importedData = JSON.parse(e.target.result);
                 onImport(importedData);

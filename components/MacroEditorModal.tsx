@@ -1,8 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { Save, Trash2, X } from './Icons';
+import { Macro } from '../types';
 
-const MacroEditorModal = ({ isOpen, onCancel, onSave, onDelete, macro, index }) => {
-    const isEditing = macro !== null && index !== null;
+interface MacroEditorModalProps {
+    isOpen: boolean;
+    onCancel: () => void;
+    onSave: (macro: Macro, index: number | null) => void;
+    onDelete: (index: number) => void;
+    macro: Macro | null;
+    index: number | null;
+}
+
+const MacroEditorModal: React.FC<MacroEditorModalProps> = ({ isOpen, onCancel, onSave, onDelete, macro, index }) => {
+    const isEditing = macro != null && index != null;
     const [name, setName] = useState('');
     const [commands, setCommands] = useState('');
 
@@ -29,7 +39,7 @@ const MacroEditorModal = ({ isOpen, onCancel, onSave, onDelete, macro, index }) 
         onCancel(); // Close modal on save
     };
 
-    const handleDelete = () => {
+    const handleDelete = (): void => {
         if (window.confirm(`Are you sure you want to delete the macro "${macro.name}"?`)) {
             onDelete(index);
             onCancel(); // Close modal on delete

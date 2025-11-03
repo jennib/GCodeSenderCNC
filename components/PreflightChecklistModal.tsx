@@ -1,139 +1,76 @@
-import React, { useState, useEffect } from 'react';
-import { CheckCircle, AlertTriangle, X } from './Icons';
-import { TimeEstimate, Tool } from '../types';
+import React, { useState } from 'react';
+import { Check, X, AlertTriangle, Play } from './Icons';
+import { Tool } from '../types';
+
+interface ChecklistItemProps {
+    children: React.ReactNode;
+    isChecked: boolean;
+}
+
+const ChecklistItem: React.FC<ChecklistItemProps> = ({ children, isChecked }) => (
+    <li className="flex items-center gap-3">
+        {isChecked ? <Check className="w-6 h-6 text-accent-green" /> : <X className="w-6 h-6 text-accent-red" />}
+        <span className="text-text-primary">{children}</span>
+    </li>
+);
 
 interface PreflightChecklistModalProps {
     isOpen: boolean;
     onCancel: () => void;
     onConfirm: (options: { isDryRun: boolean }) => void;
-    jobInfo: {
-        fileName: string;
-        gcodeLines: string[];
-        timeEstimate: TimeEstimate;
-        startLine: number;
-    };
+    jobInfo: { fileName: string; gcodeLines: string[]; timeEstimate: { totalSeconds: number }; startLine: number };
     isHomed: boolean;
-    warnings: { type: string; message: string; line?: number }[];
+    warnings: { type: 'error' | 'warning'; message: string }[];
     selectedTool: Tool | null;
 }
 
-const PreflightChecklistModal: React.FC<PreflightChecklistModalProps> = ({
-    isOpen,
-    onCancel,
-    onConfirm,
-    jobInfo,
-    isHomed,
-    warnings,
-    selectedTool,
-}) => {
+const PreflightChecklistModal: React.FC<PreflightChecklistModalProps> = ({ isOpen, onCancel, onConfirm, jobInfo, isHomed, warnings, selectedTool }) => {
     const [isDryRun, setIsDryRun] = useState(false);
-    const [skipPreflight, setSkipPreflight] = useState(() => {
-        try {
-            return localStorage.getItem('cnc-app-skip-preflight') === 'true';
-        } catch {
-            return false;
-        }
-    });
+    const [skipPreflight, setSkipPreflight] = useState(() => localStorage.getItem('cnc-app-skip-preflight') === 'true');
 
-    useEffect(() => {
-        if (isOpen && skipPreflight && warnings.length === 0) {
-            onConfirm({ isDryRun: false });
-        }
-    }, [isOpen, skipPreflight, warnings, onConfirm]);
+    if (!isOpen) return null;
+
+    const hasErrors = warnings.some(w => w.type === 'error');
 
     const handleConfirm = () => {
         if (skipPreflight) {
-            try {
-                localStorage.setItem('cnc-app-skip-preflight', 'true');
-            } catch (error) {
-                console.error("Could not save preflight preference:", error);
-            }
+            localStorage.setItem('cnc-app-skip-preflight', 'true');
         }
         onConfirm({ isDryRun });
     };
 
-    if (!isOpen || (skipPreflight && warnings.length === 0)) {
-        return null;
-    }
-
-    const formatTime = (totalSeconds: number) => {
-        const hours = Math.floor(totalSeconds / 3600);
-        const minutes = Math.floor((totalSeconds % 3600) / 60);
-        const seconds = Math.round(totalSeconds % 60);
-        let timeString = '';
-        if (hours > 0) timeString += `${hours}h `;
-        if (minutes > 0) timeString += `${minutes}m `;
-        if (seconds > 0 || (hours === 0 && minutes === 0)) timeString += `${seconds}s`;
-        return timeString.trim();
-    };
-
-    const ChecklistItem: React.FC<{ isMet: boolean; text: React.ReactNode; subtext?: string }> = ({ isMet, text, subtext }) => (
-        <div className="flex items-start">
-            <div className="flex-shrink-0 mt-1">
-                {isMet ? <CheckCircle className="w-5 h-5 text-accent-green" /> : <AlertTriangle className="w-5 h-5 text-accent-yellow" />}
-            </div>
-            <div className="ml-3">
-                <p className={`font-semibold ${isMet ? 'text-text-primary' : 'text-accent-yellow'}`}>{text}</p>
-                {subtext && <p className="text-xs text-text-secondary">{subtext}</p>}
-            </div>
-        </div>
-    );
-
     return (
-        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-40 flex items-center justify-center" onClick={onCancel} aria-modal="true" role="dialog">
+        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-40 flex items-center justify-center" onClick={onCancel}>
             <div className="bg-surface rounded-lg shadow-2xl w-full max-w-2xl border border-secondary transform transition-all" onClick={e => e.stopPropagation()}>
                 <div className="p-6 border-b border-secondary flex justify-between items-center">
-                    <h2 className="text-2xl font-bold text-text-primary">Pre-flight Checklist</h2>
-                    <button onClick={onCancel} className="p-1 rounded-md text-text-secondary hover:text-text-primary hover:bg-secondary">
-                        <X className="w-6 h-6" />
-                    </button>
+                    <h2 className="text-2xl font-bold text-text-primary flex items-center gap-3"><AlertTriangle className="w-8 h-8 text-accent-yellow" />Preflight Check</h2>
+                    <button onClick={onCancel} className="p-1 rounded-md text-text-secondary hover:text-text-primary"><X className="w-6 h-6" /></button>
                 </div>
-
-                <div className="p-6 space-y-6">
-                    <div className="bg-background p-4 rounded-md">
-                        <h3 className="font-bold text-lg mb-2 truncate" title={jobInfo.fileName}>{jobInfo.fileName}</h3>
-                        <div className="grid grid-cols-3 gap-4 text-sm">
-                            <div><span className="font-semibold">Lines:</span> {jobInfo.gcodeLines.length}</div>
-                            <div><span className="font-semibold">Start at:</span> Line {jobInfo.startLine + 1}</div>
-                            <div><span className="font-semibold">Est. Time:</span> {formatTime(jobInfo.timeEstimate.totalSeconds)}</div>
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="space-y-4">
-                            <h3 className="font-bold text-text-secondary">System Checks</h3>
-                            <ChecklistItem isMet={isHomed} text="Machine is Homed" subtext="Ensures machine knows its position." />
-                            <ChecklistItem isMet={!!selectedTool} text="Tool Selected" subtext={selectedTool ? `Using: ${selectedTool.name} (Ø${selectedTool.diameter}mm)` : "No tool selected from library."} />
-                            <ChecklistItem isMet={warnings.length === 0} text="G-Code Analysis" subtext={warnings.length > 0 ? `${warnings.length} potential issue(s) found.` : "No obvious issues found."} />
-                        </div>
-                        <div className="space-y-4">
-                            <h3 className="font-bold text-text-secondary">Operator Checks</h3>
-                            <ChecklistItem isMet={false} text="Workpiece is Secure" />
-                            <ChecklistItem isMet={false} text="Work Zero is Set (WCS)" />
-                            <ChecklistItem isMet={false} text="Correct Tool is in Spindle" />
-                            <ChecklistItem isMet={false} text="Area is Clear & Safe" />
-                        </div>
-                    </div>
-
+                <div className="p-6 space-y-4">
+                    <p>Please review the following before starting the job:</p>
+                    <ul className="space-y-2 bg-background p-4 rounded-md">
+                        <ChecklistItem isChecked={!!jobInfo.fileName}>Job file loaded: <strong>{jobInfo.fileName}</strong></ChecklistItem>
+                        <ChecklistItem isChecked={isHomed}>Machine has been homed</ChecklistItem>
+                        <ChecklistItem isChecked={!!selectedTool}>Tool selected: <strong>{selectedTool?.name || 'None'}</strong></ChecklistItem>
+                        <ChecklistItem isChecked={!hasErrors}>G-code analysis passed</ChecklistItem>
+                    </ul>
                     {warnings.length > 0 && (
-                        <div className="bg-accent-yellow/10 border-l-4 border-accent-yellow p-4 rounded-r-md max-h-32 overflow-y-auto">
-                            <h4 className="font-bold text-accent-yellow mb-2">G-Code Warnings</h4>
-                            <ul className="text-sm text-accent-yellow list-disc list-inside">
-                                {warnings.map((w, i) => <li key={i}>{w.line && `L${w.line}: `}{w.message}</li>)}
-                            </ul>
+                        <div className="max-h-40 overflow-y-auto space-y-2">
+                            {warnings.map((w, i) => (
+                                <div key={i} className={`p-3 rounded-md text-sm ${w.type === 'error' ? 'bg-accent-red/20 text-accent-red' : 'bg-accent-yellow/20 text-accent-yellow'}`}><strong>{w.type === 'error' ? 'Error:' : 'Warning:'}</strong> {w.message}</div>
+                            ))}
                         </div>
                     )}
                 </div>
-
                 <div className="bg-background px-6 py-4 flex justify-between items-center rounded-b-lg">
-                    <div className="flex items-center">
-                        <input id="dry-run" type="checkbox" checked={isDryRun} onChange={e => setIsDryRun(e.target.checked)} className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary" />
-                        <label htmlFor="dry-run" className="ml-2 block text-sm text-text-primary">Perform Dry Run (no spindle/laser)</label>
-                    </div>
+                    <label className="flex items-center gap-2 text-sm cursor-pointer">
+                        <input type="checkbox" checked={isDryRun} onChange={e => setIsDryRun(e.target.checked)} className="h-4 w-4 rounded border-secondary text-primary focus:ring-primary" />
+                        Run in Dry Run mode (no spindle/laser, rapids only)
+                    </label>
                     <div className="flex items-center gap-4">
                         <button onClick={onCancel} className="px-4 py-2 bg-secondary text-white font-semibold rounded-md hover:bg-secondary-focus">Cancel</button>
-                        <button onClick={handleConfirm} className="px-6 py-2 bg-primary text-white font-bold rounded-md hover:bg-primary-focus flex items-center gap-2">
-                            {isDryRun ? 'Start Dry Run' : 'Start Job'}
+                        <button onClick={handleConfirm} disabled={hasErrors} className="px-6 py-2 bg-accent-green text-white font-bold rounded-md hover:bg-green-600 disabled:bg-secondary disabled:cursor-not-allowed flex items-center gap-2">
+                            <Play className="w-5 h-5" />Confirm & Start Job
                         </button>
                     </div>
                 </div>

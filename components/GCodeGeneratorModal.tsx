@@ -4,8 +4,15 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { X, Save, Zap, ZoomIn, ZoomOut, Maximize, AlertTriangle } from './Icons';
 import { FONTS } from '../services/cncFonts.js';
 import { parseGCode } from '../services/gcodeParser.js';
+import { MachineSettings, Tool } from '../types';
 
-const Tab = ({ label, isActive, onClick }) => (
+interface TabProps {
+    label: string;
+    isActive: boolean;
+    onClick: () => void;
+}
+
+const Tab: React.FC<TabProps> = ({ label, isActive, onClick }) => (
     <button
         onClick={onClick}
         className={`px-4 py-2 text-sm font-semibold -mb-px border-b-2 ${isActive ? 'border-primary text-primary' : 'border-transparent text-text-secondary hover:text-text-primary'}`}
@@ -14,7 +21,14 @@ const Tab = ({ label, isActive, onClick }) => (
     </button>
 );
 
-const RadioGroup = ({ label, options, selected, onChange }) => (
+interface RadioGroupProps {
+    label?: string;
+    options: { value: string; label: string }[];
+    selected: string;
+    onChange: (value: string) => void;
+}
+
+const RadioGroup: React.FC<RadioGroupProps> = ({ label, options, selected, onChange }) => (
     <div className="mb-2">
         {label && <label className="block text-sm font-medium text-text-secondary mb-1">{label}</label>}
         <div className="flex bg-secondary rounded-md p-1">
@@ -31,7 +45,20 @@ const RadioGroup = ({ label, options, selected, onChange }) => (
     </div>
 );
 
-const Input = ({ label, value, valueX, valueY, onChange, onChangeX, onChangeY, unit, help, isXY = false }) => (
+interface InputProps {
+    label: string;
+    value?: string | number;
+    valueX?: string | number;
+    valueY?: string | number;
+    onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
+    onChangeX?: (e: React.ChangeEvent<HTMLInputElement>) => void;
+    onChangeY?: (e: React.ChangeEvent<HTMLInputElement>) => void;
+    unit?: string;
+    help?: string;
+    isXY?: boolean;
+}
+
+const Input: React.FC<InputProps> = ({ label, value, valueX, valueY, onChange, onChangeX, onChangeY, unit, help, isXY = false }) => (
     <div>
         <label className="block text-sm font-medium text-text-secondary mb-1">{label}</label>
         {isXY ? (
@@ -49,7 +76,12 @@ const Input = ({ label, value, valueX, valueY, onChange, onChangeX, onChangeY, u
     </div>
 );
 
-const Preview = ({ paths, viewBox }) => {
+interface PreviewProps {
+    paths: any[];
+    viewBox: string;
+}
+
+const Preview: React.FC<PreviewProps> = ({ paths, viewBox }) => {
     const [vbMinX, vbMinY, vbWidth, vbHeight] = viewBox.split(' ').map(parseFloat);
 
     const gridElements = [];
@@ -122,7 +154,14 @@ const Preview = ({ paths, viewBox }) => {
     );
 };
 
-const ToolSelector = ({ selectedId, onChange, colSpan = 'col-span-full', unit, toolLibrary }) => (
+interface ToolSelectorProps {
+    selectedId: number | null;
+    onChange: (id: number | null) => void;
+    colSpan?: string;
+    unit: 'mm' | 'in';
+    toolLibrary: Tool[];
+}
+const ToolSelector: React.FC<ToolSelectorProps> = ({ selectedId, onChange, colSpan = 'col-span-full', unit, toolLibrary }) => (
     <div className={colSpan}>
         <label className="block text-sm font-medium text-text-secondary mb-1">Tool</label>
         <select
@@ -142,7 +181,14 @@ const ToolSelector = ({ selectedId, onChange, colSpan = 'col-span-full', unit, t
     </div>
 );
 
-const ArrayControls = ({ settings, onChange, activeTab, unit }) => {
+interface ArrayControlsProps {
+    settings: any;
+    onChange: (settings: any) => void;
+    activeTab: string;
+    unit: 'mm' | 'in';
+}
+
+const ArrayControls: React.FC<ArrayControlsProps> = ({ settings, onChange, activeTab, unit }) => {
     const handleToggle = (e) => {
         onChange({ ...settings, isEnabled: e.target.checked });
     };
@@ -183,7 +229,16 @@ const ArrayControls = ({ settings, onChange, activeTab, unit }) => {
     );
 };
 
-const SpindleAndFeedControls = ({ params, onParamChange, feedLabel = 'Feed Rate', plunge, plungeLabel = 'Plunge Rate', unit }) => (
+interface SpindleAndFeedControlsProps {
+    params: any;
+    onParamChange: (field: string, value: string) => void;
+    feedLabel?: string;
+    plunge?: boolean;
+    plungeLabel?: string;
+    unit: 'mm' | 'in';
+}
+
+const SpindleAndFeedControls: React.FC<SpindleAndFeedControlsProps> = ({ params, onParamChange, feedLabel = 'Feed Rate', plunge, plungeLabel = 'Plunge Rate', unit }) => (
     <React.Fragment>
         <hr className="border-secondary" />
         <div className="grid grid-cols-2 gap-4">
@@ -195,7 +250,16 @@ const SpindleAndFeedControls = ({ params, onParamChange, feedLabel = 'Feed Rate'
     </React.Fragment>
 );
 
-const GCodeGeneratorModal = ({ isOpen, onCancel, onLoadGCode, unit, settings, toolLibrary }) => {
+interface GCodeGeneratorModalProps {
+    isOpen: boolean;
+    onCancel: () => void;
+    onLoadGCode: (gcode: string, name: string) => void;
+    unit: 'mm' | 'in';
+    settings: MachineSettings;
+    toolLibrary: Tool[];
+}
+
+const GCodeGeneratorModal: React.FC<GCodeGeneratorModalProps> = ({ isOpen, onCancel, onLoadGCode, unit, settings, toolLibrary }) => {
     const [activeTab, setActiveTab] = useState('surfacing');
     const [generatedGCode, setGeneratedGCode] = useState('');
     const [previewPaths, setPreviewPaths] = useState({ paths: [], bounds: { minX: 0, maxX: 100, minY: 0, maxY: 100 } });

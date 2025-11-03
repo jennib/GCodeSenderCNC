@@ -1,5 +1,5 @@
 import React from 'react';
-import Tooltip from './Tooltip.jsx';
+import Tooltip from './Tooltip';
 import { Play } from './Icons';
 
 const GCODE_DEFINITIONS = {
@@ -50,22 +50,20 @@ const PARAMETER_DEFINITIONS = {
     'T': 'Tool Number (for M6)',
 };
 
-// FIX: Add JSDoc type definitions for props to allow TypeScript to correctly type-check this JavaScript component.
-/**
- * @typedef {object} GCodeLineProps
- * @property {string} line
- * @property {number} lineNumber
- * @property {boolean} isExecuted
- * @property {boolean} isCurrent
- * @property {boolean} isHovered
- * @property {(lineNumber: number) => void} onRunFromHere
- * @property {boolean} isActionable
- * @property {() => void} onMouseEnter
- * @property {() => void} onMouseLeave
- */
+interface GCodeLineProps {
+  line: string;
+  lineNumber: number;
+  isExecuted: boolean;
+  isCurrent: boolean;
+  isHovered: boolean;
+  onRunFromHere: (lineNumber: number) => void;
+  isActionable: boolean;
+  onMouseEnter: () => void;
+  onMouseLeave: () => void;
+}
 
-/** @type {React.FC<GCodeLineProps>} */
-const GCodeLine = ({ line, lineNumber, isExecuted, isCurrent, isHovered, onRunFromHere, isActionable, onMouseEnter, onMouseLeave }) => {
+
+const GCodeLine: React.FC<GCodeLineProps> = ({ line, lineNumber, isExecuted, isCurrent, isHovered, onRunFromHere, isActionable, onMouseEnter, onMouseLeave }) => {
     const parts = [];
     let lastIndex = 0;
     // Regex to find G/M codes, parameters with values, and comments

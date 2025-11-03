@@ -1,11 +1,12 @@
-import React, { useRef, useEffect, useState, useCallback, useImperativeHandle, ForwardedRef } from 'react';
+import React, { useRef, useEffect, useState, useCallback, useImperativeHandle } from 'react';
 import { parseGCode } from '../services/gcodeParser';
+import { MachineSettings } from '../types';
 
 // --- WebGL Helper Functions ---
-const createShader = (gl: WebGLRenderingContext, type: number, source: string) => {
+const createShader = (gl: WebGLRenderingContext, type: number, source: string): WebGLShader | null => {
     const shader = gl.createShader(type);
     if (!shader) return null;
-    gl.shaderSource(shader, source);
+    gl.shaderSource(shader, source); 
     gl.compileShader(shader);
     if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
         console.error('An error occurred compiling the shaders: ' + gl.getShaderInfoLog(shader));
@@ -15,7 +16,7 @@ const createShader = (gl: WebGLRenderingContext, type: number, source: string) =
     return shader;
 };
 
-const createProgram = (gl: WebGLRenderingContext, vertexShader: WebGLShader, fragmentShader: WebGLShader) => {
+const createProgram = (gl: WebGLRenderingContext, vertexShader: WebGLShader, fragmentShader: WebGLShader): WebGLProgram | null => {
     const program = gl.createProgram();
     if (!program) return null;
     gl.attachShader(program, vertexShader);
@@ -53,9 +54,9 @@ const fragmentShaderSource = `
 
 // --- Matrix Math (gl-matrix simplified) ---
 const mat4 = {
-    create: (): Float32Array => new Float32Array(16),
-    identity: (out: Float32Array) => { out.set([1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1]); return out; },
-    multiply: (out: Float32Array, a: Float32Array, b: Float32Array) => {
+    create: () => new Float32Array(16),
+    identity: (out) => { out.set([1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1]); return out; },
+    multiply: (out, a, b) => {
         let a00 = a[0], a01 = a[1], a02 = a[2], a03 = a[3];
         let a10 = a[4], a11 = a[5], a12 = a[6], a13 = a[7];
         let a20 = a[8], a21 = a[9], a22 = a[10], a23 = a[11];
@@ -82,7 +83,7 @@ const mat4 = {
         out[15] = b0 * a03 + b1 * a13 + b2 * a23 + b3 * a33;
         return out;
     },
-    translate: (out: Float32Array, a: Float32Array, v: number[]) => {
+    translate: (out, a, v) => {
         let x = v[0], y = v[1], z = v[2];
         out.set(a);
         out[12] = a[12] + a[0] * x + a[4] * y + a[8] * z;
@@ -90,7 +91,7 @@ const mat4 = {
         out[14] = a[14] + a[2] * x + a[6] * y + a[10] * z;
         return out;
     },
-    rotate: (out: Float32Array, a: Float32Array, rad: number, axis: number[]) => {
+    rotate: (out, a, rad, axis) => {
         let x = axis[0], y = axis[1], z = axis[2], len = Math.hypot(x,y,z);
         if (len < 1e-6) return null;
         len = 1 / len; x *= len; y *= len; z *= len;
@@ -116,7 +117,7 @@ const mat4 = {
         }
         return out;
     },
-    perspective: (out: Float32Array, fovy: number, aspect: number, near: number, far: number) => {
+    perspective: (out, fovy, aspect, near, far) => {
         const f = 1.0 / Math.tan(fovy / 2);
         out[0] = f / aspect; out[1] = 0; out[2] = 0; out[3] = 0;
         out[4] = 0; out[5] = f; out[6] = 0; out[7] = 0;
@@ -131,7 +132,7 @@ const mat4 = {
         }
         return out;
     },
-    lookAt: (out: Float32Array, eye: number[], center: number[], up: number[]) => {
+    lookAt: (out, eye, center, up) => {
         let x0, x1, x2, y0, y1, y2, z0, z1, z2, len;
         let eyeX = eye[0], eyeY = eye[1], eyeZ = eye[2];
         let upX = up[0], upY = up[1], upZ = up[2];
@@ -176,8 +177,7 @@ interface GCodeVisualizerProps {
     gcodeLines: string[];
     currentLine: number;
     hoveredLineIndex: number | null;
-    machineSettings: any;
-    unit: 'mm' | 'in';
+    machineSettings: MachineSettings;
 }
 
 export interface GCodeVisualizerHandle {
@@ -186,7 +186,6 @@ export interface GCodeVisualizerHandle {
     zoomOut: () => void;
     resetView: () => void;
 }
-
 
 const GCodeVisualizer = React.forwardRef<GCodeVisualizerHandle, GCodeVisualizerProps>(({ gcodeLines, currentLine, hoveredLineIndex, machineSettings }, ref) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -197,7 +196,7 @@ const GCodeVisualizer = React.forwardRef<GCodeVisualizerHandle, GCodeVisualizerP
     // This ref will hold all dynamic data for the render loop to access without re-triggering effects.
     const renderDataRef = useRef<any>({});
 
-    const [parsedGCode, setParsedGCode] = useState(null);
+    const [parsedGCode, setParsedGCode] = useState<any>(null);
     const [camera, setCamera] = useState({
         target: [0, 0, 0],
         distance: 100,
@@ -205,13 +204,13 @@ const GCodeVisualizer = React.forwardRef<GCodeVisualizerHandle, GCodeVisualizerP
     });
     const mouseState = useRef({ isDown: false, lastPos: { x: 0, y: 0 }, button: 0 });
 
-    const createToolModel = (position: {x: number, y: number, z: number}) => {
+    const createToolModel = (position: { x: number, y: number, z: number }) => {
         const { x, y, z } = position;
         const toolHeight = 20;
         const toolRadius = 3;
         const holderHeight = 10;
         const holderRadius = 8;
-        const vertices: number[] = [];
+        const vertices = [];
     
         const addQuad = (p1: number[], p2: number[], p3: number[], p4: number[]) => vertices.push(...p1, ...p2, ...p3, ...p1, ...p3, ...p4);
     
@@ -241,7 +240,7 @@ const GCodeVisualizer = React.forwardRef<GCodeVisualizerHandle, GCodeVisualizerP
         };
     };
 
-    const fitView = useCallback((bounds: any | null, newRotation: number[] | null = null) => {
+    const fitView = useCallback((bounds: any, newRotation: number[] | null = null) => {
         if (!bounds || bounds.minX === Infinity) {
             setCamera(prev => ({
                 ...prev,
@@ -286,7 +285,7 @@ const GCodeVisualizer = React.forwardRef<GCodeVisualizerHandle, GCodeVisualizerP
 
     // Effect to regenerate buffers when their data sources change.
     useEffect(() => {
-        const gl = glRef.current;
+        const gl = glRef.current; 
         if (!gl) return;
 
         // --- Create Work Area Buffers ---
@@ -383,8 +382,8 @@ const GCodeVisualizer = React.forwardRef<GCodeVisualizerHandle, GCodeVisualizerP
 
         // --- Create Toolpath Buffers ---
         const segments = parsedGCode ? parsedGCode.segments : [];
-        const vertices: number[] = [];
-        const colors: number[] = [];
+        const vertices = [];
+        const colors = [];
 
         const colorRapid = [0.28, 0.33, 0.41, 1.0]; // secondary
         const colorCut = [0.58, 0.64, 0.72, 1.0];   // text-secondary
@@ -404,7 +403,7 @@ const GCodeVisualizer = React.forwardRef<GCodeVisualizerHandle, GCodeVisualizerP
                 color = seg.type === 'G0' ? colorRapid : colorCut;
             }
 
-            if ((seg.type === 'G2' || seg.type === 'G3') && seg.center) {
+            if (seg.type === 'G2' || seg.type === 'G3') {
                 const arcPoints = 20;
                 const radius = Math.hypot(seg.start.x - seg.center.x, seg.start.y - seg.center.y);
                 let startAngle = Math.atan2(seg.start.y - seg.center.y, seg.start.x - seg.center.x);
@@ -499,17 +498,14 @@ const GCodeVisualizer = React.forwardRef<GCodeVisualizerHandle, GCodeVisualizerP
     
     // The main setup and continuous render loop effect. Runs ONLY ONCE.
     useEffect(() => {
-        const canvas = canvasRef.current;
-        if (!canvas) return;
+        const canvas = canvasRef.current!;
         const gl = canvas.getContext('webgl', { antialias: true });
         if (!gl) { console.error("WebGL not supported"); return; }
         glRef.current = gl;
 
         const vs = createShader(gl, gl.VERTEX_SHADER, vertexShaderSource);
         const fs = createShader(gl, gl.FRAGMENT_SHADER, fragmentShaderSource);
-        if (!vs || !fs) return;
         const program = createProgram(gl, vs, fs);
-        if (!program) return;
 
         programInfoRef.current = {
             program: program,
@@ -525,7 +521,7 @@ const GCodeVisualizer = React.forwardRef<GCodeVisualizerHandle, GCodeVisualizerP
         gl.enable(gl.DEPTH_TEST);
         gl.depthFunc(gl.LEQUAL);
         
-        let animationFrameId: number;
+        let animationFrameId;
 
         const renderLoop = () => {
             animationFrameId = requestAnimationFrame(renderLoop);
@@ -536,12 +532,10 @@ const GCodeVisualizer = React.forwardRef<GCodeVisualizerHandle, GCodeVisualizerP
 
             if (!gl || !programInfo) return;
             
-            const canvasElement = gl.canvas;
-            if (canvasElement instanceof HTMLCanvasElement) {
-                if (canvasElement.width !== canvasElement.clientWidth || canvasElement.height !== canvasElement.clientHeight) {
-                    canvasElement.width = canvasElement.clientWidth;
-                    canvasElement.height = canvasElement.clientHeight;
-                }
+            // Handle canvas resizing within the loop
+            if (canvas.width !== canvas.clientWidth || canvas.height !== canvas.clientHeight) {
+                canvas.width = canvas.clientWidth;
+                canvas.height = canvas.clientHeight;
             }
 
             gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
@@ -552,8 +546,7 @@ const GCodeVisualizer = React.forwardRef<GCodeVisualizerHandle, GCodeVisualizerP
             if (!buffers || !camera) return;
 
             const projectionMatrix = mat4.create();
-            const aspect = gl.canvas.width / gl.canvas.height;
-            mat4.perspective(projectionMatrix, 45 * Math.PI / 180, aspect, 0.1, 10000);
+            mat4.perspective(projectionMatrix, 45 * Math.PI / 180, gl.canvas.clientWidth / gl.canvas.clientHeight, 0.1, 10000);
 
             const viewMatrix = mat4.create();
             
@@ -644,15 +637,14 @@ const GCodeVisualizer = React.forwardRef<GCodeVisualizerHandle, GCodeVisualizerP
     
     // --- Mouse Controls ---
     useEffect(() => {
-        const canvas = canvasRef.current;
-        if (!canvas) return;
-        const handleMouseDown = (e: MouseEvent) => {
+        const canvas = canvasRef.current!;
+        const handleMouseDown = e => {
             mouseState.current = { isDown: true, lastPos: { x: e.clientX, y: e.clientY }, button: e.button };
         };
         const handleMouseUp = () => {
             mouseState.current.isDown = false;
         };
-        const handleMouseMove = (e: MouseEvent) => {
+        const handleMouseMove = e => {
             if (!mouseState.current.isDown) return;
             const dx = e.clientX - mouseState.current.lastPos.x;
             const dy = e.clientY - mouseState.current.lastPos.y;
@@ -694,12 +686,12 @@ const GCodeVisualizer = React.forwardRef<GCodeVisualizerHandle, GCodeVisualizerP
 
             mouseState.current.lastPos = { x: e.clientX, y: e.clientY };
         };
-        const handleWheel = (e: WheelEvent) => {
+        const handleWheel = e => {
             e.preventDefault();
             const scale = e.deltaY < 0 ? 0.8 : 1.2;
             setCamera(c => ({ ...c, distance: Math.max(1, c.distance * scale) }));
         };
-        const handleContextMenu = (e: MouseEvent) => e.preventDefault();
+        const handleContextMenu = e => e.preventDefault();
         
         canvas.addEventListener('mousedown', handleMouseDown);
         canvas.addEventListener('mouseup', handleMouseUp);
@@ -718,11 +710,10 @@ const GCodeVisualizer = React.forwardRef<GCodeVisualizerHandle, GCodeVisualizerP
         };
     }, []);
 
-    return (
-        <div className="w-full h-full bg-background rounded cursor-grab active:cursor-grabbing">
-            <canvas ref={canvasRef} className="w-full h-full" />
-        </div>
-    );
+
+    return <div className="w-full h-full bg-background rounded cursor-grab active:cursor-grabbing">
+        <canvas ref={canvasRef} className="w-full h-full" />
+    </div>;
 });
 
 export default GCodeVisualizer;

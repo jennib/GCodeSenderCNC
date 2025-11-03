@@ -6,72 +6,50 @@ export enum JobStatus {
     Complete = 'complete',
 }
 
-export interface PortInfo {
-    usbVendorId?: number;
-    usbProductId?: number;
+export interface MachineState {
+    status: 'Idle' | 'Run' | 'Hold' | 'Jog' | 'Alarm' | 'Door' | 'Check' | 'Home' | 'Sleep' | 'Connecting' | string;
+    code: number | null;
+    wpos: {
+        x: number;
+        y: number;
+        z: number;
+    };
+    mpos: {
+        x: number;
+        y: number;
+        z: number;
+    };
+    spindle: {
+        state: 'off' | 'cw' | 'ccw';
+        speed: number;
+    };
+    ov: number[];
 }
 
-export interface ConsoleLog {
+export interface Log {
     type: 'sent' | 'received' | 'status' | 'error';
     message: string;
-}
-
-export interface MachinePosition {
-    x: number;
-    y: number;
-    z: number;
-}
-
-export interface SpindleState {
-    state: 'cw' | 'ccw' | 'off';
-    speed: number;
-}
-
-export interface MachineState {
-    status: 'Idle' | 'Run' | 'Hold' | 'Jog' | 'Alarm' | 'Door' | 'Check' | 'Home' | 'Sleep' | string;
-    code: number | null;
-    wpos: MachinePosition;
-    mpos: MachinePosition;
-    wco?: MachinePosition;
-    spindle: SpindleState;
-    ov: [number, number, number];
-}
-
-export interface Macro {
-    name: string;
-    commands: string[];
-}
-
-export interface MachineSettings {
-    workArea: { x: number; y: number; z: number };
-    spindle: { min: number; max: number };
-    probe: { xOffset: number; yOffset: number; zOffset: number; feedRate: number; };
-    scripts: {
-        startup: string;
-        toolChange: string;
-        shutdown: string;
-    };
+    timestamp: Date;
 }
 
 export interface Tool {
     id: number;
     name: string;
     diameter: number;
+    type?: 'endmill' | 'v-bit' | string;
+    angle?: number;
+    length?: number;
 }
 
-export interface GCodeAnalysisWarning {
-    type: 'error' | 'warning';
-    message: string;
+export interface MachineSettings {
+    workArea: { x: number; y: number; z: number };
+    spindle: { min: number; max: number };
+    probe: { xOffset: number; yOffset: number; zOffset: number; feedRate: number };
+    scripts: { startup: string; toolChange: string; shutdown: string };
+    isConfigured?: boolean;
 }
 
-export interface GCodeTimeEstimate {
-    totalSeconds: number;
-    cumulativeSeconds: number[];
-}
-
-export interface Notification {
-  id: number;
-  message: string;
-  type: 'success' | 'error' | 'info';
-  timerId?: number;
+export interface Macro {
+    name: string;
+    commands: string[];
 }
