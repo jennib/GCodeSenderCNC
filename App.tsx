@@ -220,6 +220,12 @@ const App: React.FC = () => {
     const audioContextRef = useRef<AudioContext | null>(null);
     const audioBufferRef = useRef<AudioBuffer | null>(null);
     
+    // Use a ref for isVerbose to ensure callbacks always have the latest value.
+    const isVerboseRef = useRef(isVerbose);
+    useEffect(() => {
+        isVerboseRef.current = isVerbose;
+    }, [isVerbose]);
+
     useEffect(() => {
         jobStatusRef.current = jobStatus;
     }, [jobStatus]);
@@ -385,7 +391,7 @@ const App: React.FC = () => {
 
         // Filter out GRBL status reports unless in verbose mode.
         // These start with '<' and end with '>'.
-        if (!isVerbose && processedLog.type === 'received' && processedLog.message.startsWith('<') && processedLog.message.endsWith('>')) {
+        if (!isVerboseRef.current && processedLog.type === 'received' && processedLog.message.startsWith('<') && processedLog.message.endsWith('>')) {
             return; // Don't add the log
         }
 
@@ -405,7 +411,7 @@ const App: React.FC = () => {
             const trimmedMessage = processedLog.message.trim().toLowerCase();
 
             // Consolidate repeated 'ok' messages to prevent console spam, unless in verbose mode.
-            if (!isVerbose && processedLog.type === 'received' && trimmedMessage === 'ok') {
+            if (!isVerboseRef.current && processedLog.type === 'received' && trimmedMessage === 'ok') {
                 const lastLog = prev.length > 0 ? prev[prev.length - 1] : null;
 
                 // Check if the last log was also an 'ok' message that we can append to.
@@ -423,7 +429,7 @@ const App: React.FC = () => {
             // For any other message, or the first 'ok' in a sequence, or if verbose.
             return [...prev, processedLog].slice(-200); // Keep last 200 logs
         });
-    }, [isVerbose]);
+    }, []);
     
     useEffect(() => {
         // FIX: The type of `prevState` is correctly inferred due to the typed `machineState`.
