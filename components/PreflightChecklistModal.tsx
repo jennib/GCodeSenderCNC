@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Check, X, AlertTriangle, Play } from './Icons';
+import { CheckCircle, X, AlertTriangle, Play } from './Icons';
 import { Tool } from '../types';
 
 interface ChecklistItemProps {
@@ -9,7 +9,7 @@ interface ChecklistItemProps {
 
 const ChecklistItem: React.FC<ChecklistItemProps> = ({ children, isChecked }) => (
     <li className="flex items-center gap-3">
-        {isChecked ? <Check className="w-6 h-6 text-accent-green" /> : <X className="w-6 h-6 text-accent-red" />}
+        {isChecked ? <CheckCircle className="w-6 h-6 text-accent-green" /> : <X className="w-6 h-6 text-accent-red" />}
         <span className="text-text-primary">{children}</span>
     </li>
 );

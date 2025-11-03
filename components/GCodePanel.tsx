@@ -2,8 +2,8 @@
 
 
 import React, { useRef, useState, useEffect, DragEvent } from 'react';
-import { JobStatus, MachineState, Tool } from '../types';
-import { Play, Pause, Square, Upload, FileText, Code, Eye, Maximize, Pencil, CheckCircle, X, Save, Plus, Minus, RefreshCw, Percent, ZoomIn, ZoomOut, Clock, BookOpen, Crosshair, Zap } from './Icons';
+import { JobStatus, MachineState, Tool, MachineSettings } from '../types';
+import { Play, Pause, Square, Upload, FileText, Code, Eye, Maximize, Pencil, CheckCircle, X, Save, Plus, Minus, RefreshCw, Percent, ZoomIn, ZoomOut, Clock, BookOpen, Crosshair, Zap } from './Icons.js';
 import GCodeVisualizer, { GCodeVisualizerHandle } from './GCodeVisualizer';
 import GCodeLine from './GCodeLine';
 
@@ -42,11 +42,11 @@ interface GCodePanelProps {
     isConnected: boolean;
     unit: 'mm' | 'in';
     onGCodeChange: (content: string) => void;
-    onClearFile: () => void;
+    onClearFile?: () => void;
     machineState: MachineState | null;
     onFeedOverride: (command: 'reset' | 'inc10' | 'dec10' | 'inc1' | 'dec1') => void;
     timeEstimate: { totalSeconds: number, cumulativeSeconds: number[] };
-    machineSettings: any; // Consider creating a specific type for this
+    machineSettings: MachineSettings;
     toolLibrary: Tool[];
     selectedToolId: number | null;
     onToolSelect: (id: number | null) => void;
@@ -69,7 +69,7 @@ const formatTime = (totalSeconds: number): string => {
 const GCodePanel: React.FC<GCodePanelProps> = ({ 
     onFileLoad, fileName, gcodeLines, onJobControl, 
     jobStatus, progress, isConnected, unit, onGCodeChange, 
-    onClearFile,
+    onClearFile = () => {},
     machineState, onFeedOverride, timeEstimate, 
     machineSettings, toolLibrary, selectedToolId, onToolSelect,
     onOpenGenerator 
@@ -198,7 +198,7 @@ const GCodePanel: React.FC<GCodePanelProps> = ({
     const renderContent = () => {
         if (gcodeLines.length > 0) {
             if (view === 'visualizer') return <GCodeVisualizer ref={visualizerRef} gcodeLines={gcodeLines} currentLine={currentLine} unit={unit} hoveredLineIndex={hoveredLineIndex} machineSettings={machineSettings} />;
-            if (view === 'code') {
+            if (view === 'code' && machineSettings) {
                 if (isEditing) return (
                     <textarea
                         className="w-full h-full absolute inset-0 bg-background font-mono text-sm p-2 rounded border border-secondary focus:ring-primary focus:border-primary"

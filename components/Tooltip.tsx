@@ -18,7 +18,7 @@ const Tooltip: React.FC<TooltipProps> = ({ children, content, title }) => {
       {visible && (
         <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max max-w-xs bg-background border border-secondary text-text-primary text-sm rounded-md shadow-lg z-20 p-3">
           {title && <h4 className="font-bold mb-1 border-b border-secondary pb-1">{title}</h4>}
-          <p className="text-text-secondary">{content}</p>
+          {typeof content === 'string' ? <p className="text-text-secondary">{content}</p> : content}
         </div>
       )}
     </span>

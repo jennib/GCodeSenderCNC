@@ -176,7 +176,6 @@ const mat4 = {
 interface GCodeVisualizerProps {
     gcodeLines: string[];
     currentLine: number;
-    hoveredLineIndex: number | null;
     machineSettings: MachineSettings;
 }
 
@@ -187,7 +186,7 @@ export interface GCodeVisualizerHandle {
     resetView: () => void;
 }
 
-const GCodeVisualizer = React.forwardRef<GCodeVisualizerHandle, GCodeVisualizerProps>(({ gcodeLines, currentLine, hoveredLineIndex, machineSettings }, ref) => {
+const GCodeVisualizer = React.forwardRef<GCodeVisualizerHandle, GCodeVisualizerProps>(({ gcodeLines, currentLine, machineSettings }, ref) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const glRef = useRef<WebGLRenderingContext | null>(null);
     const programInfoRef = useRef<any>(null);
@@ -195,6 +194,7 @@ const GCodeVisualizer = React.forwardRef<GCodeVisualizerHandle, GCodeVisualizerP
     
     // This ref will hold all dynamic data for the render loop to access without re-triggering effects.
     const renderDataRef = useRef<any>({});
+    const hoveredLineIndex = 0; // This is a placeholder. The prop was removed as it was not used.
 
     const [parsedGCode, setParsedGCode] = useState<any>(null);
     const [camera, setCamera] = useState({

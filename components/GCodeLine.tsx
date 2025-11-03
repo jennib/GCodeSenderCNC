@@ -1,6 +1,6 @@
 import React from 'react';
 import Tooltip from './Tooltip';
-import { Play } from './Icons';
+import { Play } from './Icons.js';
 
 const GCODE_DEFINITIONS = {
     // G-Codes
@@ -64,7 +64,7 @@ interface GCodeLineProps {
 
 
 const GCodeLine: React.FC<GCodeLineProps> = ({ line, lineNumber, isExecuted, isCurrent, isHovered, onRunFromHere, isActionable, onMouseEnter, onMouseLeave }) => {
-    const parts = [];
+    const parts: React.ReactNode[] = [];
     let lastIndex = 0;
     // Regex to find G/M codes, parameters with values, and comments
     const tokenRegex = /([GgMm]\d+(?:\.\d+)?)|([XxYyZzIiJjFfSsPpTt]\s*[-+]?\d+(?:\.\d+)?)|(;.*)|(\(.*\))/g;
@@ -78,14 +78,14 @@ const GCodeLine: React.FC<GCodeLineProps> = ({ line, lineNumber, isExecuted, isC
 
         const token = match[0];
         const upperToken = token.toUpperCase();
-        let el = null;
+        let el: React.ReactNode = null;
 
         if (match[1]) { // G/M Code
             const code = upperToken.match(/[GgMm]\d+/)[0];
             const definition = GCODE_DEFINITIONS[code];
             if (definition) {
                 el = (
-                    <Tooltip title={`${code}: ${definition.name}`} content={definition.desc}>
+                    <Tooltip title={`${code}: ${definition.name}`} content={definition.desc} key={lastIndex}>
                         <span className="text-purple-400 font-bold cursor-help">{token}</span>
                     </Tooltip>
                 );
@@ -97,7 +97,7 @@ const GCodeLine: React.FC<GCodeLineProps> = ({ line, lineNumber, isExecuted, isC
             const definition = PARAMETER_DEFINITIONS[param];
             if (definition) {
                 el = (
-                    <Tooltip content={definition}>
+                    <Tooltip content={definition} key={lastIndex}>
                         <span className="text-green-400 cursor-help">{token}</span>
                     </Tooltip>
                 );
@@ -140,7 +140,11 @@ const GCodeLine: React.FC<GCodeLineProps> = ({ line, lineNumber, isExecuted, isC
                 </button>
                 {lineNumber}
             </div>
-            <code className="whitespace-pre">{parts}</code>
+            <code className="whitespace-pre">
+              {parts.map((part, i) => (
+                <React.Fragment key={i}>{part}</React.Fragment>
+              ))}
+            </code>
         </div>
     );
 };

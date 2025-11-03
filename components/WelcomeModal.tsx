@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Settings, BookOpen, Cpu } from './Icons';
+import { X, Settings, BookOpen, Zap } from './Icons';
 
 interface WelcomeModalProps {
     isOpen: boolean;
@@ -51,7 +51,7 @@ const WelcomeModal: React.FC<WelcomeModalProps> = ({
                     </div>
                     <div className="text-center pt-4">
                         <p className="text-sm text-text-secondary mb-2">Or, if you just want to try out the software:</p>
-                        <button onClick={onTrySimulator} className="px-6 py-2 bg-primary text-white font-bold rounded-md hover:bg-primary-focus flex items-center gap-2 mx-auto"><Cpu className="w-5 h-5" />Try the Simulator</button>
+                        <button onClick={onTrySimulator} className="px-6 py-2 bg-primary text-white font-bold rounded-md hover:bg-primary-focus flex items-center gap-2 mx-auto"><Zap className="w-5 h-5" />Try the Simulator</button>
                     </div>
                 </div>
             </div>

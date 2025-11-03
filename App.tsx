@@ -4,7 +4,6 @@ import { SimulatedSerialManager } from './services/simulatedSerialService';
 // FIX: Import MachineState type to correctly type component state.
 import { completionSound } from './sounds';
 import { JobStatus, MachineState, Log, Tool, Macro, MachineSettings } from './types';
-import SerialConnector from './components/SerialConnector.jsx';
 import SerialConnector from './components/SerialConnector';
 import GCodePanel from './components/GCodePanel';
 import Console from './components/Console';
