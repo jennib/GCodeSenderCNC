@@ -1,6 +1,6 @@
 {
-  "name": "CNC G-Code Sender",
-  "description": "A web-based interface for sending G-code commands to a CNC machine over a serial port. Load a G-code file, connect to your machine, and start your job with real-time monitoring and control.",
+  "name": "mycnc.app",
+  "description": "A web-based interface for generating and sending G-code commands to a CNC machine over a serial port. Load a G-code file, connect to your machine, and start your job with real-time monitoring and control.",
   "requestFramePermissions": [
     "serial",
     "camera"
