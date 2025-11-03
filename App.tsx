@@ -389,11 +389,8 @@ const App: React.FC = () => {
     const addLog = useCallback((log: { type: string, message: string }) => {
         let processedLog = { ...log, timestamp: new Date() };
 
-        // Filter out GRBL status reports unless in verbose mode.
-        // These start with '<' and end with '>'.
-        if (!isVerboseRef.current && processedLog.type === 'received' && processedLog.message.startsWith('<') && processedLog.message.endsWith('>')) {
-            return; // Don't add the log
-        }
+        // Filter out periodic GRBL status reports unless in verbose mode.
+        // These start with '<' and end with '>'. They are handled by the onStatus callback.
 
         // Add explanation for GRBL errors, preserving the original message context.
         if (processedLog.type === 'error' && processedLog.message.includes('error:')) {
@@ -413,16 +410,10 @@ const App: React.FC = () => {
             // Consolidate repeated 'ok' messages to prevent console spam, unless in verbose mode.
             if (!isVerboseRef.current && processedLog.type === 'received' && trimmedMessage === 'ok') {
                 const lastLog = prev.length > 0 ? prev[prev.length - 1] : null;
-
-                // Check if the last log was also an 'ok' message that we can append to.
-                if (lastLog && lastLog.type === 'received' && /^ok\.*$/.test(lastLog.message)) {
-                    // If the line has space, append a dot.
-                    if (lastLog.message.length < 60) {
-                        const newLogs = [...prev];
-                        newLogs[newLogs.length - 1] = { ...lastLog, message: lastLog.message + '.' };
-                        return newLogs;
-                    } 
-                    // If the line is full, we fall through to add a new 'ok' log on a new line.
+                if (lastLog && lastLog.type === 'received' && /^ok\.*$/.test(lastLog.message) && lastLog.message.length < 60) {
+                    const newLogs = [...prev];
+                    newLogs[newLogs.length - 1] = { ...lastLog, message: lastLog.message + '.' };
+                    return newLogs;
                 }
             }
             
@@ -432,7 +423,7 @@ const App: React.FC = () => {
     }, []);
     
     useEffect(() => {
-        // FIX: The type of `prevState` is correctly inferred due to the typed `machineState`.
+        // This effect handles the "Homing complete" notification.
         if (prevState?.status === 'Home' && machineState?.status === 'Idle') {
             addNotification('Homing complete.', 'success');
             setIsHomedSinceConnect(true);
@@ -508,20 +499,18 @@ const App: React.FC = () => {
             },
             onStatus: (status: MachineState, rawStatus?: string) => {
                 setMachineState(status);
-                if (isVerboseRef.current && rawStatus) {
+                if (isVerboseRef.current && rawStatus && rawStatus.startsWith('<')) {
                     addLog({ type: 'received', message: rawStatus });
                 }
-            }
+            },
         };
 
         try {
             const manager = useSimulator
                 ? new SimulatedSerialManager(commonCallbacks)
                 : new SerialManager(commonCallbacks);
-            
             serialManagerRef.current = manager; // Set ref before connect to use in onConnect
             await manager.connect(115200);
-            
         } catch (err) {
             const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred.';
             setError(`Failed to connect: ${errorMessage}`);

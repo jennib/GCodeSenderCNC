@@ -1,15 +1,16 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, ChevronRight, ChevronsLeft, ChevronsRight, Info, AlertTriangle, Maximize, Minimize } from './Icons';
+import { Log } from '../types';
 
 interface ConsoleProps {
-    logs: any[];
+    logs: Log[];
     onSendCommand: (command: string) => void;
     isConnected: boolean;
     isJobActive: boolean;
     isMacroRunning: boolean;
     isLightMode: boolean;
     isVerbose: boolean;
-    onVerboseChange: (verbose: boolean) => void;
+    onVerboseChange: (isVerbose: boolean) => void;
 }
 
 const Console: React.FC<ConsoleProps> = ({ logs, onSendCommand, isConnected, isJobActive, isMacroRunning, isLightMode, isVerbose, onVerboseChange }) => {
@@ -31,7 +32,7 @@ const Console: React.FC<ConsoleProps> = ({ logs, onSendCommand, isConnected, isJ
         }
     };
 
-    const getLogColor = (type: any) => {
+    const getLogColor = (type: Log['type']) => {
         if (isLightMode) {
             switch (type) {
                 case 'sent': return 'text-blue-700';
@@ -50,7 +51,7 @@ const Console: React.FC<ConsoleProps> = ({ logs, onSendCommand, isConnected, isJ
         }
     };
 
-    const getLogIcon = (type: any) => {
+    const getLogIcon = (type: Log['type']) => {
         const iconProps = { className: "w-4 h-4 mr-2 flex-shrink-0" };
         switch (type) {
             case 'sent': return <ChevronsRight {...iconProps} />;
@@ -74,7 +75,6 @@ const Console: React.FC<ConsoleProps> = ({ logs, onSendCommand, isConnected, isJ
         return "Enter G-code command...";
     };
 
-
     return (
         <div className={containerClasses}>
             <h2 className="text-lg font-bold mb-4 pb-4 border-b border-secondary flex-shrink-0 flex justify-between items-center">
@@ -94,9 +94,7 @@ const Console: React.FC<ConsoleProps> = ({ logs, onSendCommand, isConnected, isJ
                         title={isFullscreen ? "Minimize Console" : "Fullscreen Console"}
                         className="text-text-secondary hover:text-text-primary p-1 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-surface"
                     >
-                        {isFullscreen
-                            ? <Minimize className="w-5 h-5" />
-                            : <Maximize className="w-5 h-5" />}
+                        {isFullscreen ? <Minimize className="w-5 h-5" /> : <Maximize className="w-5 h-5" />}
                     </button>
                 </div>
             </h2>
