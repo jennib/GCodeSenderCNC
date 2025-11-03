@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Save, X, Plus, Trash2, Pencil } from './Icons.js';
+import { Save, X, Plus, Trash2, Pencil } from './Icons';
 
 const h = React.createElement;
 

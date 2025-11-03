@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, ChevronRight, ChevronsLeft, ChevronsRight, Info, AlertTriangle, Maximize, Minimize } from './Icons.js';
+import { Send, ChevronRight, ChevronsLeft, ChevronsRight, Info, AlertTriangle, Maximize, Minimize } from './Icons';
 
 const Console = ({ logs, onSendCommand, isConnected, isJobActive, isMacroRunning, isLightMode, isVerbose, onVerboseChange }) => {
     const [command, setCommand] = useState('');

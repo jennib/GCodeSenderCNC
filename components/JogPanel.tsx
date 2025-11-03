@@ -1,5 +1,5 @@
 import React, { useState, memo } from 'react';
-import { ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Pin, RotateCw, RotateCcw, PowerOff, Probe } from './Icons.js';
+import { ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Pin, RotateCw, RotateCcw, PowerOff, Probe } from './Icons';
 import { MachineState } from '../types';
 
 interface JogPanelProps {

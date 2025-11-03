@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertTriangle } from './Icons.js';
+import { AlertTriangle } from './Icons';
 
 const h = React.createElement;
 

@@ -1,5 +1,5 @@
 import React from 'react';
-import { PowerOff, RotateCw, RotateCcw, OctagonAlert } from './Icons.js';
+import { PowerOff, RotateCw, RotateCcw, OctagonAlert } from './Icons';
 
 const h = React.createElement;
 

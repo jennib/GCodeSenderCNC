@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Save, X, Upload, Download } from './Icons.js';
+import { Save, X, Upload, Download } from './Icons';
 
 const h = React.createElement;
 

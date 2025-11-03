@@ -1,7 +1,7 @@
 
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { X, Save, Zap, ZoomIn, ZoomOut, Maximize, AlertTriangle } from './Icons.js';
+import { X, Save, Zap, ZoomIn, ZoomOut, Maximize, AlertTriangle } from './Icons';
 import { FONTS } from '../services/cncFonts.js';
 import { parseGCode } from '../services/gcodeParser.js';
 

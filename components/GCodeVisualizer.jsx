@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState, useCallback, useImperativeHandle } from 'react';
-import { parseGCode } from '../services/gcodeParser.js';
+import { parseGCode } from '../services/gcodeParser';
 
 // --- WebGL Helper Functions ---
 const createShader = (gl, type, source) => {

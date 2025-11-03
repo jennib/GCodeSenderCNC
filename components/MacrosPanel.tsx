@@ -1,6 +1,6 @@
 
 import React, { useState, Fragment } from 'react';
-import { Zap, Pencil, CheckCircle, PlusCircle, ChevronDown, ChevronUp } from './Icons.js';
+import { Zap, Pencil, CheckCircle, PlusCircle, ChevronDown, ChevronUp } from './Icons';
 
 interface Macro {
     name: string;

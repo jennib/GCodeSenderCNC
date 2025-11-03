@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { CheckCircle, X } from './Icons.js';
+import { CheckCircle, X } from './Icons';
 
 const h = React.createElement;
 

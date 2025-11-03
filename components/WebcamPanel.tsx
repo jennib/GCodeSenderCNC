@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Camera, CameraOff, AlertTriangle, PictureInPicture, Dock } from './Icons.js';
+import { Camera, CameraOff, AlertTriangle, PictureInPicture, Dock } from './Icons';
 
 const WebcamPanel: React.FC = () => {
     const [isWebcamOn, setIsWebcamOn] = useState(false);

@@ -1,6 +1,6 @@
 import React from 'react';
-import Tooltip from './Tooltip.js';
-import { Play } from './Icons.js';
+import Tooltip from './Tooltip.jsx';
+import { Play } from './Icons';
 
 const h = React.createElement;
 

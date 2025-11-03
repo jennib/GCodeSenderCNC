@@ -3,9 +3,9 @@
 
 import React, { useRef, useState, useEffect } from 'react';
 import { JobStatus } from '../types.js';
-import { Play, Pause, Square, Upload, FileText, Code, Eye, Maximize, Pencil, CheckCircle, X, Save, Plus, Minus, RefreshCw, Percent, ZoomIn, ZoomOut, Clock, BookOpen, Crosshair, Zap } from './Icons.js';
+import { Play, Pause, Square, Upload, FileText, Code, Eye, Maximize, Pencil, CheckCircle, X, Save, Plus, Minus, RefreshCw, Percent, ZoomIn, ZoomOut, Clock, BookOpen, Crosshair, Zap } from './Icons';
 import GCodeVisualizer from './GCodeVisualizer.js';
-import GCodeLine from './GCodeLine.js';
+import GCodeLine from './GCodeLine.jsx';
 
 const FeedrateOverrideControl = ({ onFeedOverride, currentFeedrate, className = '' }) => {
     return React.createElement('div', { className: `bg-background p-3 rounded-md ${className}` },

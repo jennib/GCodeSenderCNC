@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Send } from './Icons.js';
+import { X, Send } from './Icons';
 
 const h = React.createElement;
 

@@ -5,27 +5,27 @@ import { SimulatedSerialManager } from './services/simulatedSerialService';
 import { completionSound } from './sounds';
 import { JobStatus, MachineState } from './types';
 import SerialConnector from './components/SerialConnector';
-import GCodePanel from './components/GCodePanel';
-import Console from './components/Console';
+import GCodePanel from './components/GCodePanel.jsx';
+import Console from './components/Console.jsx';
 import JogPanel from './components/JogPanel';
 import MacrosPanel from './components/MacrosPanel';
 import WebcamPanel from './components/WebcamPanel';
 import PreflightChecklistModal from './components/PreflightChecklistModal';
 import WelcomeModal from './components/WelcomeModal';
-import MacroEditorModal from './components/MacroEditorModal.js';
-import SettingsModal from './components/SettingsModal.js';
-import ToolLibraryModal from './components/ToolLibraryModal.js';
-import { NotificationContainer } from './components/Notification.js';
+import MacroEditorModal from './components/MacroEditorModal.jsx';
+import SettingsModal from './components/SettingsModal.jsx';
+import ToolLibraryModal from './components/ToolLibraryModal.jsx';
+import { NotificationContainer } from './components/Notification.jsx';
 import ThemeToggle from './components/ThemeToggle';
-import StatusBar from './components/StatusBar.js';
+import StatusBar from './components/StatusBar.jsx';
 import { AlertTriangle, OctagonAlert, Unlock, Settings, Maximize, Minimize, BookOpen } from './components/Icons';
 import { estimateGCodeTime } from './services/gcodeTimeEstimator.js';
 import { analyzeGCode } from './services/gcodeAnalyzer.js';
 import { Analytics } from '@vercel/analytics/react';
-import GCodeGeneratorModal from './components/GCodeGeneratorModal.js';
-import Footer from './components/Footer.js';
-import ContactModal from './components/ContactModal.js';
-import UnsupportedBrowser from './components/UnsupportedBrowser.js';
+import GCodeGeneratorModal from './components/GCodeGeneratorModal.jsx';
+import Footer from './components/Footer.jsx';
+import ContactModal from './components/ContactModal.jsx';
+import UnsupportedBrowser from './components/UnsupportedBrowser.jsx';
 
 const GRBL_ALARM_CODES: { [key: number | string]: { name: string; desc: string; resolution: string } } = {
     1: { name: 'Hard limit', desc: 'A limit switch was triggered. Usually due to machine travel limits.', resolution: 'Check for obstructions. The machine may need to be moved off the switch manually. Use the "$X" command to unlock after clearing the issue, then perform a homing cycle ($H).' },
