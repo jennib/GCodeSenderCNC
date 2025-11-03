@@ -1,16 +1,30 @@
 
 import React, { useState, useEffect } from 'react';
 import { Save, X, Plus, Trash2, Pencil } from './Icons';
+import { Tool } from '../types';
 
-const ToolLibraryModal = ({ isOpen, onCancel, onSave, library }) => {
-    const [localLibrary, setLocalLibrary] = useState([]);
+interface ToolLibraryModalProps {
+    isOpen: boolean;
+    onCancel: () => void;
+    onSave: (library: Tool[]) => void;
+    library: Tool[];
+}
+
+const newToolInitialState: Omit<Tool, 'id'> & { id: number | null } = {
+    id: null,
+    name: '',
+    diameter: '',
+};
+
+const ToolLibraryModal: React.FC<ToolLibraryModalProps> = ({ isOpen, onCancel, onSave, library }) => {
+    const [localLibrary, setLocalLibrary] = useState<Tool[]>([]);
     const [isEditing, setIsEditing] = useState(false);
-    const [currentTool, setCurrentTool] = useState({ id: null, name: '', diameter: '' });
+    const [currentTool, setCurrentTool] = useState<Omit<Tool, 'id'> & { id: number | null }>(newToolInitialState);
 
     useEffect(() => {
         if (isOpen) {
             // Ensure every tool has a unique ID, even if not saved before.
-            setLocalLibrary(library.map((tool, index) => ({ ...tool, id: tool.id || Date.now() + index })));
+            setLocalLibrary(library.map((tool, index) => ({ ...tool, id: tool.id ?? Date.now() + index })));
         }
     }, [isOpen, library]);
 
@@ -22,19 +36,19 @@ const ToolLibraryModal = ({ isOpen, onCancel, onSave, library }) => {
     };
 
     const handleAddNew = () => {
-        setCurrentTool({ id: null, name: '', diameter: '' });
+        setCurrentTool(newToolInitialState);
         setIsEditing(true);
     };
 
     const handleCancelEdit = () => {
         setIsEditing(false);
-        setCurrentTool({ id: null, name: '', diameter: '' });
+        setCurrentTool(newToolInitialState);
     };
 
     const handleSaveTool = () => {
-        if (currentTool.name.trim() === '' || currentTool.diameter === '' || isNaN(parseFloat(currentTool.diameter))) return;
+        if (currentTool.name.trim() === '' || currentTool.diameter === '' || isNaN(Number(currentTool.diameter))) return;
 
-        const toolToSave = { ...currentTool, diameter: parseFloat(currentTool.diameter) };
+        const toolToSave = { ...currentTool, diameter: Number(currentTool.diameter) } as Tool;
 
         if (currentTool.id) { // Editing existing
             setLocalLibrary(lib => lib.map(t => t.id === toolToSave.id ? toolToSave : t));
@@ -95,7 +109,7 @@ const ToolLibraryModal = ({ isOpen, onCancel, onSave, library }) => {
                                     <input
                                         type="number"
                                         placeholder="e.g., 6.35"
-                                        value={currentTool.diameter}
+                                        value={currentTool.diameter || ''}
                                         onChange={e => setCurrentTool(prev => ({ ...prev, diameter: e.target.value }))}
                                         className="w-full bg-secondary border border-secondary rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary"
                                     />

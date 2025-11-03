@@ -2,7 +2,18 @@
 import React from 'react';
 import { CheckCircle, X } from './Icons';
 
-const NotificationItem = ({ notification, onDismiss }) => {
+interface Notification {
+    id: number;
+    message: string;
+    type: 'success' | 'error' | 'info';
+    timerId?: number;
+}
+
+interface NotificationItemProps {
+    notification: Notification;
+    onDismiss: (id: number) => void;
+}
+const NotificationItem: React.FC<NotificationItemProps> = ({ notification, onDismiss }) => {
     const { id, message, type } = notification;
 
     const getStyles = () => {
@@ -48,7 +59,12 @@ const NotificationItem = ({ notification, onDismiss }) => {
     );
 };
 
-export const NotificationContainer = ({ notifications, onDismiss }) => {
+interface NotificationContainerProps {
+    notifications: Notification[];
+    onDismiss: (id: number) => void;
+}
+
+export const NotificationContainer: React.FC<NotificationContainerProps> = ({ notifications, onDismiss }) => {
     return (
         <div
             aria-live="assertive"
