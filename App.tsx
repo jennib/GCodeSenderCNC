@@ -86,6 +86,13 @@ const DEFAULT_MACROS = [
     { name: 'Reset All Offsets', commands: ['G92.1'] },
 ];
 
+const DEFAULT_TOOLS = [
+    { id: 1, name: '1/8" Flat Endmill', diameter: 3.175, type: 'endmill', length: 25 },
+    { id: 2, name: '1/4" Flat Endmill', diameter: 6.35, type: 'endmill', length: 50 },
+    { id: 3, name: '60 Degree V-Bit', diameter: 12.7, type: 'v-bit', angle: 60, length: 30 },
+    { id: 4, name: '90 Degree V-Bit', diameter: 12.7, type: 'v-bit', angle: 90, length: 30 },
+];
+
 const DEFAULT_SETTINGS = {
     workArea: { x: 300, y: 300, z: 80 },
     spindle: { min: 0, max: 12000 },
@@ -108,6 +115,7 @@ const usePrevious = <T,>(value: T): T | undefined => {
 };
 
 const buildTimestamp = new Date().toISOString().replace('T', ' ').substring(0, 19);
+
 
 const App: React.FC = () => {
     // FIX: Initialize `isConnected` state with `false`.
@@ -1032,6 +1040,13 @@ const App: React.FC = () => {
         };
     }, [isJobActive]);
 
+    // Effect to auto-connect when simulator mode is chosen from welcome modal
+    useEffect(() => {
+        if (useSimulator && !isConnected) {
+            handleConnect();
+        }
+    }, [useSimulator, isConnected, handleConnect]);
+
 
     const isAnyControlLocked = !isConnected || isJobActive || isJogging || isMacroRunning || (machineState?.status && ['Alarm', 'Home'].includes(machineState.status));
     const selectedTool = toolLibrary.find(t => t.id === selectedToolId) || null;
@@ -1064,6 +1079,7 @@ const App: React.FC = () => {
                 isMachineSetupComplete={!!machineSettings.isConfigured}
                 isToolLibrarySetupComplete={toolLibrary.length > 0}
             />
+
             <NotificationContainer
                 notifications={notifications}
                 onDismiss={removeNotification}
