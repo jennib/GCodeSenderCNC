@@ -1040,16 +1040,6 @@ const App: React.FC = () => {
         };
     }, [isJobActive]);
 
-    // Effect to auto-connect when simulator mode is chosen from welcome modal
-    useEffect(() => {
-        if (useSimulator && !isConnected) {
-            handleConnect();
-        }
-    }, [useSimulator, isConnected, handleConnect]);
-
-
-    const isAnyControlLocked = !isConnected || isJobActive || isJogging || isMacroRunning || (machineState?.status && ['Alarm', 'Home'].includes(machineState.status));
-    const selectedTool = toolLibrary.find(t => t.id === selectedToolId) || null;
 
     return (
         <div className="min-h-screen bg-background font-sans text-text-primary flex flex-col">
@@ -1076,6 +1066,7 @@ const App: React.FC = () => {
                     setReturnToWelcome(true);
                     setIsToolLibraryModalOpen(true);
                 }}
+                onTrySimulator={handleTrySimulator}
                 isMachineSetupComplete={!!machineSettings.isConfigured}
                 isToolLibrarySetupComplete={toolLibrary.length > 0}
             />
