@@ -3,8 +3,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { X, Save, Zap, ZoomIn, ZoomOut, Maximize, AlertTriangle } from './Icons';
 import { FONTS } from '../services/cncFonts.js';
-import { parseGCode } from '../services/gcodeParser.js';
 import { MachineSettings, Tool } from '../types';
+import SurfacingGenerator from './SurfacingGenerator';
+import DrillingGenerator from './DrillingGenerator';
 
 interface TabProps {
     label: string;
@@ -19,61 +20,6 @@ const Tab: React.FC<TabProps> = ({ label, isActive, onClick }) => (
     >
         {label}
     </button>
-);
-
-interface RadioGroupProps {
-    label?: string;
-    options: { value: string; label: string }[];
-    selected: string;
-    onChange: (value: string) => void;
-}
-
-const RadioGroup: React.FC<RadioGroupProps> = ({ label, options, selected, onChange }) => (
-    <div className="mb-2">
-        {label && <label className="block text-sm font-medium text-text-secondary mb-1">{label}</label>}
-        <div className="flex bg-secondary rounded-md p-1">
-            {options.map(opt => (
-                <button
-                    key={opt.value}
-                    onClick={() => onChange(opt.value)}
-                    className={`w-full p-1 rounded-md text-sm font-semibold transition-colors ${selected === opt.value ? 'bg-primary text-white' : 'hover:bg-secondary-focus'}`}
-                >
-                    {opt.label}
-                </button>
-            ))}
-        </div>
-    </div>
-);
-
-interface InputProps {
-    label: string;
-    value?: string | number;
-    valueX?: string | number;
-    valueY?: string | number;
-    onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
-    onChangeX?: (e: React.ChangeEvent<HTMLInputElement>) => void;
-    onChangeY?: (e: React.ChangeEvent<HTMLInputElement>) => void;
-    unit?: string;
-    help?: string;
-    isXY?: boolean;
-}
-
-const Input: React.FC<InputProps> = ({ label, value, valueX, valueY, onChange, onChangeX, onChangeY, unit, help, isXY = false }) => (
-    <div>
-        <label className="block text-sm font-medium text-text-secondary mb-1">{label}</label>
-        {isXY ? (
-            <div className="flex gap-2">
-                <input type="number" value={valueX} onChange={onChangeX} className="w-full bg-background border-secondary rounded-md py-1 px-2 focus:outline-none focus:ring-1 focus:ring-primary" />
-                <input type="number" value={valueY} onChange={onChangeY} className="w-full bg-background border-secondary rounded-md py-1 px-2 focus:outline-none focus:ring-1 focus:ring-primary" />
-            </div>
-        ) : (
-            <div className="relative">
-                <input type="number" value={value} onChange={onChange} className="w-full bg-background border-secondary rounded-md py-1 px-2 focus:outline-none focus:ring-1 focus:ring-primary" />
-                {unit && <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-text-secondary">{unit}</span>}
-            </div>
-        )}
-        {help && <p className="text-xs text-text-secondary mt-1">{help}</p>}
-    </div>
 );
 
 interface PreviewProps {
@@ -154,40 +100,6 @@ const Preview: React.FC<PreviewProps> = ({ paths, viewBox }) => {
     );
 };
 
-interface ToolSelectorProps {
-    selectedId: number | null;
-    onChange: (id: number | null) => void;
-    colSpan?: string;
-    unit: 'mm' | 'in';
-    toolLibrary: Tool[];
-}
-const ToolSelector: React.FC<ToolSelectorProps> = ({ selectedId, onChange, colSpan = 'col-span-full', unit, toolLibrary }) => (
-    <div className={colSpan}>
-        <label className="block text-sm font-medium text-text-secondary mb-1">Tool</label>
-        <select
-            value={selectedId || ''}
-            onChange={e => onChange(e.target.value ? parseInt(e.target.value, 10) : null)}
-            className="w-full bg-background border-secondary rounded-md py-1 px-2 focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50"
-            disabled={!toolLibrary || toolLibrary.length === 0}
-        >
-            <option value="">{toolLibrary && toolLibrary.length > 0 ? 'Select a tool...' : 'No tools in library'}</option>
-            {toolLibrary && toolLibrary.map(tool => <option key={tool.id} value={tool.id}>{`${tool.name} (Ø ${tool.diameter}${unit})`}</option>)}
-        </select>
-        {(!toolLibrary || toolLibrary.length === 0) && (
-            <p className="text-xs text-text-secondary mt-1">
-                Add tools in the Tool Library to enable generation.
-            </p>
-        )}
-    </div>
-);
-
-interface ArrayControlsProps {
-    settings: any;
-    onChange: (settings: any) => void;
-    activeTab: string;
-    unit: 'mm' | 'in';
-}
-
 const ArrayControls: React.FC<ArrayControlsProps> = ({ settings, onChange, activeTab, unit }) => {
     const handleToggle = (e) => {
         onChange({ ...settings, isEnabled: e.target.checked });
@@ -229,27 +141,6 @@ const ArrayControls: React.FC<ArrayControlsProps> = ({ settings, onChange, activ
     );
 };
 
-interface SpindleAndFeedControlsProps {
-    params: any;
-    onParamChange: (field: string, value: string) => void;
-    feedLabel?: string;
-    plunge?: boolean;
-    plungeLabel?: string;
-    unit: 'mm' | 'in';
-}
-
-const SpindleAndFeedControls: React.FC<SpindleAndFeedControlsProps> = ({ params, onParamChange, feedLabel = 'Feed Rate', plunge, plungeLabel = 'Plunge Rate', unit }) => (
-    <React.Fragment>
-        <hr className="border-secondary" />
-        <div className="grid grid-cols-2 gap-4">
-            <Input label={feedLabel} value={params.feed} onChange={e => onParamChange('feed', e.target.value)} unit={unit + '/min'} />
-            <Input label="Spindle Speed" value={params.spindle} onChange={e => onParamChange('spindle', e.target.value)} unit="RPM" />
-        </div>
-        {plunge && <Input label={plungeLabel} value={params.plungeFeed} onChange={e => onParamChange('plungeFeed', e.target.value)} unit={unit + '/min'} />}
-        <Input label="Safe Z" value={params.safeZ} onChange={e => onParamChange('safeZ', e.target.value)} unit={unit} help="Rapid height above stock" />
-    </React.Fragment>
-);
-
 interface GCodeGeneratorModalProps {
     isOpen: boolean;
     onCancel: () => void;
@@ -266,24 +157,6 @@ const GCodeGeneratorModal: React.FC<GCodeGeneratorModalProps> = ({ isOpen, onCan
     const [viewBox, setViewBox] = useState('0 0 100 100');
     const [generationError, setGenerationError] = useState(null);
 
-
-    // --- Surfacing State ---
-    const [surfaceParams, setSurfaceParams] = useState({
-        width: 100, length: 100, depth: -1, stepover: 40,
-        feed: 800, spindle: settings.spindle.max || 8000, safeZ: 5, startX: 0, startY: 0,
-        toolId: null, direction: 'horizontal',
-    });
-
-    // --- Drilling State ---
-    const [drillType, setDrillType] = useState('single');
-    const [drillParams, setDrillParams] = useState({
-        depth: -5, peck: 2, retract: 2, feed: 150, spindle: settings.spindle.max || 8000, safeZ: 5,
-        singleX: 10, singleY: 10,
-        rectCols: 4, rectRows: 3, rectSpacingX: 25, rectSpacingY: 20, rectStartX: 10, rectStartY: 10,
-        circCenterX: 50, circCenterY: 50, circRadius: 40, circHoles: 6, circStartAngle: 0,
-        toolId: null,
-    });
-    
     // --- Bore State ---
     const [boreParams, setBoreParams] = useState({
         centerX: 50, centerY: 50,
@@ -394,106 +267,6 @@ const GCodeGeneratorModal: React.FC<GCodeGeneratorModalProps> = ({ isOpen, onCan
             const newY = y + (h - newH) / 2;
             return `${newX} ${newY} ${newW} ${newH}`;
         });
-    };
-
-    useEffect(() => {
-        // Reset array settings when switching tabs for a cleaner workflow
-        const showArray = !['surfacing', 'drilling'].includes(activeTab);
-        setArraySettings(prev => ({
-            ...prev,
-            isEnabled: showArray ? prev.isEnabled : false
-        }));
-    }, [activeTab]);
-
-
-    useEffect(() => {
-        if (isOpen) {
-            handleGenerate();
-        }
-    }, [isOpen, activeTab, surfaceParams, drillParams, drillType, boreParams, pocketParams, profileParams, slotParams, textParams, threadParams, arraySettings]);
-    
-     useEffect(() => {
-        fitView();
-    }, [previewPaths.bounds, fitView]);
-    
-    const handleParamChange = (setter, params, field, value) => {
-        const numValue = value === '' ? '' : parseFloat(value);
-        if (isNaN(numValue)) return;
-        setter({ ...params, [field]: numValue });
-    };
-
-    const generateSurfacingCode = () => {
-        const toolIndex = toolLibrary.findIndex(t => t.id === surfaceParams.toolId);
-        if (toolIndex === -1) return { error: "Please select a tool." };
-        const selectedTool = toolLibrary[toolIndex];
-        if (!selectedTool) return { error: "Please select a tool." };
-        const toolDiameter = selectedTool.diameter;
-
-        const { width, length, depth, stepover, feed, spindle, safeZ, startX, startY, direction } = surfaceParams;
-        if ([width, length, depth, stepover, feed, spindle, safeZ].some(p => p === '' || p === null)) return { error: "Please fill all required fields." };
-        
-        const code = [
-            `(--- Surfacing Operation ---)`,
-            `(Tool: ${selectedTool.name} - Ø${toolDiameter}${unit})`,
-            `(Width: ${width}, Length: ${length}, Depth: ${depth})`,
-            `(Stepover: ${stepover}%, Direction: ${direction})`,
-            // `T${toolIndex + 1} M6`, // Tool change disabled for non-ATC setups
-            `G21 G90`, // mm, absolute
-            `M3 S${spindle}`,
-            `G0 Z${safeZ}`,
-            `G0 X${startX.toFixed(3)} Y${startY.toFixed(3)}`,
-        ];
-        
-        const paths = [];
-        const step = toolDiameter * (stepover / 100);
-
-        code.push(`G1 Z${depth.toFixed(3)} F${Math.round(feed / 2)}`);
-
-        if (direction === 'horizontal') {
-            let y = startY;
-            let x = startX;
-            let x_direction = 1;
-
-            while (y <= length + startY) {
-                let lastX = x;
-                x = x_direction === 1 ? startX + width : startX;
-                code.push(`G1 X${x.toFixed(3)} F${feed}`);
-                paths.push({ d: `M${lastX} ${y} L${x} ${y}`, stroke: 'var(--color-primary)' });
-                
-                y += step;
-                if (y <= length + startY) {
-                    code.push(`G1 Y${y.toFixed(3)}`);
-                    paths.push({ d: `M${x} ${y-step} L${x} ${y}`, stroke: 'var(--color-text-secondary)' });
-                }
-                x_direction *= -1;
-            }
-        } else { // vertical
-            let x = startX;
-            let y = startY;
-            let y_direction = 1;
-            
-            while (x <= width + startX) {
-                let lastY = y;
-                y = y_direction === 1 ? startY + length : startY;
-                code.push(`G1 Y${y.toFixed(3)} F${feed}`);
-                paths.push({ d: `M${x} ${lastY} L${x} ${y}`, stroke: 'var(--color-primary)' });
-
-                x += step;
-                if (x <= width + startX) {
-                    code.push(`G1 X${x.toFixed(3)}`);
-                    paths.push({ d: `M${x-step} ${y} L${x} ${y}`, stroke: 'var(--color-text-secondary)' });
-                }
-                y_direction *= -1;
-            }
-        }
-        
-        code.push(`G0 Z${safeZ}`, `M5`, `G0 X${startX.toFixed(3)} Y${startY.toFixed(3)}`);
-        
-        return { 
-            code, 
-            paths,
-            bounds: { minX: startX, minY: startY, maxX: startX + width, maxY: startY + length } 
-        };
     };
 
     const generateDrillingCode = () => {
@@ -1178,64 +951,15 @@ const GCodeGeneratorModal: React.FC<GCodeGeneratorModalProps> = ({ isOpen, onCan
     if (!isOpen) return null;
     
    const renderSurfaceForm = () => <div className='space-y-4'>
-        <ToolSelector selectedId={surfaceParams.toolId} onChange={(id) => setSurfaceParams(p => ({ ...p, toolId: id }))} unit={unit} toolLibrary={toolLibrary} />
-        <hr className='border-secondary' />
-        <div className='grid grid-cols-2 gap-4'>
-             <Input label={`Width (X)`} value={surfaceParams.width} onChange={e => handleParamChange(setSurfaceParams, surfaceParams, 'width', e.target.value)} unit={unit} />
-             <Input label={`Length (Y)`} value={surfaceParams.length} onChange={e => handleParamChange(setSurfaceParams, surfaceParams, 'length', e.target.value)} unit={unit} />
-        </div>
-        <RadioGroup
-            label='Milling Direction'
-            options={[
-                { value: 'horizontal', label: 'Horizontal (X)' },
-                { value: 'vertical', label: 'Vertical (Y)' }
-            ]}
-            selected={surfaceParams.direction}
-            onChange={val => setSurfaceParams(p => ({ ...p, direction: val }))}
-        />
-        <Input label='Final Depth' value={surfaceParams.depth} onChange={e => handleParamChange(setSurfaceParams, surfaceParams, 'depth', e.target.value)} unit={unit} help='Should be negative' />
-        <Input label='Stepover' value={surfaceParams.stepover} onChange={e => handleParamChange(setSurfaceParams, surfaceParams, 'stepover', e.target.value)} unit='%' />
-        <SpindleAndFeedControls params={surfaceParams} onParamChange={(field, value) => handleParamChange(setSurfaceParams, surfaceParams, field, value)} unit={unit} />
+        <SurfacingGenerator onGenerate={onLoadGCode} toolLibrary={toolLibrary} unit={unit} settings={settings} />
     </div>;
     
  const renderDrillForm = () => <div className='space-y-4'>
-        <ToolSelector selectedId={drillParams.toolId} onChange={(id) => setDrillParams(p => ({ ...p, toolId: id }))} unit={unit} toolLibrary={toolLibrary} />
-        <hr className='border-secondary' />
-        <RadioGroup options={[
-            { value: 'single', label: 'Single' }, 
-            { value: 'rect', label: 'Rectangular' },
-            { value: 'circ', label: 'Circular' }
-         ]} selected={drillType} onChange={setDrillType} />
-        
-        {drillType === 'single' && <Input label='Center X, Y' valueX={drillParams.singleX} valueY={drillParams.singleY} onChangeX={e => handleParamChange(setDrillParams, drillParams, 'singleX', e.target.value)} onChangeY={e => handleParamChange(setDrillParams, drillParams, 'singleY', e.target.value)} isXY={true} unit={unit} />}
-        {drillType === 'rect' && <>
-            <Input label='Columns, Rows' valueX={drillParams.rectCols} valueY={drillParams.rectRows} onChangeX={e => handleParamChange(setDrillParams, drillParams, 'rectCols', e.target.value)} onChangeY={e => handleParamChange(setDrillParams, drillParams, 'rectRows', e.target.value)} isXY={true} />
-            <Input label='Spacing X, Y' valueX={drillParams.rectSpacingX} valueY={drillParams.rectSpacingY} onChangeX={e => handleParamChange(setDrillParams, drillParams, 'rectSpacingX', e.target.value)} onChangeY={e => handleParamChange(setDrillParams, drillParams, 'rectSpacingY', e.target.value)} isXY={true} unit={unit} />
-            <Input label='Start X, Y' valueX={drillParams.rectStartX} valueY={drillParams.rectStartY} onChangeX={e => handleParamChange(setDrillParams, drillParams, 'rectStartX', e.target.value)} onChangeY={e => handleParamChange(setDrillParams, drillParams, 'rectStartY', e.target.value)} isXY={true} unit={unit} />
-        </>}
-        {drillType === 'circ' && <>
-            <Input label='Center X, Y' valueX={drillParams.circCenterX} valueY={drillParams.circCenterY} onChangeX={e => handleParamChange(setDrillParams, drillParams, 'circCenterX', e.target.value)} onChangeY={e => handleParamChange(setDrillParams, drillParams, 'circCenterY', e.target.value)} isXY={true} unit={unit} />
-            <Input label='Radius' value={drillParams.circRadius} onChange={e => handleParamChange(setDrillParams, drillParams, 'circRadius', e.target.value)} unit={unit} />
-            <div className='grid grid-cols-2 gap-4'>
-                <Input label='# of Holes' value={drillParams.circHoles} onChange={e => handleParamChange(setDrillParams, drillParams, 'circHoles', e.target.value)} />
-                <Input label='Start Angle' value={drillParams.circStartAngle} onChange={e => handleParamChange(setDrillParams, drillParams, 'circStartAngle', e.target.value)} unit='°' />
-            </div>
-        </>}
-        
-        <hr className='border-secondary' />
-        <div className='grid grid-cols-2 gap-4'>
-            <Input label='Final Depth' value={drillParams.depth} onChange={e => handleParamChange(setDrillParams, drillParams, 'depth', e.target.value)} unit={unit} help='Should be negative' />
-            <Input label='Peck Depth' value={drillParams.peck} onChange={e => handleParamChange(setDrillParams, drillParams, 'peck', e.target.value)} unit={unit} help='Depth per plunge' />
-        </div>
-         <div className='grid grid-cols-2 gap-4'>
-            <Input label='Retract Height' value={drillParams.retract} onChange={e => handleParamChange(setDrillParams, drillParams, 'retract', e.target.value)} unit={unit} help='Height after each peck' />
-            <Input label='Plunge Feed' value={drillParams.feed} onChange={e => handleParamChange(setDrillParams, drillParams, 'feed', e.target.value)} unit={unit + '/min'} />
-        </div>
-        <SpindleAndFeedControls params={drillParams} feedLabel="Drill Feed" onParamChange={(field, value) => handleParamChange(setDrillParams, drillParams, field, value)} unit={unit} />
+        <DrillingGenerator onGenerate={onLoadGCode} toolLibrary={toolLibrary} unit={unit} settings={settings} />
     </div>;
     
    const renderBoreForm = () => <div className='space-y-4'>
-        <ToolSelector selectedId={boreParams.toolId} onChange={(id) => setBoreParams(p => ({ ...p, toolId: id }))} unit={unit} toolLibrary={toolLibrary} />
+        {/* <ToolSelector selectedId={boreParams.toolId} onChange={(id) => setBoreParams(p => ({ ...p, toolId: id }))} unit={unit} toolLibrary={toolLibrary} /> */}
         <hr className='border-secondary' />
         <Input label='Center Point (X, Y)' valueX={boreParams.centerX} valueY={boreParams.centerY} onChangeX={e => handleParamChange(setBoreParams, boreParams, 'centerX', e.target.value)} onChangeY={e => handleParamChange(setBoreParams, boreParams, 'centerY', e.target.value)} isXY={true} unit={unit} />
         <div className='grid grid-cols-2 gap-4'>
@@ -1255,7 +979,7 @@ const GCodeGeneratorModal: React.FC<GCodeGeneratorModalProps> = ({ isOpen, onCan
     </div>;
 
   const renderPocketForm = () => <div className='space-y-4'>
-        <ToolSelector selectedId={pocketParams.toolId} onChange={(id) => setPocketParams(p => ({ ...p, toolId: id }))} unit={unit} toolLibrary={toolLibrary} />
+        {/* <ToolSelector selectedId={pocketParams.toolId} onChange={(id) => setPocketParams(p => ({ ...p, toolId: id }))} unit={unit} toolLibrary={toolLibrary} /> */}
         <hr className='border-secondary' />
         <RadioGroup options={[{ value: 'rect', label: 'Rectangle' }, { value: 'circ', label: 'Circle' }]} selected={pocketParams.shape} onChange={val => setPocketParams(p => ({...p, shape: val}))} />
         {pocketParams.shape === 'rect' ? <>
@@ -1275,7 +999,7 @@ const GCodeGeneratorModal: React.FC<GCodeGeneratorModalProps> = ({ isOpen, onCan
     </div>;
     
      const renderProfileForm = () => <div className='space-y-4'>
-        <ToolSelector selectedId={profileParams.toolId} onChange={(id) => setProfileParams(p => ({ ...p, toolId: id }))} unit={unit} toolLibrary={toolLibrary} />
+        {/* <ToolSelector selectedId={profileParams.toolId} onChange={(id) => setProfileParams(p => ({ ...p, toolId: id }))} unit={unit} toolLibrary={toolLibrary} /> */}
         <hr className='border-secondary' />
         <RadioGroup options={[{ value: 'rect', label: 'Rectangle' }, { value: 'circ', label: 'Circle' }]} selected={profileParams.shape} onChange={val => setProfileParams(p => ({...p, shape: val}))} />
         {profileParams.shape === 'rect' ? <>
@@ -1305,7 +1029,7 @@ const GCodeGeneratorModal: React.FC<GCodeGeneratorModalProps> = ({ isOpen, onCan
     </div>;
 
     const renderSlotForm = () => <div className='space-y-4'>
-        <ToolSelector selectedId={slotParams.toolId} onChange={(id) => setSlotParams(p => ({ ...p, toolId: id }))} unit={unit} toolLibrary={toolLibrary} />
+        {/* <ToolSelector selectedId={slotParams.toolId} onChange={(id) => setSlotParams(p => ({ ...p, toolId: id }))} unit={unit} toolLibrary={toolLibrary} /> */}
         <hr className='border-secondary' />
         <RadioGroup options={[{ value: 'straight', label: 'Straight' }, { value: 'arc', label: 'Arc' }]} selected={slotParams.type} onChange={val => setSlotParams(p => ({...p, type: val}))} />
         {slotParams.type === 'straight' ? <>
@@ -1328,7 +1052,7 @@ const GCodeGeneratorModal: React.FC<GCodeGeneratorModalProps> = ({ isOpen, onCan
     
     const renderTextForm = () => (
         <div className='space-y-4'>
-        <ToolSelector selectedId={textParams.toolId} onChange={(id) => setTextParams(p => ({ ...p, toolId: id }))} unit={unit} toolLibrary={toolLibrary} />
+        {/* <ToolSelector selectedId={textParams.toolId} onChange={(id) => setTextParams(p => ({ ...p, toolId: id }))} unit={unit} toolLibrary={toolLibrary} /> */}
         <hr className='border-secondary' />
         <div>
             <label className='block text-sm font-medium text-text-secondary mb-1'>Font</label>
@@ -1362,7 +1086,7 @@ const GCodeGeneratorModal: React.FC<GCodeGeneratorModalProps> = ({ isOpen, onCan
 
     const renderThreadMillingForm = () => (
         <div className='space-y-4'>
-        <ToolSelector selectedId={threadParams.toolId} onChange={(id) => setThreadParams(p => ({ ...p, toolId: id }))} unit={unit} toolLibrary={toolLibrary} />
+        {/* <ToolSelector selectedId={threadParams.toolId} onChange={(id) => setThreadParams(p => ({ ...p, toolId: id }))} unit={unit} toolLibrary={toolLibrary} /> */}
         <hr className='border-secondary' />
         <RadioGroup label='Type' options={[{ value: 'internal', label: 'Internal' }, { value: 'external', label: 'External' }]} selected={threadParams.type} onChange={val => setThreadParams(p => ({ ...p, type: val }))} />
         <RadioGroup label='Hand' options={[{ value: 'right', label: 'Right-Hand' }, { value: 'left', label: 'Left-Hand' }]} selected={threadParams.hand} onChange={val => setThreadParams(p => ({ ...p, hand: val }))} />
@@ -1377,21 +1101,7 @@ const GCodeGeneratorModal: React.FC<GCodeGeneratorModalProps> = ({ isOpen, onCan
     </div>
     );
     
-    const getParamsForTab = (tab) => {
-        switch(tab) {
-            case 'surfacing': return surfaceParams;
-            case 'drilling': return drillParams;
-            case 'bore': return boreParams;
-            case 'pocket': return pocketParams;
-            case 'profile': return profileParams;
-            case 'slot': return slotParams;
-            case 'text': return textParams;
-            case 'thread': return threadParams;
-            default: return null;
-        }
-    }
-    const currentParams = getParamsForTab(activeTab);
-    const isLoadDisabled = !generatedGCode || (currentParams && currentParams.toolId === null) || !!generationError;
+    const isLoadDisabled = !generatedGCode || !!generationError;
 
     const renderPreviewContent = () => {
         if (currentParams && currentParams.toolId === null) {
