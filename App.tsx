@@ -784,6 +784,15 @@ const App: React.FC = () => {
     
     }, [isConnected, addLog, addNotification, unit, setError, machineSettings.probe]);
 
+    const handleTrySimulator = useCallback(() => {
+        setMachineSettings({ ...DEFAULT_SETTINGS, isConfigured: true });
+        setToolLibrary(DEFAULT_TOOLS);
+        setUseSimulator(true);
+        setIsWelcomeModalOpen(false);
+        localStorage.setItem('cnc-app-seen-welcome', 'true');
+        // The connection will be triggered by the useEffect that watches useSimulator
+    }, [setMachineSettings, setToolLibrary, setUseSimulator, setIsWelcomeModalOpen]);
+
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
             if (!isConnected) return;
@@ -1041,6 +1050,17 @@ const App: React.FC = () => {
     }, [isJobActive]);
 
 
+    const isAnyControlLocked = !isConnected || isJobActive || isJogging || isMacroRunning || (machineState?.status && ['Alarm', 'Home'].includes(machineState.status));
+    const selectedTool = toolLibrary.find(t => t.id === selectedToolId) || null;
+
+    // Effect to auto-connect when simulator mode is chosen from welcome modal
+    useEffect(() => {
+        if (useSimulator && !isConnected) {
+            handleConnect();
+        }
+    }, [useSimulator, isConnected, handleConnect]);
+
+
     return (
         <div className="min-h-screen bg-background font-sans text-text-primary flex flex-col">
             <Analytics />
@@ -1206,52 +1226,6 @@ const App: React.FC = () => {
                     />
                 </div>
             </header>
-            <div className="bg-accent-yellow/20 text-accent-yellow text-center p-2 text-sm font-semibold flex items-center justify-center gap-2">
-                <AlertTriangle className="w-4 h-4" />
-                Work in Progress: This software is for demonstration purposes only. Use at your own risk.
-            </div>
-            <StatusBar
-                isConnected={isConnected}
-                machineState={machineState}
-                unit={unit}
-                onEmergencyStop={handleEmergencyStop}
-                flashingButton={flashingButton}
-            />
-            {isAlarm && (
-                <div className="bg-accent-red/20 border-b-4 border-accent-red text-accent-red p-4 m-4 flex items-start" role="alert">
-                    <OctagonAlert className="h-8 w-8 mr-4 flex-shrink-0" />
-                    <div className="flex-grow">
-                        <h3 className="font-bold text-lg">{`Machine Alarm: ${alarmInfo!.name}`}</h3>
-                        <p className="text-sm">{alarmInfo!.desc}</p>
-                        <p className="text-sm mt-2"><strong>Resolution: </strong>{alarmInfo!.resolution}</p>
-                    </div>
-                    <button
-                        id='unlock-button'
-                        title='Unlock Machine (Hotkey: x)'
-                        onClick={() => handleManualCommand('$X')}
-                        className={`ml-4 flex items-center gap-2 px-4 py-2 bg-accent-red text-white font-semibold rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-background transition-all duration-100 ${flashingButton === 'unlock-button' ? 'ring-4 ring-white ring-inset' : ''}`}
-                    >
-                        <Unlock className="w-5 h-5" />
-                        Unlock ($X)
-                    </button>
-                </div>
-            )}
-            {!isSerialApiSupported && !useSimulator && (
-                <div className="bg-accent-yellow/20 border-l-4 border-accent-yellow text-accent-yellow p-4 m-4 flex items-start" role="alert">
-                    <AlertTriangle className="h-6 w-6 mr-3 flex-shrink-0" />
-                    <div>
-                        <p className="font-bold">Browser Not Supported</p>
-                        <p>{error}</p>
-                    </div>
-                </div>
-            )}
-            {error && (isSerialApiSupported || useSimulator) && (
-                <div className="bg-accent-red/20 border-l-4 border-accent-red text-accent-red p-4 m-4 flex items-start" role="alert">
-                    <AlertTriangle className="h-6 w-6 mr-3 flex-shrink-0" />
-                    <p>{error}</p>
-                    <button onClick={() => setError(null)} className="ml-auto font-bold">X</button>
-                </div>
-            )}
             <main className="flex-grow p-4 grid grid-cols-1 lg:grid-cols-2 gap-4 min-h-0">
                 <div className="min-h-[60vh] lg:min-h-0">
                     <GCodePanel
@@ -1295,24 +1269,6 @@ const App: React.FC = () => {
                         isMacroRunning={isMacroRunning}
                     />
                     <WebcamPanel />
-                    <MacrosPanel // FIX: Pass correct props to MacrosPanel
-                        macros={macros}
-                        onRunMacro={handleRunMacro}
-                        onOpenEditor={handleOpenMacroEditor}
-                        isEditMode={isMacroEditMode}
-                        onToggleEditMode={() => setIsMacroEditMode(prev => !prev)}
-                        disabled={isAnyControlLocked}
-                    />
-                    <Console
-                        logs={consoleLogs}
-                        onSendCommand={handleManualCommand}
-                        isConnected={isConnected}
-                        isJobActive={isJobActive}
-                        isMacroRunning={isMacroRunning}
-                        isLightMode={isLightMode}
-                        isVerbose={isVerbose}
-                        onVerboseChange={setIsVerbose}
-                    />
                 </div>
             </main>
             <Footer onContactClick={() => setIsContactModalOpen(true)} />
