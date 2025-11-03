@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Settings, BookOpen, CheckCircle, ArrowRight } from './Icons';
+import { CheckCircle, Circle, Settings, Tool } from './Icons';
 
 interface WelcomeModalProps {
     isOpen: boolean;
@@ -10,30 +10,6 @@ interface WelcomeModalProps {
     isToolLibrarySetupComplete: boolean;
 }
 
-const SetupStep: React.FC<{ isComplete: boolean; title: string; description: string; onAction: () => void; actionText: string; }> = ({
-    isComplete,
-    title,
-    description,
-    onAction,
-    actionText
-}) => (
-    <div className={`flex items-start p-4 rounded-lg ${isComplete ? 'bg-green-500/10' : 'bg-secondary/50'}`}>
-        <div className="flex-shrink-0">
-            {isComplete ? <CheckCircle className="w-6 h-6 text-accent-green" /> : <Settings className="w-6 h-6 text-text-secondary" />}
-        </div>
-        <div className="ml-4 flex-grow">
-            <h4 className="font-bold text-text-primary">{title}</h4>
-            <p className="text-sm text-text-secondary mt-1">{description}</p>
-        </div>
-        <div className="ml-4 flex-shrink-0 self-center">
-            <button onClick={onAction} className="flex items-center gap-2 px-3 py-1 bg-primary text-white text-sm font-semibold rounded-md hover:bg-primary-focus">
-                {actionText} <ArrowRight className="w-4 h-4" />
-            </button>
-        </div>
-    </div>
-);
-
-
 const WelcomeModal: React.FC<WelcomeModalProps> = ({
     isOpen,
     onClose,
@@ -42,44 +18,65 @@ const WelcomeModal: React.FC<WelcomeModalProps> = ({
     isMachineSetupComplete,
     isToolLibrarySetupComplete
 }) => {
-    if (!isOpen) {
-        return null;
-    }
+    if (!isOpen) return null;
+
+    const allTasksComplete = isMachineSetupComplete && isToolLibrarySetupComplete;
 
     return (
-        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center" onClick={onClose} aria-modal="true" role="dialog">
-            <div className="bg-surface rounded-lg shadow-2xl w-full max-w-3xl border border-secondary transform transition-all" onClick={e => e.stopPropagation()}>
-                <div className="p-6 border-b border-secondary flex justify-between items-center">
-                    <h2 className="text-2xl font-bold text-text-primary">Welcome to mycnc.app!</h2>
-                    <button onClick={onClose} className="p-1 rounded-md text-text-secondary hover:text-text-primary hover:bg-secondary">
-                        <X className="w-6 h-6" />
-                    </button>
-                </div>
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex justify-center items-center z-50">
+            <div className="bg-surface rounded-lg shadow-2xl p-8 max-w-lg w-full transform transition-all">
+                <h2 className="text-2xl font-bold text-text-primary mb-4">Welcome to mycnc.app!</h2>
+                <p className="text-text-secondary mb-6">
+                    Mycnc.app is a web-based G-code sender for GRBL-compatible CNC machines. It allows you to connect to your CNC machine, load or generate G-code files, and control your CNC right from a compatible browser (like Chrome or Edge).
+                </p>
+                <p className="text-text-secondary mb-6">
+                    To get started, please complete the following setup steps. This ensures the application has the correct parameters for your specific machine.
+                </p>
 
-                <div className="p-8">
-                    <p className="text-lg text-text-secondary mb-6">Let's get your machine set up. Here are a couple of recommended first steps to ensure everything runs smoothly.</p>
+                <ul className="space-y-4 mb-8">
+                    <li className="flex items-center">
+                        {isMachineSetupComplete ? (
+                            <CheckCircle className="w-6 h-6 text-accent-green mr-3" />
+                        ) : (
+                            <Circle className="w-6 h-6 text-text-secondary mr-3" />
+                        )}
+                        <div className="flex-grow">
+                            <span className={`font-semibold ${isMachineSetupComplete ? 'line-through text-text-secondary' : 'text-text-primary'}`}>
+                                Configure Machine Settings
+                            </span>
+                            <p className="text-sm text-text-secondary">Define your machine's work area and other properties.</p>
+                        </div>
+                        <button onClick={onOpenSettings} className="ml-4 px-4 py-2 text-sm font-medium bg-secondary text-text-primary rounded-md hover:bg-secondary-focus">
+                            <Settings className="w-5 h-5 inline-block mr-2" />
+                            Settings
+                        </button>
+                    </li>
+                    <li className="flex items-center">
+                        {isToolLibrarySetupComplete ? (
+                            <CheckCircle className="w-6 h-6 text-accent-green mr-3" />
+                        ) : (
+                            <Circle className="w-6 h-6 text-text-secondary mr-3" />
+                        )}
+                        <div className="flex-grow">
+                            <span className={`font-semibold ${isToolLibrarySetupComplete ? 'line-through text-text-secondary' : 'text-text-primary'}`}>
+                                Add a Tool to the Library
+                            </span>
+                            <p className="text-sm text-text-secondary">Create at least one tool for use in G-code generation.</p>
+                        </div>
+                        <button onClick={onOpenToolLibrary} className="ml-4 px-4 py-2 text-sm font-medium bg-secondary text-text-primary rounded-md hover:bg-secondary-focus">
+                            <Tool className="w-5 h-5 inline-block mr-2" />
+                            Tools
+                        </button>
+                    </li>
+                </ul>
 
-                    <div className="space-y-4">
-                        <SetupStep
-                            isComplete={isMachineSetupComplete}
-                            title="Configure Machine Settings"
-                            description="Define your machine's work area, spindle speed, and other core parameters."
-                            onAction={onOpenSettings}
-                            actionText="Open Settings"
-                        />
-                        <SetupStep
-                            isComplete={isToolLibrarySetupComplete}
-                            title="Create a Tool Library"
-                            description="Add the tools you'll be using. This helps with G-code generation and analysis."
-                            onAction={onOpenToolLibrary}
-                            actionText="Open Library"
-                        />
-                    </div>
-                </div>
-
-                <div className="bg-background px-6 py-4 flex justify-end items-center rounded-b-lg">
-                    <button onClick={onClose} className="px-6 py-2 bg-primary text-white font-bold rounded-md hover:bg-primary-focus">Get Started</button>
-                </div>
+                <button
+                    onClick={onClose}
+                    disabled={!allTasksComplete}
+                    className="w-full px-6 py-3 bg-primary text-white font-bold rounded-md hover:bg-primary-focus focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-surface disabled:bg-gray-500 disabled:cursor-not-allowed transition-colors"
+                >
+                    Get Started
+                </button>
             </div>
         </div>
     );

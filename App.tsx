@@ -191,6 +191,7 @@ const App: React.FC = () => {
             if (parsed.probe && typeof parsed.probe.feedRate === 'undefined') {
                 parsed.probe.feedRate = DEFAULT_SETTINGS.probe.feedRate;
             }
+            // isConfigured flag is added when settings are first saved.
             return parsed;
         } catch {
             return DEFAULT_SETTINGS;
@@ -338,7 +339,8 @@ const App: React.FC = () => {
     }, [addNotification]);
     
     useEffect(() => {
-        const isMachineSetupComplete = machineSettings.workArea.x > 0 && machineSettings.workArea.y > 0;
+        // The setup is complete if the user has saved their settings at least once.
+        const isMachineSetupComplete = !!machineSettings.isConfigured;
         const isToolLibrarySetupComplete = toolLibrary.length > 0;
         const hasSeenWelcome = localStorage.getItem('cnc-app-seen-welcome');
         
@@ -1059,7 +1061,7 @@ const App: React.FC = () => {
                     setReturnToWelcome(true);
                     setIsToolLibraryModalOpen(true);
                 }}
-                isMachineSetupComplete={machineSettings.workArea.x > 0 && machineSettings.workArea.y > 0}
+                isMachineSetupComplete={!!machineSettings.isConfigured}
                 isToolLibrarySetupComplete={toolLibrary.length > 0}
             />
             <NotificationContainer
@@ -1097,7 +1099,10 @@ const App: React.FC = () => {
                         setReturnToWelcome(false);
                     }
                 }}
-                onSave={setMachineSettings}
+                onSave={(newSettings) => {
+                    // Mark settings as configured on the first save.
+                    setMachineSettings({ ...newSettings, isConfigured: true });
+                }}
                 settings={machineSettings}
                 onResetDialogs={() => {
                     localStorage.removeItem('cnc-app-skip-preflight');
