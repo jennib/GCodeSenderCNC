@@ -1315,6 +1315,24 @@ const App: React.FC = () => {
                         isMacroRunning={isMacroRunning}
                     />
                     <WebcamPanel />
+                    <MacrosPanel
+                        macros={macros}
+                        onRunMacro={handleRunMacro}
+                        onOpenEditor={handleOpenMacroEditor}
+                        isEditMode={isMacroEditMode}
+                        onToggleEditMode={() => setIsMacroEditMode(prev => !prev)}
+                        disabled={isAnyControlLocked}
+                    />
+                    <Console
+                        logs={consoleLogs}
+                        onSendCommand={handleManualCommand}
+                        isConnected={isConnected}
+                        isJobActive={isJobActive}
+                        isMacroRunning={isMacroRunning}
+                        isLightMode={isLightMode}
+                        isVerbose={isVerbose}
+                        onVerboseChange={setIsVerbose}
+                    />
                 </div>
             </main>
             <Footer onContactClick={() => setIsContactModalOpen(true)} />
