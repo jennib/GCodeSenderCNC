@@ -508,9 +508,9 @@ const App: React.FC = () => {
             },
             onStatus: (status: MachineState, rawStatus?: string) => {
                 setMachineState(status);
-                // Always send the raw status to addLog.
-                // addLog itself will filter it based on the current isVerbose state.
-                addLog({ type: 'received', message: rawStatus || '' });
+                if (isVerboseRef.current && rawStatus) {
+                    addLog({ type: 'received', message: rawStatus });
+                }
             }
         };
 
@@ -527,7 +527,7 @@ const App: React.FC = () => {
             setError(`Failed to connect: ${errorMessage}`);
             addLog({ type: 'error', message: `Failed to connect: ${errorMessage}` });
         }
-    }, [addLog, isSerialApiSupported, useSimulator, addNotification, playCompletionSound, machineSettings.scripts.startup]);
+    }, [addLog, isSerialApiSupported, useSimulator, addNotification, playCompletionSound, machineSettings.scripts.startup, isVerboseRef]);
 
     const handleDisconnect = useCallback(async () => {
         if (jobStatus === JobStatus.Running || jobStatus === JobStatus.Paused) {
