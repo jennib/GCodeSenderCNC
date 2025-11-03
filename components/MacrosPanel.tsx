@@ -46,7 +46,13 @@ const MacrosPanel: React.FC<MacrosPanelProps> = ({ macros, onRunMacro, onOpenEdi
                 </div>
                 <div className="flex items-center gap-4">
                     <button
-                        onClick={(e: React.MouseEvent<HTMLButtonElement>) => { e.stopPropagation(); onToggleEditMode(); }}
+                        onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
+                            e.stopPropagation();
+                            onToggleEditMode();
+                            if (!isEditMode) {
+                                setIsCollapsed(false);
+                            }
+                        }}
                         disabled={disabled && !isEditMode} // Can always exit edit mode
                         className="flex items-center gap-2 px-3 py-1 bg-secondary text-white font-semibold rounded-md hover:bg-secondary-focus focus:outline-none focus:ring-2 focus:ring-secondary transition-colors text-sm disabled:opacity-50"
                     >
