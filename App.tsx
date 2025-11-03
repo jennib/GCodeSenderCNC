@@ -1022,11 +1022,6 @@ const App: React.FC = () => {
     return (
         <div className="min-h-screen bg-background font-sans text-text-primary flex flex-col">
             <Analytics />
-            {!isAudioUnlocked && (
-                <div className="bg-accent-yellow/20 text-accent-yellow text-center p-2 text-sm font-semibold animate-pulse">
-                    Click anywhere or press any key to enable sound notifications
-                </div>
-            )}
             <NotificationContainer
                 notifications={notifications}
                 onDismiss={removeNotification}
