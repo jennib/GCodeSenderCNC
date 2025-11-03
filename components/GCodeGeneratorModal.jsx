@@ -5,37 +5,48 @@ import { X, Save, Zap, ZoomIn, ZoomOut, Maximize, AlertTriangle } from './Icons'
 import { FONTS } from '../services/cncFonts.js';
 import { parseGCode } from '../services/gcodeParser.js';
 
-const h = React.createElement;
-
-const Tab = ({ label, isActive, onClick }) => h('button', {
-    onClick,
-    className: `px-4 py-2 text-sm font-semibold -mb-px border-b-2 ${isActive ? 'border-primary text-primary' : 'border-transparent text-text-secondary hover:text-text-primary'}`
-}, label);
-
-const RadioGroup = ({ label, options, selected, onChange }) => h('div', { className: 'mb-2' },
-    label && h('label', { className: 'block text-sm font-medium text-text-secondary mb-1' }, label),
-    h('div', { className: 'flex bg-secondary rounded-md p-1' },
-        options.map(opt => h('button', {
-            key: opt.value,
-            onClick: () => onChange(opt.value),
-            className: `w-full p-1 rounded-md text-sm font-semibold transition-colors ${selected === opt.value ? 'bg-primary text-white' : 'hover:bg-secondary-focus'}`
-        }, opt.label))
-    )
+const Tab = ({ label, isActive, onClick }) => (
+    <button
+        onClick={onClick}
+        className={`px-4 py-2 text-sm font-semibold -mb-px border-b-2 ${isActive ? 'border-primary text-primary' : 'border-transparent text-text-secondary hover:text-text-primary'}`}
+    >
+        {label}
+    </button>
 );
 
-const Input = ({ label, value, valueX, valueY, onChange, onChangeX, onChangeY, unit, help, isXY = false }) => h('div', null,
-    h('label', { className: 'block text-sm font-medium text-text-secondary mb-1' }, label),
-    isXY ?
-        h('div', { className: 'flex gap-2' },
-            h('input', { type: 'number', value: valueX, onChange: onChangeX, className: 'w-full bg-background border-secondary rounded-md py-1 px-2 focus:outline-none focus:ring-1 focus:ring-primary' }),
-            h('input', { type: 'number', value: valueY, onChange: onChangeY, className: 'w-full bg-background border-secondary rounded-md py-1 px-2 focus:outline-none focus:ring-1 focus:ring-primary' })
-        )
-        :
-        h('div', { className: 'relative' },
-            h('input', { type: 'number', value: value, onChange: onChange, className: 'w-full bg-background border-secondary rounded-md py-1 px-2 focus:outline-none focus:ring-1 focus:ring-primary' }),
-            unit && h('span', { className: 'absolute right-2 top-1/2 -translate-y-1/2 text-xs text-text-secondary' }, unit)
-        ),
-    help && h('p', { className: 'text-xs text-text-secondary mt-1' }, help)
+const RadioGroup = ({ label, options, selected, onChange }) => (
+    <div className="mb-2">
+        {label && <label className="block text-sm font-medium text-text-secondary mb-1">{label}</label>}
+        <div className="flex bg-secondary rounded-md p-1">
+            {options.map(opt => (
+                <button
+                    key={opt.value}
+                    onClick={() => onChange(opt.value)}
+                    className={`w-full p-1 rounded-md text-sm font-semibold transition-colors ${selected === opt.value ? 'bg-primary text-white' : 'hover:bg-secondary-focus'}`}
+                >
+                    {opt.label}
+                </button>
+            ))}
+        </div>
+    </div>
+);
+
+const Input = ({ label, value, valueX, valueY, onChange, onChangeX, onChangeY, unit, help, isXY = false }) => (
+    <div>
+        <label className="block text-sm font-medium text-text-secondary mb-1">{label}</label>
+        {isXY ? (
+            <div className="flex gap-2">
+                <input type="number" value={valueX} onChange={onChangeX} className="w-full bg-background border-secondary rounded-md py-1 px-2 focus:outline-none focus:ring-1 focus:ring-primary" />
+                <input type="number" value={valueY} onChange={onChangeY} className="w-full bg-background border-secondary rounded-md py-1 px-2 focus:outline-none focus:ring-1 focus:ring-primary" />
+            </div>
+        ) : (
+            <div className="relative">
+                <input type="number" value={value} onChange={onChange} className="w-full bg-background border-secondary rounded-md py-1 px-2 focus:outline-none focus:ring-1 focus:ring-primary" />
+                {unit && <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-text-secondary">{unit}</span>}
+            </div>
+        )}
+        {help && <p className="text-xs text-text-secondary mt-1">{help}</p>}
+    </div>
 );
 
 const Preview = ({ paths, viewBox }) => {
@@ -56,73 +67,79 @@ const Preview = ({ paths, viewBox }) => {
     if (spacing > 0 && isFinite(vbMinX) && isFinite(vbWidth)) {
         const startX = Math.floor(vbMinX / spacing) * spacing;
         for (let x = startX; x <= vbMinX + vbWidth; x += spacing) {
-            gridElements.push(h('line', { key: `v-${x}`, x1: x, y1: vbMinY, x2: x, y2: vbMinY + vbHeight, ...gridLineStyle }));
+            gridElements.push(<line key={`v-${x}`} x1={x} y1={vbMinY} x2={x} y2={vbMinY + vbHeight} {...gridLineStyle} />);
              // Add labels along the top edge
-            labelElements.push(h('text', {
-                key: `lx-${x}`, x: x, y: vbMinY,
-                transform: `scale(1, -1)`,
-                style: { ...labelStyle, textAnchor: 'middle', dominantBaseline: 'hanging' }
-            }, x.toFixed(0)));
+            labelElements.push(
+                <text key={`lx-${x}`} x={x} y={vbMinY} transform="scale(1, -1)" style={{ ...labelStyle, textAnchor: 'middle', dominantBaseline: 'hanging' }}>
+                    {x.toFixed(0)}
+                </text>
+            );
         }
     }
     if (spacing > 0 && isFinite(vbMinY) && isFinite(vbHeight)) {
         const startY = Math.floor(vbMinY / spacing) * spacing;
         for (let y = startY; y <= vbMinY + vbHeight; y += spacing) {
-            gridElements.push(h('line', { key: `h-${y}`, x1: vbMinX, y1: y, x2: vbMinX + vbWidth, y2: y, ...gridLineStyle }));
+            gridElements.push(<line key={`h-${y}`} x1={vbMinX} y1={y} x2={vbMinX + vbWidth} y2={y} {...gridLineStyle} />);
             const yFlipped = -y;
              // Add labels along the left edge
-            labelElements.push(h('text', {
-                key: `ly-${y}`, x: vbMinX, y: y,
-                transform: `scale(1, -1)`,
-                style: { ...labelStyle, textAnchor: 'start', dominantBaseline: 'middle' }
-            }, yFlipped.toFixed(0)));
+            labelElements.push(
+                <text key={`ly-${y}`} x={vbMinX} y={y} transform="scale(1, -1)" style={{ ...labelStyle, textAnchor: 'start', dominantBaseline: 'middle' }}>
+                    {yFlipped.toFixed(0)}
+                </text>
+            );
         }
     }
     
     // Y-Axis
     if (0 >= vbMinX && 0 <= vbMinX + vbWidth) {
-        gridElements.push(h('line', { key: 'axis-y', x1: 0, y1: vbMinY, x2: 0, y2: vbMinY + vbHeight, ...axisLineStyle }));
+        gridElements.push(<line key="axis-y" x1={0} y1={vbMinY} x2={0} y2={vbMinY + vbHeight} {...axisLineStyle} />);
     }
     // X-Axis
     if (0 >= vbMinY && 0 <= vbMinY + vbHeight) {
-        gridElements.push(h('line', { key: 'axis-x', x1: vbMinX, y1: 0, x2: vbMinX + vbWidth, y2: 0, ...axisLineStyle }));
+        gridElements.push(<line key="axis-x" x1={vbMinX} y1={0} x2={vbMinX + vbWidth} y2={0} {...axisLineStyle} />);
     }
 
-    return h('div', { className: 'aspect-square w-full bg-secondary rounded' },
-        h('svg', { viewBox, className: 'w-full h-full' },
-             h('g', { transform: 'scale(1, -1)' },
-                h('g', { key: 'grid-group' }, gridElements),
-                h('g', { key: 'path-group' },
-                    paths.map((p, i) => {
-                        if (p.d) {
-                            return h('path', { key: i, d: p.d, stroke: p.stroke, fill: p.fill || 'none', strokeWidth: p.strokeWidth || '1%', strokeDasharray: p.strokeDasharray, style: { vectorEffect: 'non-scaling-stroke' } });
-                        }
-                        if (p.cx !== undefined) {
-                            return h('circle', { key: i, cx: p.cx, cy: p.cy, r: p.r, fill: p.fill || 'none', stroke: p.stroke, strokeWidth: p.strokeWidth || '1%', strokeDasharray: p.strokeDasharray, style: { vectorEffect: 'non-scaling-stroke' } });
-                        }
-                        return null;
-                    })
-                )
-            ),
-             h('g', { key: 'label-group' }, labelElements)
-        )
+    return (
+        <div className="aspect-square w-full bg-secondary rounded">
+            <svg viewBox={viewBox} className="w-full h-full">
+                <g transform="scale(1, -1)">
+                    <g key="grid-group">{gridElements}</g>
+                    <g key="path-group">
+                        {paths.map((p, i) => {
+                            if (p.d) {
+                                return <path key={i} d={p.d} stroke={p.stroke} fill={p.fill || 'none'} strokeWidth={p.strokeWidth || '1%'} strokeDasharray={p.strokeDasharray} style={{ vectorEffect: 'non-scaling-stroke' }} />;
+                            }
+                            if (p.cx !== undefined) {
+                                return <circle key={i} cx={p.cx} cy={p.cy} r={p.r} fill={p.fill || 'none'} stroke={p.stroke} strokeWidth={p.strokeWidth || '1%'} strokeDasharray={p.strokeDasharray} style={{ vectorEffect: 'non-scaling-stroke' }} />;
+                            }
+                            return null;
+                        })}
+                    </g>
+                </g>
+                <g key="label-group">{labelElements}</g>
+            </svg>
+        </div>
     );
 };
 
-const ToolSelector = ({ selectedId, onChange, colSpan = 'col-span-full', unit, toolLibrary }) => h('div', { className: colSpan },
-    h('label', { className: 'block text-sm font-medium text-text-secondary mb-1' }, 'Tool'),
-    h('select', {
-        value: selectedId || '',
-        onChange: e => onChange(e.target.value ? parseInt(e.target.value, 10) : null),
-        className: 'w-full bg-background border-secondary rounded-md py-1 px-2 focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50',
-        disabled: !toolLibrary || toolLibrary.length === 0
-    },
-        h('option', { value: '' }, toolLibrary && toolLibrary.length > 0 ? 'Select a tool...' : 'No tools in library'),
-        toolLibrary && toolLibrary.map(tool => h('option', { key: tool.id, value: tool.id }, `${tool.name} (Ø ${tool.diameter}${unit})`))
-    ),
-    (!toolLibrary || toolLibrary.length === 0) && h('p', { className: 'text-xs text-text-secondary mt-1' },
-        'Add tools in the Tool Library to enable generation.'
-    )
+const ToolSelector = ({ selectedId, onChange, colSpan = 'col-span-full', unit, toolLibrary }) => (
+    <div className={colSpan}>
+        <label className="block text-sm font-medium text-text-secondary mb-1">Tool</label>
+        <select
+            value={selectedId || ''}
+            onChange={e => onChange(e.target.value ? parseInt(e.target.value, 10) : null)}
+            className="w-full bg-background border-secondary rounded-md py-1 px-2 focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50"
+            disabled={!toolLibrary || toolLibrary.length === 0}
+        >
+            <option value="">{toolLibrary && toolLibrary.length > 0 ? 'Select a tool...' : 'No tools in library'}</option>
+            {toolLibrary && toolLibrary.map(tool => <option key={tool.id} value={tool.id}>{`${tool.name} (Ø ${tool.diameter}${unit})`}</option>)}
+        </select>
+        {(!toolLibrary || toolLibrary.length === 0) && (
+            <p className="text-xs text-text-secondary mt-1">
+                Add tools in the Tool Library to enable generation.
+            </p>
+        )}
+    </div>
 );
 
 const ArrayControls = ({ settings, onChange, activeTab, unit }) => {
@@ -133,39 +150,49 @@ const ArrayControls = ({ settings, onChange, activeTab, unit }) => {
     const isVisible = !['surfacing', 'drilling'].includes(activeTab);
     if (!isVisible) return null;
 
-    return h('div', { className: 'bg-background/50 p-4 rounded-md' },
-        h('label', { className: 'flex items-center gap-2 cursor-pointer font-semibold text-text-primary' },
-            h('input', {
-                type: 'checkbox',
-                checked: settings.isEnabled,
-                onChange: handleToggle,
-                className: 'h-4 w-4 rounded border-secondary text-primary focus:ring-primary'
-            }),
-            'Enable Array Pattern'
-        ),
-        settings.isEnabled && h('div', { className: 'mt-4 pt-4 border-t border-secondary space-y-4' },
-            h(RadioGroup, { options: [{ value: 'rect', label: 'Rectangular Grid' }, { value: 'circ', label: 'Circular Array' }], selected: settings.pattern, onChange: val => onChange({ ...settings, pattern: val }) }),
-            settings.pattern === 'rect' ? h(React.Fragment, null,
-                h(Input, { label: 'Columns, Rows', valueX: settings.rectCols, valueY: settings.rectRows, onChangeX: e => onChange({ ...settings, rectCols: e.target.value }), onChangeY: e => onChange({ ...settings, rectRows: e.target.value }), isXY: true }),
-                h(Input, { label: 'Spacing (X, Y)', valueX: settings.rectSpacingX, valueY: settings.rectSpacingY, onChangeX: e => onChange({ ...settings, rectSpacingX: e.target.value }), onChangeY: e => onChange({ ...settings, rectSpacingY: e.target.value }), isXY: true, unit }),
-            ) : h(React.Fragment, null,
-                h(Input, { label: 'Number of Copies', value: settings.circCopies, onChange: e => onChange({ ...settings, circCopies: e.target.value }) }),
-                h(Input, { label: 'Center (X, Y)', valueX: settings.circCenterX, valueY: settings.circCenterY, onChangeX: e => onChange({ ...settings, circCenterX: e.target.value }), onChangeY: e => onChange({ ...settings, circCenterY: e.target.value }), isXY: true, unit }),
-                h(Input, { label: 'Radius', value: settings.circRadius, onChange: e => onChange({ ...settings, circRadius: e.target.value }), unit }),
-                h(Input, { label: 'Start Angle', value: settings.circStartAngle, onChange: e => onChange({ ...settings, circStartAngle: e.target.value }), unit: '°' }),
-            )
-        )
+    return (
+        <div className="bg-background/50 p-4 rounded-md">
+            <label className="flex items-center gap-2 cursor-pointer font-semibold text-text-primary">
+                <input
+                    type="checkbox"
+                    checked={settings.isEnabled}
+                    onChange={handleToggle}
+                    className="h-4 w-4 rounded border-secondary text-primary focus:ring-primary"
+                />
+                Enable Array Pattern
+            </label>
+            {settings.isEnabled && (
+                <div className="mt-4 pt-4 border-t border-secondary space-y-4">
+                    <RadioGroup options={[{ value: 'rect', label: 'Rectangular Grid' }, { value: 'circ', label: 'Circular Array' }]} selected={settings.pattern} onChange={val => onChange({ ...settings, pattern: val })} />
+                    {settings.pattern === 'rect' ? (
+                        <React.Fragment>
+                            <Input label="Columns, Rows" valueX={settings.rectCols} valueY={settings.rectRows} onChangeX={e => onChange({ ...settings, rectCols: e.target.value })} onChangeY={e => onChange({ ...settings, rectRows: e.target.value })} isXY />
+                            <Input label="Spacing (X, Y)" valueX={settings.rectSpacingX} valueY={settings.rectSpacingY} onChangeX={e => onChange({ ...settings, rectSpacingX: e.target.value })} onChangeY={e => onChange({ ...settings, rectSpacingY: e.target.value })} isXY unit={unit} />
+                        </React.Fragment>
+                    ) : (
+                        <React.Fragment>
+                            <Input label="Number of Copies" value={settings.circCopies} onChange={e => onChange({ ...settings, circCopies: e.target.value })} />
+                            <Input label="Center (X, Y)" valueX={settings.circCenterX} valueY={settings.circCenterY} onChangeX={e => onChange({ ...settings, circCenterX: e.target.value })} onChangeY={e => onChange({ ...settings, circCenterY: e.target.value })} isXY unit={unit} />
+                            <Input label="Radius" value={settings.circRadius} onChange={e => onChange({ ...settings, circRadius: e.target.value })} unit={unit} />
+                            <Input label="Start Angle" value={settings.circStartAngle} onChange={e => onChange({ ...settings, circStartAngle: e.target.value })} unit="°" />
+                        </React.Fragment>
+                    )}
+                </div>
+            )}
+        </div>
     );
 };
 
-const SpindleAndFeedControls = ({ params, onParamChange, feedLabel = 'Feed Rate', plunge, plungeLabel = 'Plunge Rate', unit }) => h(React.Fragment, null,
-    h('hr', { className: 'border-secondary' }),
-    h('div', { className: 'grid grid-cols-2 gap-4' },
-        h(Input, { label: feedLabel, value: params.feed, onChange: e => onParamChange('feed', e.target.value), unit: unit + '/min' }),
-        h(Input, { label: 'Spindle Speed', value: params.spindle, onChange: e => onParamChange('spindle', e.target.value), unit: 'RPM' })
-    ),
-    plunge && h(Input, { label: plungeLabel, value: params.plungeFeed, onChange: e => onParamChange('plungeFeed', e.target.value), unit: unit + '/min' }),
-    h(Input, { label: 'Safe Z', value: params.safeZ, onChange: e => onParamChange('safeZ', e.target.value), unit, help: 'Rapid height above stock' }),
+const SpindleAndFeedControls = ({ params, onParamChange, feedLabel = 'Feed Rate', plunge, plungeLabel = 'Plunge Rate', unit }) => (
+    <React.Fragment>
+        <hr className="border-secondary" />
+        <div className="grid grid-cols-2 gap-4">
+            <Input label={feedLabel} value={params.feed} onChange={e => onParamChange('feed', e.target.value)} unit={unit + '/min'} />
+            <Input label="Spindle Speed" value={params.spindle} onChange={e => onParamChange('spindle', e.target.value)} unit="RPM" />
+        </div>
+        {plunge && <Input label={plungeLabel} value={params.plungeFeed} onChange={e => onParamChange('plungeFeed', e.target.value)} unit={unit + '/min'} />}
+        <Input label="Safe Z" value={params.safeZ} onChange={e => onParamChange('safeZ', e.target.value)} unit={unit} help="Rapid height above stock" />
+    </React.Fragment>
 );
 
 const GCodeGeneratorModal = ({ isOpen, onCancel, onLoadGCode, unit, settings, toolLibrary }) => {
@@ -1300,78 +1327,98 @@ const GCodeGeneratorModal = ({ isOpen, onCancel, onLoadGCode, unit, settings, to
 
     const renderPreviewContent = () => {
         if (currentParams && currentParams.toolId === null) {
-            return h('div', { className: 'aspect-square w-full bg-secondary rounded flex items-center justify-center p-4 text-center text-text-secondary' },
-                'Please select a tool to generate a preview.'
+            return (
+                <div className="aspect-square w-full bg-secondary rounded flex items-center justify-center p-4 text-center text-text-secondary">
+                    Please select a tool to generate a preview.
+                </div>
             );
         }
         if (generationError) {
-            return h('div', { className: 'aspect-square w-full bg-secondary rounded flex items-center justify-center p-4 text-center' },
-                h('div', { className: 'text-accent-yellow' },
-                    h(AlertTriangle, { className: 'w-10 h-10 mx-auto mb-2' }),
-                    h('p', { className: 'font-bold' }, 'Generation Failed'),
-                    h('p', { className: 'text-sm' }, generationError)
-                )
+            return (
+                <div className="aspect-square w-full bg-secondary rounded flex items-center justify-center p-4 text-center">
+                    <div className="text-accent-yellow">
+                        <AlertTriangle className="w-10 h-10 mx-auto mb-2" />
+                        <p className="font-bold">Generation Failed</p>
+                        <p className="text-sm">{generationError}</p>
+                    </div>
+                </div>
             );
         }
-        return h(Preview, { paths: previewPaths.paths, viewBox });
+        return <Preview paths={previewPaths.paths} viewBox={viewBox} />;
     };
 
-    return h('div', { className: 'fixed inset-0 bg-background/80 backdrop-blur-sm z-40 flex items-center justify-center', onClick: onCancel },
-        h('div', { className: 'bg-surface rounded-lg shadow-2xl w-full max-w-4xl border border-secondary transform transition-all max-h-[90vh] flex flex-col', onClick: e => e.stopPropagation() },
-            h('div', { className: 'p-6 border-b border-secondary flex justify-between items-center' },
-                h('h2', { className: 'text-2xl font-bold text-text-primary' }, 'G-Code Generator'),
-                h('button', { onClick: onCancel, className: 'p-1 rounded-md text-text-secondary hover:text-text-primary' }, h(X, { className: 'w-6 h-6' }))
-            ),
-            h('div', { className: 'p-6 flex-grow grid grid-cols-1 md:grid-cols-2 gap-6 overflow-y-auto' },
-                h('div', { className: 'space-y-4' },
-                    h('div', { className: 'flex border-b border-secondary flex-wrap' },
-                        h('div', { className: 'w-full text-xs text-text-secondary uppercase tracking-wider' }, 'Milling'),
-                        h(Tab, { label: 'Surfacing', isActive: activeTab === 'surfacing', onClick: () => setActiveTab('surfacing') }),
-                        h(Tab, { label: 'Drilling', isActive: activeTab === 'drilling', onClick: () => setActiveTab('drilling') }),
-                        h(Tab, { label: 'Bore', isActive: activeTab === 'bore', onClick: () => setActiveTab('bore') }),
-                        h(Tab, { label: 'Pocket', isActive: activeTab === 'pocket', onClick: () => setActiveTab('pocket') }),
-                        h(Tab, { label: 'Profile', isActive: activeTab === 'profile', onClick: () => setActiveTab('profile') }),
-                        h(Tab, { label: 'Slot', isActive: activeTab === 'slot', onClick: () => setActiveTab('slot') }),
-                        h(Tab, { label: 'Thread', isActive: activeTab === 'thread', onClick: () => setActiveTab('thread') }),
-                        h('div', { className: 'w-full text-xs text-text-secondary uppercase tracking-wider mt-2' }, 'Text & Engraving'),
-                        h(Tab, { label: 'Text', isActive: activeTab === 'text', onClick: () => setActiveTab('text') })
-                    ),
-                    activeTab === 'surfacing' && renderSurfaceForm(),
-                    activeTab === 'drilling' && renderDrillForm(),
-                    activeTab === 'bore' && renderBoreForm(),
-                    activeTab === 'pocket' && renderPocketForm(),
-                    activeTab === 'profile' && renderProfileForm(),
-                    activeTab === 'slot' && renderSlotForm(),
-                    activeTab === 'text' && renderTextForm(),
-                    activeTab === 'thread' && renderThreadMillingForm(),
-                ),
-                h('div', { className: 'bg-background p-4 rounded-md flex flex-col gap-4' },
-                     h('div', { className: 'flex justify-between items-center border-b border-secondary pb-2 mb-2' },
-                        h('h3', { className: 'font-bold' }, '2D Preview'),
-                        h('div', { className: 'flex items-center gap-1' },
-                            h('button', { onClick: () => handleZoom(1.5), title: 'Zoom Out', className: 'p-1.5 rounded-md hover:bg-secondary' }, h(ZoomOut, { className: 'w-5 h-5 text-text-secondary' })),
-                            h('button', { onClick: () => handleZoom(1 / 1.5), title: 'Zoom In', className: 'p-1.5 rounded-md hover:bg-secondary' }, h(ZoomIn, { className: 'w-5 h-5 text-text-secondary' })),
-                            h('button', { onClick: fitView, title: 'Fit to View', className: 'p-1.5 rounded-md hover:bg-secondary' }, h(Maximize, { className: 'w-5 h-5 text-text-secondary' }))
-                        )
-                    ),
-                    renderPreviewContent(),
-                    h('textarea', {
-                        readOnly: true, value: generatedGCode,
-                        className: 'w-full flex-grow bg-secondary font-mono text-sm p-2 rounded-md border border-secondary focus:outline-none focus:ring-1 focus:ring-primary',
-                        rows: 8,
-                    })
-                )
-            ),
-            h('div', { className: 'bg-background px-6 py-4 flex justify-end gap-4 rounded-b-lg' },
-                h('button', { onClick: onCancel, className: 'px-4 py-2 bg-secondary text-white font-semibold rounded-md hover:bg-secondary-focus' }, 'Cancel'),
-                h('button', {
-                    onClick: () => onLoadGCode(generatedGCode, `${activeTab}_generated.gcode`),
-                    disabled: isLoadDisabled,
-                    title: isLoadDisabled ? (generationError || 'Please select a tool') : 'Load G-Code',
-                    className: 'px-6 py-2 bg-primary text-white font-bold rounded-md hover:bg-primary-focus disabled:bg-secondary disabled:cursor-not-allowed flex items-center gap-2'
-                }, h(Save, { className: 'w-5 h-5' }), 'Load into Sender')
-            )
-        )
+    return (
+        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-40 flex items-center justify-center" onClick={onCancel}>
+            <div className="bg-surface rounded-lg shadow-2xl w-full max-w-4xl border border-secondary transform transition-all max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
+                <div className="p-6 border-b border-secondary flex justify-between items-center">
+                    <h2 className="text-2xl font-bold text-text-primary">G-Code Generator</h2>
+                    <button onClick={onCancel} className="p-1 rounded-md text-text-secondary hover:text-text-primary">
+                        <X className="w-6 h-6" />
+                    </button>
+                </div>
+                <div className="p-6 flex-grow grid grid-cols-1 md:grid-cols-2 gap-6 overflow-y-auto">
+                    <div className="space-y-4">
+                        <div className="flex border-b border-secondary flex-wrap">
+                            <div className="w-full text-xs text-text-secondary uppercase tracking-wider">Milling</div>
+                            <Tab label="Surfacing" isActive={activeTab === 'surfacing'} onClick={() => setActiveTab('surfacing')} />
+                            <Tab label="Drilling" isActive={activeTab === 'drilling'} onClick={() => setActiveTab('drilling')} />
+                            <Tab label="Bore" isActive={activeTab === 'bore'} onClick={() => setActiveTab('bore')} />
+                            <Tab label="Pocket" isActive={activeTab === 'pocket'} onClick={() => setActiveTab('pocket')} />
+                            <Tab label="Profile" isActive={activeTab === 'profile'} onClick={() => setActiveTab('profile')} />
+                            <Tab label="Slot" isActive={activeTab === 'slot'} onClick={() => setActiveTab('slot')} />
+                            <Tab label="Thread" isActive={activeTab === 'thread'} onClick={() => setActiveTab('thread')} />
+                            <div className="w-full text-xs text-text-secondary uppercase tracking-wider mt-2">Text & Engraving</div>
+                            <Tab label="Text" isActive={activeTab === 'text'} onClick={() => setActiveTab('text')} />
+                        </div>
+                        {activeTab === 'surfacing' && renderSurfaceForm()}
+                        {activeTab === 'drilling' && renderDrillForm()}
+                        {activeTab === 'bore' && renderBoreForm()}
+                        {activeTab === 'pocket' && renderPocketForm()}
+                        {activeTab === 'profile' && renderProfileForm()}
+                        {activeTab === 'slot' && renderSlotForm()}
+                        {activeTab === 'text' && renderTextForm()}
+                        {activeTab === 'thread' && renderThreadMillingForm()}
+                    </div>
+                    <div className="bg-background p-4 rounded-md flex flex-col gap-4">
+                        <div className="flex justify-between items-center border-b border-secondary pb-2 mb-2">
+                            <h3 className="font-bold">2D Preview</h3>
+                            <div className="flex items-center gap-1">
+                                <button onClick={() => handleZoom(1.5)} title="Zoom Out" className="p-1.5 rounded-md hover:bg-secondary">
+                                    <ZoomOut className="w-5 h-5 text-text-secondary" />
+                                </button>
+                                <button onClick={() => handleZoom(1 / 1.5)} title="Zoom In" className="p-1.5 rounded-md hover:bg-secondary">
+                                    <ZoomIn className="w-5 h-5 text-text-secondary" />
+                                </button>
+                                <button onClick={fitView} title="Fit to View" className="p-1.5 rounded-md hover:bg-secondary">
+                                    <Maximize className="w-5 h-5 text-text-secondary" />
+                                </button>
+                            </div>
+                        </div>
+                        {renderPreviewContent()}
+                        <textarea
+                            readOnly
+                            value={generatedGCode}
+                            className="w-full flex-grow bg-secondary font-mono text-sm p-2 rounded-md border border-secondary focus:outline-none focus:ring-1 focus:ring-primary"
+                            rows={8}
+                        />
+                    </div>
+                </div>
+                <div className="bg-background px-6 py-4 flex justify-end gap-4 rounded-b-lg">
+                    <button onClick={onCancel} className="px-4 py-2 bg-secondary text-white font-semibold rounded-md hover:bg-secondary-focus">
+                        Cancel
+                    </button>
+                    <button
+                        onClick={() => onLoadGCode(generatedGCode, `${activeTab}_generated.gcode`)}
+                        disabled={isLoadDisabled}
+                        title={isLoadDisabled ? (generationError || 'Please select a tool') : 'Load G-Code'}
+                        className="px-6 py-2 bg-primary text-white font-bold rounded-md hover:bg-primary-focus disabled:bg-secondary disabled:cursor-not-allowed flex items-center gap-2"
+                    >
+                        <Save className="w-5 h-5" />
+                        Load into Sender
+                    </button>
+                </div>
+            </div>
+        </div>
     );
 };
 

@@ -2,8 +2,6 @@ import React from 'react';
 import Tooltip from './Tooltip.jsx';
 import { Play } from './Icons';
 
-const h = React.createElement;
-
 const GCODE_DEFINITIONS = {
     // G-Codes
     'G0': { name: 'Rapid Move', desc: 'Moves at maximum speed to a specified point. Used for non-cutting moves.' },
@@ -88,25 +86,28 @@ const GCodeLine = ({ line, lineNumber, isExecuted, isCurrent, isHovered, onRunFr
             const code = upperToken.match(/[GgMm]\d+/)[0];
             const definition = GCODE_DEFINITIONS[code];
             if (definition) {
-                el = h(Tooltip, {
-                    title: `${code}: ${definition.name}`,
-                    content: definition.desc
-                }, h('span', { className: "text-purple-400 font-bold cursor-help" }, token));
+                el = (
+                    <Tooltip title={`${code}: ${definition.name}`} content={definition.desc}>
+                        <span className="text-purple-400 font-bold cursor-help">{token}</span>
+                    </Tooltip>
+                );
             } else {
-                el = h('span', { className: "text-purple-400 font-bold" }, token);
+                el = <span className="text-purple-400 font-bold">{token}</span>;
             }
         } else if (match[2]) { // Parameter
             const param = upperToken[0];
             const definition = PARAMETER_DEFINITIONS[param];
             if (definition) {
-                 el = h(Tooltip, {
-                    content: definition
-                }, h('span', { className: "text-green-400 cursor-help" }, token));
+                el = (
+                    <Tooltip content={definition}>
+                        <span className="text-green-400 cursor-help">{token}</span>
+                    </Tooltip>
+                );
             } else {
-                 el = h('span', { className: "text-green-400" }, token);
+                el = <span className="text-green-400">{token}</span>;
             }
         } else if (match[3] || match[4]) { // Comment
-            el = h('span', { className: "text-slate-500" }, token);
+            el = <span className="text-slate-500">{token}</span>;
         }
 
         if (el) {
@@ -128,21 +129,21 @@ const GCodeLine = ({ line, lineNumber, isExecuted, isCurrent, isHovered, onRunFr
     
     const lineNumberClasses = `w-12 text-right pr-2 select-none flex-shrink-0 flex items-center justify-end ${isCurrent ? 'text-accent-red font-bold' : 'text-text-secondary'}`;
 
-    return h('div', { 
-        className: lineClasses,
-        onMouseEnter: onMouseEnter,
-        onMouseLeave: onMouseLeave
-    },
-        h('div', { className: lineNumberClasses },
-            h('button', {
-                onClick: () => onRunFromHere(lineNumber),
-                disabled: !isActionable,
-                className: 'mr-1 p-0.5 rounded opacity-0 group-hover:opacity-100 focus:opacity-100 disabled:opacity-0 transition-opacity text-primary hover:bg-primary/20',
-                title: `Run from line ${lineNumber}`
-            }, h(Play, { className: 'w-3 h-3'})),
-            lineNumber
-        ),
-        h('code', { className: 'whitespace-pre' }, parts)
+    return (
+        <div className={lineClasses} onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave}>
+            <div className={lineNumberClasses}>
+                <button
+                    onClick={() => onRunFromHere(lineNumber)}
+                    disabled={!isActionable}
+                    className="mr-1 p-0.5 rounded opacity-0 group-hover:opacity-100 focus:opacity-100 disabled:opacity-0 transition-opacity text-primary hover:bg-primary/20"
+                    title={`Run from line ${lineNumber}`}
+                >
+                    <Play className="w-3 h-3" />
+                </button>
+                {lineNumber}
+            </div>
+            <code className="whitespace-pre">{parts}</code>
+        </div>
     );
 };
 

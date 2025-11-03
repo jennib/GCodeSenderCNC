@@ -13,7 +13,7 @@ const WebcamPanel: React.FC = () => {
     const handleTogglePiP = async () => {
         if (!videoRef.current || !isPiPSupported) return;
         try {
-            if (document.pictureInPictureElement) { // FIX: Add type check for `document.pictureInPictureElement`
+            if (document.pictureInPictureElement) {
                 await document.exitPictureInPicture();
             } else if (videoRef.current.srcObject) {
                 await videoRef.current.requestPictureInPicture();
@@ -25,7 +25,7 @@ const WebcamPanel: React.FC = () => {
     };
     
     const handleToggleWebcam = async () => {
-        if (isWebcamOn && document.pictureInPictureElement) { // FIX: Add type check for `document.pictureInPictureElement`
+        if (isWebcamOn && document.pictureInPictureElement) {
             await document.exitPictureInPicture();
         }
         setIsWebcamOn(prev => !prev);
