@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, Fragment } from 'react';
 import { Zap, Pencil, CheckCircle, PlusCircle, ChevronDown, ChevronUp } from './Icons.js';
 
 const MacrosPanel = ({ macros, onRunMacro, onOpenEditor, isEditMode, onToggleEditMode, disabled }) => {
@@ -37,13 +37,13 @@ const MacrosPanel = ({ macros, onRunMacro, onOpenEditor, isEditMode, onToggleEdi
                         className="flex items-center gap-2 px-3 py-1 bg-secondary text-white font-semibold rounded-md hover:bg-secondary-focus focus:outline-none focus:ring-2 focus:ring-secondary transition-colors text-sm disabled:opacity-50"
                     >
                         {isEditMode ? (
-                            <React.Fragment>
+                            <Fragment>
                                 <CheckCircle className="w-4 h-4 text-accent-green" /> Done
-                            </React.Fragment>
+                            </Fragment>
                         ) : (
-                            <React.Fragment>
+                            <Fragment>
                                 <Pencil className="w-4 h-4" /> Edit
-                            </React.Fragment>
+                            </Fragment>
                         )}
                     </button>
                     {isCollapsed ? <ChevronDown className="w-5 h-5 text-text-secondary" /> : <ChevronUp className="w-5 h-5 text-text-secondary" />}
