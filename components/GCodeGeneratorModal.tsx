@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { X, Save, Zap, ZoomIn, ZoomOut, Maximize, AlertTriangle } from './Icons';
+import { RadioGroup, Input, SpindleAndFeedControls, ArrayControls } from './SharedControls';
 import { FONTS } from '../services/cncFonts.js';
 import { MachineSettings, Tool } from '../types';
 import SurfacingGenerator from './SurfacingGenerator';
@@ -128,6 +129,31 @@ const GCodeGeneratorModal: React.FC<GCodeGeneratorModalProps> = ({ isOpen, onCan
         toolId: null,
     });
 
+    // --- Drilling State ---
+    const [drillType, setDrillType] = useState('single');
+    const [drillParams, setDrillParams] = useState({
+        depth: -5,
+        peck: 2,
+        retract: 2,
+        feed: 150,
+        spindle: settings.spindle.max || 8000,
+        safeZ: 5,
+        singleX: 10,
+        singleY: 10,
+        rectCols: 4,
+        rectRows: 3,
+        rectSpacingX: 25,
+        rectSpacingY: 20,
+        rectStartX: 10,
+        rectStartY: 10,
+        circCenterX: 50,
+        circCenterY: 50,
+        circRadius: 40,
+        circHoles: 6,
+        circStartAngle: 0,
+        toolId: null as number | null,
+    });
+
     // --- Slot State ---
     const [slotParams, setSlotParams] = useState({
         type: 'straight',
@@ -136,6 +162,21 @@ const GCodeGeneratorModal: React.FC<GCodeGeneratorModalProps> = ({ isOpen, onCan
         startX: 10, startY: 10, endX: 90, endY: 20,
         centerX: 50, centerY: 50, radius: 40, startAngle: 45, endAngle: 135,
         toolId: null,
+    });
+
+    // --- Surfacing State ---
+    const [surfaceParams, setSurfaceParams] = useState({
+        width: 100,
+        length: 100,
+        depth: -1,
+        stepover: 40,
+        feed: 800,
+        spindle: settings.spindle.max || 8000,
+        safeZ: 5,
+        startX: 0,
+        startY: 0,
+        toolId: null as number | null,
+        direction: 'horizontal',
     });
 
     // --- Bore State ---
@@ -231,6 +272,76 @@ const GCodeGeneratorModal: React.FC<GCodeGeneratorModalProps> = ({ isOpen, onCan
         setViewBox(calculateViewBox(previewPaths.bounds));
     }, [previewPaths.bounds, calculateViewBox]);
 
+    // This effect automatically fits the view whenever the preview bounds change.
+    useEffect(() => {
+        fitView();
+    }, [fitView]);
+
+    const generateDrillingCode = () => {
+        const toolIndex = toolLibrary.findIndex(t => t.id === drillParams.toolId);
+        if (toolIndex === -1) return { error: "Please select a tool." };
+        const selectedTool = toolLibrary[toolIndex];
+        if (!selectedTool) return { error: "Please select a tool." };
+
+        const { depth, peck, retract, feed, spindle, safeZ } = drillParams;
+        if ([depth, peck, feed, spindle, safeZ].some(p => p === '' || p === null)) {
+            return { error: "Please fill all required fields." };
+        }
+
+        const code = [
+            `(--- Drilling Operation: ${drillType} ---)`,
+            `(Tool: ${selectedTool.name} - Ø${selectedTool.diameter}${unit})`,
+            `G21 G90`, `M3 S${spindle}`
+        ];
+        const paths = [];
+        const bounds = { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity };
+        const updateBounds = (x, y) => {
+            bounds.minX = Math.min(bounds.minX, x);
+            bounds.maxX = Math.max(bounds.maxX, x);
+            bounds.minY = Math.min(bounds.minY, y);
+            bounds.maxY = Math.max(bounds.maxY, y);
+        };
+
+        const points = [];
+        if (drillType === 'single') {
+            points.push({ x: drillParams.singleX, y: drillParams.singleY });
+        } else if (drillType === 'rect') {
+            const { rectCols, rectRows, rectSpacingX, rectSpacingY, rectStartX, rectStartY } = drillParams;
+            for (let row = 0; row < rectRows; row++) {
+                for (let col = 0; col < rectCols; col++) {
+                    points.push({
+                        x: rectStartX + col * rectSpacingX,
+                        y: rectStartY + row * rectSpacingY
+                    });
+                }
+            }
+        } else { // circ
+            const { circHoles, circRadius, circCenterX, circCenterY, circStartAngle } = drillParams;
+            const angleStep = circHoles > 0 ? 360 / circHoles : 0;
+            for (let i = 0; i < circHoles; i++) {
+                const angle = (circStartAngle + i * angleStep) * (Math.PI / 180);
+                points.push({
+                    x: circCenterX + circRadius * Math.cos(angle),
+                    y: circCenterY + circRadius * Math.sin(angle)
+                });
+            }
+        }
+
+        // Use G83 Peck Drilling Cycle
+        code.push(`G0 Z${safeZ.toFixed(3)}`);
+        code.push(`G83 Z${depth.toFixed(3)} Q${peck.toFixed(3)} R${retract.toFixed(3)} F${feed.toFixed(3)}`);
+        points.forEach(p => {
+            code.push(`X${p.x.toFixed(3)} Y${p.y.toFixed(3)}`);
+            paths.push({ cx: p.x, cy: p.y, r: selectedTool.diameter / 2, stroke: 'var(--color-primary)', fill: 'var(--color-primary-transparent)' });
+            updateBounds(p.x, p.y);
+        });
+        code.push('G80'); // Cancel cycle
+        code.push(`G0 Z${safeZ.toFixed(3)}`);
+        code.push('M5');
+
+        return { code, paths, bounds, error: null };
+    };
+
     const handleZoom = (factor) => {
         setViewBox(currentViewBox => {
             const parts = currentViewBox.split(' ').map(parseFloat);
@@ -320,6 +431,63 @@ const GCodeGeneratorModal: React.FC<GCodeGeneratorModalProps> = ({ isOpen, onCan
         
         code.push(`G0 Z${safeZ}`, `M5`);
         return { code, paths, bounds };
+    };
+
+    const generateSurfacingCode = () => {
+        const toolIndex = toolLibrary.findIndex(t => t.id === surfaceParams.toolId);
+        if (toolIndex === -1) return { error: "Please select a tool." };
+        const selectedTool = toolLibrary[toolIndex];
+        if (!selectedTool) return { error: "Please select a tool." };
+
+        const { width, length, depth, stepover, feed, spindle, safeZ, direction } = surfaceParams;
+        if ([width, length, depth, stepover, feed, spindle, safeZ].some(p => p === '' || p === null)) {
+            return { error: "Please fill all required fields." };
+        }
+
+        const code = [
+            `(--- Surfacing Operation ---)`,
+            `(Tool: ${selectedTool.name} - Ø${selectedTool.diameter}${unit})`,
+            `G21 G90`, `M3 S${spindle}`
+        ];
+        const paths = [];
+        const toolRadius = selectedTool.diameter / 2;
+        const stepoverDist = selectedTool.diameter * (stepover / 100);
+
+        code.push(`G0 Z${safeZ.toFixed(3)}`);
+
+        if (direction === 'horizontal') {
+            let y = toolRadius;
+            let xDirection = 1; // 1 for right, -1 for left
+            while (y <= length + toolRadius) {
+                const startX = (xDirection === 1) ? -toolRadius : width + toolRadius;
+                const endX = (xDirection === 1) ? width + toolRadius : -toolRadius;
+                code.push(`G0 X${startX.toFixed(3)} Y${y.toFixed(3)}`);
+                code.push(`G1 Z${depth.toFixed(3)} F${feed / 2}`);
+                code.push(`G1 X${endX.toFixed(3)} F${feed}`);
+                code.push(`G0 Z${safeZ.toFixed(3)}`);
+                paths.push({ d: `M ${startX} ${y} L ${endX} ${y}`, stroke: 'var(--color-primary)' });
+                y += stepoverDist;
+                xDirection *= -1; // Reverse direction for next pass
+            }
+        } else { // vertical
+            let x = toolRadius;
+            let yDirection = 1; // 1 for up, -1 for down
+            while (x <= width + toolRadius) {
+                const startY = (yDirection === 1) ? -toolRadius : length + toolRadius;
+                const endY = (yDirection === 1) ? length + toolRadius : -toolRadius;
+                code.push(`G0 X${x.toFixed(3)} Y${startY.toFixed(3)}`);
+                code.push(`G1 Z${depth.toFixed(3)} F${feed / 2}`);
+                code.push(`G1 Y${endY.toFixed(3)} F${feed}`);
+                code.push(`G0 Z${safeZ.toFixed(3)}`);
+                paths.push({ d: `M ${x.toFixed(3)} ${startY.toFixed(3)} L ${x.toFixed(3)} ${endY.toFixed(3)}`, stroke: 'var(--color-primary)' });
+                x += stepoverDist;
+                yDirection *= -1; // Reverse direction for next pass
+            }
+        }
+
+        code.push(`M5`);
+        const bounds = { minX: 0, minY: 0, maxX: width, maxY: length };
+        return { code, paths, bounds, error: null };
     };
 
     const generatePocketCode = () => {
@@ -817,11 +985,8 @@ const GCodeGeneratorModal: React.FC<GCodeGeneratorModalProps> = ({ isOpen, onCan
         return { code: finalCode, paths: finalPaths, bounds: finalBounds };
     };
 
-    const handleGenerate = useCallback(() => {
-        setGenerationError(null);
-        let result = { code: [], paths: [], bounds: {}, error: null };
-        if (activeTab === 'surfacing') result = generateSurfacingCode();
-        else if (activeTab === 'drilling') result = generateDrillingCode();
+    const handleGenerate = useCallback(() => { setGenerationError(null); let result = { code: [], paths: [], bounds: {}, error: null }; if (activeTab === 'surfacing')
+        result = generateSurfacingCode(); else if (activeTab === 'drilling') result = generateDrillingCode();
         else if (activeTab === 'bore') result = generateBoreCode();
         else if (activeTab === 'pocket') result = generatePocketCode();
         else if (activeTab === 'profile') result = generateProfileCode();
@@ -843,15 +1008,17 @@ const GCodeGeneratorModal: React.FC<GCodeGeneratorModalProps> = ({ isOpen, onCan
 
         setGeneratedGCode(result.code.join('\n'));
         setPreviewPaths({ paths: result.paths, bounds: result.bounds });
-    }, [activeTab, surfaceParams, drillParams, drillType, boreParams, pocketParams, profileParams, slotParams, textParams, threadParams, toolLibrary, arraySettings]);
+    }, [activeTab, surfaceParams, drillParams, drillType, boreParams, pocketParams, profileParams, slotParams, textParams, threadParams, toolLibrary, arraySettings, generateSurfacingCode, generateDrillingCode, generateBoreCode, generatePocketCode, generateProfileCode, generateSlotCode, generateTextCode, generateThreadMillingCode]);
     
+    // This effect triggers the G-code generation whenever the parameters change.
+    useEffect(() => {
+        handleGenerate();
+    }, [handleGenerate]);
+
     if (!isOpen) return null;
     
-   const renderSurfaceForm = () => <div className='space-y-4'>
-        <SurfacingGenerator onGenerate={onLoadGCode} toolLibrary={toolLibrary} unit={unit} settings={settings} />
-    </div>;
-    
-    const renderDrillForm = () => <div className='space-y-4'><DrillingGenerator onGenerate={onLoadGCode} toolLibrary={toolLibrary} unit={unit} settings={settings} /></div>;
+    const renderSurfaceForm = () => <div className='space-y-4'><SurfacingGenerator onUpdate={setSurfaceParams} toolLibrary={toolLibrary} unit={unit} settings={settings} /></div>;
+    const renderDrillForm = () => <div className='space-y-4'><DrillingGenerator onUpdate={({ drillType: dt, params: p }) => { setDrillType(dt); setDrillParams(p); }} toolLibrary={toolLibrary} unit={unit} settings={settings} /></div>;
     const renderBoreForm = () => <div className='space-y-4'><BoreGenerator onUpdate={setBoreParams} toolLibrary={toolLibrary} unit={unit} settings={settings} /></div>;
 
   const renderPocketForm = () => <div className='space-y-4'><PocketGenerator onUpdate={setPocketParams} toolLibrary={toolLibrary} unit={unit} settings={settings} /></div>;
@@ -960,6 +1127,36 @@ const GCodeGeneratorModal: React.FC<GCodeGeneratorModalProps> = ({ isOpen, onCan
     );
     
     const isLoadDisabled = !generatedGCode || !!generationError;
+
+    let currentParams;
+    switch (activeTab) {
+        case 'surfacing':
+            currentParams = surfaceParams;
+            break;
+        case 'drilling':
+            currentParams = drillParams;
+            break;
+        case 'bore':
+            currentParams = boreParams;
+            break;
+        case 'pocket':
+            currentParams = pocketParams;
+            break;
+        case 'profile':
+            currentParams = profileParams;
+            break;
+        case 'slot':
+            currentParams = slotParams;
+            break;
+        case 'text':
+            currentParams = textParams;
+            break;
+        case 'thread':
+            currentParams = threadParams;
+            break;
+        default:
+            currentParams = null;
+    }
 
     const renderPreviewContent = () => {
         if (currentParams && currentParams.toolId === null) {

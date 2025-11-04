@@ -1,15 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { Tool, MachineSettings } from '../../types';
+import { Tool, MachineSettings } from '../types';
 import { ToolSelector, Input, RadioGroup, SpindleAndFeedControls } from './SharedControls';
 
 interface SurfacingGeneratorProps {
-    onGenerate: (gcode: string, name: string) => void;
+    onUpdate: (params: any) => void;
     toolLibrary: Tool[];
     unit: 'mm' | 'in';
     settings: MachineSettings;
 }
 
-const SurfacingGenerator: React.FC<SurfacingGeneratorProps> = ({ onGenerate, toolLibrary, unit, settings }) => {
+const SurfacingGenerator: React.FC<SurfacingGeneratorProps> = ({ onUpdate, toolLibrary, unit, settings }) => {
     const [params, setParams] = useState({
         width: 100,
         length: 100,
@@ -30,16 +30,9 @@ const SurfacingGenerator: React.FC<SurfacingGeneratorProps> = ({ onGenerate, too
         setParams(p => ({ ...p, [field]: numValue }));
     };
 
-    const generateCode = () => {
-        // ... (The existing generateSurfacingCode logic would go here)
-        // ... It would use `params` from the local state.
-        // ... Finally, it would call onGenerate(code.join('\n'), 'surfacing_op.gcode');
-    };
-
-    // This useEffect would call generateCode whenever params change
     useEffect(() => {
-        // generateCode();
-    }, [params]);
+        onUpdate(params);
+    }, [params, onUpdate]);
 
     return (
         <div className='space-y-4'>

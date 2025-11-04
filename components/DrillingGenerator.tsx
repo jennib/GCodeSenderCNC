@@ -3,13 +3,13 @@ import { Tool, MachineSettings } from '../../types';
 import { ToolSelector, Input, RadioGroup, SpindleAndFeedControls } from './SharedControls';
 
 interface DrillingGeneratorProps {
-    onGenerate: (gcode: string, name: string) => void;
+    onUpdate: (data: { drillType: string, params: any }) => void;
     toolLibrary: Tool[];
     unit: 'mm' | 'in';
     settings: MachineSettings;
 }
 
-const DrillingGenerator: React.FC<DrillingGeneratorProps> = ({ onGenerate, toolLibrary, unit, settings }) => {
+const DrillingGenerator: React.FC<DrillingGeneratorProps> = ({ onUpdate, toolLibrary, unit, settings }) => {
     const [drillType, setDrillType] = useState('single');
     const [params, setParams] = useState({
         depth: -5,
@@ -40,15 +40,9 @@ const DrillingGenerator: React.FC<DrillingGeneratorProps> = ({ onGenerate, toolL
         setParams(p => ({ ...p, [field]: numValue }));
     };
 
-    const generateCode = () => {
-        // ... (The existing generateDrillingCode logic would go here)
-        // ... It would use `params` and `drillType` from the local state.
-        // ... Finally, it would call onGenerate(code.join('\n'), 'drilling_op.gcode');
-    };
-
     useEffect(() => {
-        // generateCode();
-    }, [params, drillType]);
+        onUpdate({ drillType, params });
+    }, [params, drillType, onUpdate]);
 
     return (
         <div className='space-y-4'>

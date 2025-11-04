@@ -32,10 +32,6 @@ const BoreGenerator: React.FC<BoreGeneratorProps> = ({ onUpdate, toolLibrary, un
         setParams(p => ({ ...p, [field]: numValue }));
     };
 
-    useEffect(() => {
-        onUpdate(params);
-    }, [params, onUpdate]);
-
     return (
         <div className='space-y-4'>
             <ToolSelector selectedId={params.toolId} onChange={(id) => setParams(p => ({ ...p, toolId: id }))} unit={unit} toolLibrary={toolLibrary} />
