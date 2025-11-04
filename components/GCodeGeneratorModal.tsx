@@ -1,6 +1,6 @@
 
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { X, Save, Zap, ZoomIn, ZoomOut, Maximize, AlertTriangle } from './Icons';
 import { RadioGroup, Input, SpindleAndFeedControls, ArrayControls } from './SharedControls';
 import { FONTS } from '../services/cncFonts.js';
@@ -1077,44 +1077,27 @@ const GCodeGeneratorModal: React.FC<GCodeGeneratorModalProps> = ({ isOpen, onClo
     const handleTextUpdate = useCallback((field, value) => handleParamChange(setTextParams, field, value), [handleParamChange]);
     const handleThreadUpdate = useCallback((field, value) => handleParamChange(setThreadParams, field, value), [handleParamChange]);
 
+    const currentParams = useMemo(() => {
+        switch (activeTab) {
+            case 'surfacing': return surfaceParams;
+            case 'drilling': return drillParams;
+            case 'bore': return boreParams;
+            case 'pocket': return pocketParams;
+            case 'profile': return profileParams;
+            case 'slot': return slotParams;
+            case 'text': return textParams;
+            case 'thread': return threadParams;
+            default: return null;
+        }
+    }, [activeTab, surfaceParams, drillParams, boreParams, pocketParams, profileParams, slotParams, textParams, threadParams]);
+
     // Effect to automatically trigger G-code generation when relevant parameters change
     useEffect(() => {
         if (isOpen) {
             // Use the ref to call the latest handleGenerate without creating an infinite loop
             handleGenerateRef.current();
         }
-    }, [isOpen, activeTab, currentParams, toolLibrary, arraySettings]);
-
-
-    let currentParams: any;
-    switch (activeTab) {
-        case 'surfacing':
-            currentParams = surfaceParams;
-            break;
-        case 'drilling':
-            currentParams = drillParams;
-            break;
-        case 'bore':
-            currentParams = boreParams;
-            break;
-        case 'pocket':
-            currentParams = pocketParams;
-            break;
-        case 'profile':
-            currentParams = profileParams;
-            break;
-        case 'slot':
-            currentParams = slotParams;
-            break;
-        case 'text':
-            currentParams = textParams;
-            break;
-        case 'thread':
-            currentParams = threadParams;
-            break;
-        default:
-            currentParams = null;
-    }
+    }, [isOpen, currentParams, toolLibrary, arraySettings]);
 
     const isLoadDisabled = !generatedGCode || !!generationError || !currentParams || currentParams.toolId === null;
 
