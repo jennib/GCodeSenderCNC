@@ -283,7 +283,7 @@ const App: React.FC = () => {
         });
     }, []);
 
-    const addNotification = useCallback((message: string, type: 'success' | 'error' | 'info' = 'success', duration = 5000) => {
+    const addNotification = useCallback((message: string, type: 'success' | 'error' | 'info' = 'success', duration = 30000) => {
         const id = Date.now() + Math.random();
         const timerId = window.setTimeout(() => {
             removeNotification(id);

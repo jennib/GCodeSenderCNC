@@ -372,16 +372,7 @@ const GCodePanel: React.FC<GCodePanelProps> = ({
                 </div>
             </div>
             {fileName && (
-                <div className="grid grid-cols-2 gap-4 mb-2">
-                    <p className="text-sm text-text-secondary truncate" title={fileName}><strong>File: </strong>{fileName}</p>
-                    <div className="flex items-center gap-2">
-                        <BookOpen className="w-5 h-5 text-text-secondary flex-shrink-0" />
-                        <select value={selectedToolId || ''} onChange={e => onToolSelect(e.target.value ? parseInt(e.target.value, 10) : null)} disabled={isJobActive || toolLibrary.length === 0} className="w-full bg-background border border-secondary rounded-md py-1 px-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50">
-                            <option value="">{toolLibrary.length > 0 ? 'Select a tool...' : 'No tools in library'}</option>
-                            {toolLibrary.map(tool => <option key={tool.id} value={tool.id}>{tool.name}</option>)}
-                        </select>
-                    </div>
-                </div>
+                <p className="text-sm text-text-secondary truncate mb-2" title={fileName}><strong>File: </strong>{fileName}</p>
             )}
             <div className="space-y-4 flex-shrink-0 mb-4">
                 <div className="grid grid-cols-3 gap-4">{renderJobControls()}</div>

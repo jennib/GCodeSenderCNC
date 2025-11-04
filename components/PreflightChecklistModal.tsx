@@ -4,12 +4,12 @@ import { Tool } from '../types';
 
 interface ChecklistItemProps {
     children: React.ReactNode;
-    isChecked: boolean;
+    status: 'checked' | 'unchecked' | 'warning';
 }
 
-const ChecklistItem: React.FC<ChecklistItemProps> = ({ children, isChecked }) => (
-    <li className="flex items-center gap-3">
-        {isChecked ? <CheckCircle className="w-6 h-6 text-accent-green" /> : <X className="w-6 h-6 text-accent-red" />}
+const ChecklistItem: React.FC<ChecklistItemProps> = ({ children, status }) => (
+    <li className={`flex items-center gap-3 ${status === 'warning' ? 'text-accent-yellow' : ''}`}>
+        {status === 'checked' ? <CheckCircle className="w-6 h-6 text-accent-green" /> : status === 'warning' ? <AlertTriangle className="w-6 h-6 text-accent-yellow" /> : <X className="w-6 h-6 text-accent-red" />}
         <span className="text-text-primary">{children}</span>
     </li>
 );
@@ -49,10 +49,9 @@ const PreflightChecklistModal: React.FC<PreflightChecklistModalProps> = ({ isOpe
                 <div className="p-6 space-y-4">
                     <p>Please review the following before starting the job:</p>
                     <ul className="space-y-2 bg-background p-4 rounded-md">
-                        <ChecklistItem isChecked={!!jobInfo.fileName}>Job file loaded: <strong>{jobInfo.fileName}</strong></ChecklistItem>
-                        <ChecklistItem isChecked={isHomed}>Machine has been homed</ChecklistItem>
-                        <ChecklistItem isChecked={!!selectedTool}>Tool selected: <strong>{selectedTool?.name || 'None'}</strong></ChecklistItem>
-                        <ChecklistItem isChecked={!hasErrors}>G-code analysis passed</ChecklistItem>
+                        <ChecklistItem status={jobInfo.fileName ? 'checked' : 'unchecked'}>Job file loaded: <strong>{jobInfo.fileName}</strong></ChecklistItem>
+                        <ChecklistItem status={isHomed ? 'checked' : 'warning'}>{isHomed ? 'Machine has been homed' : 'Machine has not been homed since connecting'}</ChecklistItem>
+                        <ChecklistItem status={hasErrors ? 'unchecked' : 'checked'}>G-code analysis passed</ChecklistItem>
                     </ul>
                     {warnings.length > 0 && (
                         <div className="max-h-40 overflow-y-auto space-y-2">
