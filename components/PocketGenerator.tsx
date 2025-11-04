@@ -29,18 +29,16 @@ const PocketGenerator: React.FC<PocketGeneratorProps> = ({ onUpdate, toolLibrary
     const handleParamChange = (field: keyof typeof params, value: string) => {
         const numValue = value === '' ? '' : parseFloat(value);
         if (isNaN(numValue as number)) return;
-        setParams(p => ({ ...p, [field]: numValue }));
+        const newParams = { ...params, [field]: numValue };
+        setParams(newParams);
+        onUpdate(newParams);
     };
-
-    useEffect(() => {
-        onUpdate(params);
-    }, [params, onUpdate]);
 
     return (
         <div className='space-y-4'>
-            <ToolSelector selectedId={params.toolId} onChange={(id) => setParams(p => ({ ...p, toolId: id }))} unit={unit} toolLibrary={toolLibrary} />
+            <ToolSelector selectedId={params.toolId} onChange={(id) => { const newParams = { ...params, toolId: id }; setParams(newParams); onUpdate(newParams); }} unit={unit} toolLibrary={toolLibrary} />
             <hr className='border-secondary' />
-            <RadioGroup options={[{ value: 'rect', label: 'Rectangle' }, { value: 'circ', label: 'Circle' }]} selected={params.shape} onChange={val => setParams(p => ({...p, shape: val}))} />
+            <RadioGroup options={[{ value: 'rect', label: 'Rectangle' }, { value: 'circ', label: 'Circle' }]} selected={params.shape} onChange={val => { const newParams = { ...params, shape: val }; setParams(newParams); onUpdate(newParams); }} />
             {params.shape === 'rect' ? <>
                 <Input label='Width (X), Length (Y)' valueX={params.width} valueY={params.length} onChangeX={e => handleParamChange('width', e.target.value)} onChangeY={e => handleParamChange('length', e.target.value)} isXY={true} unit={unit} />
                 <Input label='Corner Radius' value={params.cornerRadius} onChange={e => handleParamChange('cornerRadius', e.target.value)} unit={unit} />

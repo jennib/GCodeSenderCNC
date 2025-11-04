@@ -29,12 +29,14 @@ const BoreGenerator: React.FC<BoreGeneratorProps> = ({ onUpdate, toolLibrary, un
     const handleParamChange = (field: keyof typeof params, value: string) => {
         const numValue = value === '' ? '' : parseFloat(value);
         if (isNaN(numValue as number)) return;
-        setParams(p => ({ ...p, [field]: numValue }));
+        const newParams = { ...params, [field]: numValue };
+        setParams(newParams);
+        onUpdate(newParams);
     };
 
     return (
         <div className='space-y-4'>
-            <ToolSelector selectedId={params.toolId} onChange={(id) => setParams(p => ({ ...p, toolId: id }))} unit={unit} toolLibrary={toolLibrary} />
+            <ToolSelector selectedId={params.toolId} onChange={(id) => { const newParams = { ...params, toolId: id }; setParams(newParams); onUpdate(newParams); }} unit={unit} toolLibrary={toolLibrary} />
             <hr className='border-secondary' />
             <Input label='Center Point (X, Y)' valueX={params.centerX} valueY={params.centerY} onChangeX={e => handleParamChange('centerX', e.target.value)} onChangeY={e => handleParamChange('centerY', e.target.value)} isXY={true} unit={unit} />
             <div className='grid grid-cols-2 gap-4'>
@@ -43,7 +45,7 @@ const BoreGenerator: React.FC<BoreGeneratorProps> = ({ onUpdate, toolLibrary, un
             </div>
              <hr className='border-secondary' />
             <label className='flex items-center gap-2 cursor-pointer font-semibold'>
-                <input type='checkbox' checked={params.counterboreEnabled} onChange={e => setParams(p => ({ ...p, counterboreEnabled: e.target.checked }))} className='h-4 w-4 rounded border-secondary text-primary' />
+                <input type='checkbox' checked={params.counterboreEnabled} onChange={e => { const newParams = { ...params, counterboreEnabled: e.target.checked }; setParams(newParams); onUpdate(newParams); }} className='h-4 w-4 rounded border-secondary text-primary' />
                 Add Counterbore
             </label>
             {params.counterboreEnabled && <div className='grid grid-cols-2 gap-4 pl-6'>

@@ -37,18 +37,16 @@ const DrillingGenerator: React.FC<DrillingGeneratorProps> = ({ onUpdate, toolLib
     const handleParamChange = (field: keyof typeof params, value: string) => {
         const numValue = value === '' ? '' : parseFloat(value);
         if (isNaN(numValue as number)) return;
-        setParams(p => ({ ...p, [field]: numValue }));
+        const newParams = { ...params, [field]: numValue };
+        setParams(newParams);
+        onUpdate({ drillType, params: newParams });
     };
-
-    useEffect(() => {
-        onUpdate({ drillType, params });
-    }, [params, drillType, onUpdate]);
 
     return (
         <div className='space-y-4'>
-            <ToolSelector selectedId={params.toolId} onChange={(id) => setParams(p => ({ ...p, toolId: id }))} unit={unit} toolLibrary={toolLibrary} />
+            <ToolSelector selectedId={params.toolId} onChange={(id) => { const newParams = { ...params, toolId: id }; setParams(newParams); onUpdate({ drillType, params: newParams }); }} unit={unit} toolLibrary={toolLibrary} />
             <hr className='border-secondary' />
-            <RadioGroup options={[{ value: 'single', label: 'Single' }, { value: 'rect', label: 'Rectangular' }, { value: 'circ', label: 'Circular' }]} selected={drillType} onChange={setDrillType} />
+            <RadioGroup options={[{ value: 'single', label: 'Single' }, { value: 'rect', label: 'Rectangular' }, { value: 'circ', label: 'Circular' }]} selected={drillType} onChange={(type) => { setDrillType(type); onUpdate({ drillType: type, params }); }} />
             {drillType === 'single' && <Input label='Center X, Y' valueX={params.singleX} valueY={params.singleY} onChangeX={e => handleParamChange('singleX', e.target.value)} onChangeY={e => handleParamChange('singleY', e.target.value)} isXY={true} unit={unit} />}
             {drillType === 'rect' && <><Input label='Columns, Rows' valueX={params.rectCols} valueY={params.rectRows} onChangeX={e => handleParamChange('rectCols', e.target.value)} onChangeY={e => handleParamChange('rectRows', e.target.value)} isXY={true} /><Input label='Spacing X, Y' valueX={params.rectSpacingX} valueY={params.rectSpacingY} onChangeX={e => handleParamChange('rectSpacingX', e.target.value)} onChangeY={e => handleParamChange('rectSpacingY', e.target.value)} isXY={true} unit={unit} /><Input label='Start X, Y' valueX={params.rectStartX} valueY={params.rectStartY} onChangeX={e => handleParamChange('rectStartX', e.target.value)} onChangeY={e => handleParamChange('rectStartY', e.target.value)} isXY={true} unit={unit} /></>}
             {drillType === 'circ' && <><Input label='Center X, Y' valueX={params.circCenterX} valueY={params.circCenterY} onChangeX={e => handleParamChange('circCenterX', e.target.value)} onChangeY={e => handleParamChange('circCenterY', e.target.value)} isXY={true} unit={unit} /><Input label='Radius' value={params.circRadius} onChange={e => handleParamChange('circRadius', e.target.value)} unit={unit} /><div className='grid grid-cols-2 gap-4'><Input label='# of Holes' value={params.circHoles} onChange={e => handleParamChange('circHoles', e.target.value)} /><Input label='Start Angle' value={params.circStartAngle} onChange={e => handleParamChange('circStartAngle', e.target.value)} unit='°' /></div></>}

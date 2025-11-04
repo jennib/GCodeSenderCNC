@@ -277,7 +277,7 @@ const GCodeGeneratorModal: React.FC<GCodeGeneratorModalProps> = ({ isOpen, onCan
         fitView();
     }, [fitView]);
 
-    const generateDrillingCode = () => {
+    const generateDrillingCode = useCallback(() => {
         const toolIndex = toolLibrary.findIndex(t => t.id === drillParams.toolId);
         if (toolIndex === -1) return { error: "Please select a tool." };
         const selectedTool = toolLibrary[toolIndex];
@@ -340,7 +340,7 @@ const GCodeGeneratorModal: React.FC<GCodeGeneratorModalProps> = ({ isOpen, onCan
         code.push('M5');
 
         return { code, paths, bounds, error: null };
-    };
+    }, [drillParams, drillType, toolLibrary, unit]);
 
     const handleZoom = (factor) => {
         setViewBox(currentViewBox => {
@@ -355,7 +355,7 @@ const GCodeGeneratorModal: React.FC<GCodeGeneratorModalProps> = ({ isOpen, onCan
         });
     };
 
-    const generateProfileCode = () => {
+    const generateProfileCode = useCallback(() => {
         const toolIndex = toolLibrary.findIndex(t => t.id === profileParams.toolId);
         if (toolIndex === -1) return { error: "Please select a tool." };
         const selectedTool = toolLibrary[toolIndex];
@@ -430,10 +430,10 @@ const GCodeGeneratorModal: React.FC<GCodeGeneratorModalProps> = ({ isOpen, onCan
         // TODO: Implement tabs logic for final pass
         
         code.push(`G0 Z${safeZ}`, `M5`);
-        return { code, paths, bounds };
-    };
+        return { code, paths, bounds, error: null };
+    }, [profileParams, toolLibrary, unit]);
 
-    const generateSurfacingCode = () => {
+    const generateSurfacingCode = useCallback(() => {
         const toolIndex = toolLibrary.findIndex(t => t.id === surfaceParams.toolId);
         if (toolIndex === -1) return { error: "Please select a tool." };
         const selectedTool = toolLibrary[toolIndex];
@@ -488,9 +488,9 @@ const GCodeGeneratorModal: React.FC<GCodeGeneratorModalProps> = ({ isOpen, onCan
         code.push(`M5`);
         const bounds = { minX: 0, minY: 0, maxX: width, maxY: length };
         return { code, paths, bounds, error: null };
-    };
+    }, [surfaceParams, toolLibrary, unit]);
 
-    const generatePocketCode = () => {
+    const generatePocketCode = useCallback(() => {
         const toolIndex = toolLibrary.findIndex(t => t.id === pocketParams.toolId);
         if (toolIndex === -1) return { error: "Please select a tool." };
         const selectedTool = toolLibrary[toolIndex];
@@ -544,9 +544,9 @@ const GCodeGeneratorModal: React.FC<GCodeGeneratorModalProps> = ({ isOpen, onCan
         code.push(`G0 Z${safeZ}`, `M5`, `G0 X0 Y0`);
         const bounds = shape === 'rect' ? { minX: 0, minY: 0, maxX: width, maxY: length } : { minX: 0, minY: 0, maxX: diameter, maxY: diameter };
         return { code, paths, bounds, error: null };
-    };
+    }, [pocketParams, toolLibrary, unit]);
 
-    const generateBoreCode = () => {
+    const generateBoreCode = useCallback(() => {
         const toolIndex = toolLibrary.findIndex(t => t.id === boreParams.toolId);
         if (toolIndex === -1) return { error: "Please select a tool." };
         const selectedTool = toolLibrary[toolIndex];
@@ -624,9 +624,9 @@ const GCodeGeneratorModal: React.FC<GCodeGeneratorModalProps> = ({ isOpen, onCan
         code.push(`G0 X0 Y0`);
 
         return { code, paths, bounds, error: null };
-    };
+    }, [boreParams, toolLibrary, unit]);
 
-    const generateSlotCode = () => {
+    const generateSlotCode = useCallback(() => {
         const toolIndex = toolLibrary.findIndex(t => t.id === slotParams.toolId);
         if (toolIndex === -1) return { error: "Please select a tool." };
         const selectedTool = toolLibrary[toolIndex];
@@ -728,10 +728,10 @@ const GCodeGeneratorModal: React.FC<GCodeGeneratorModalProps> = ({ isOpen, onCan
         }
 
         code.push(`G0 Z${safeZ}`, `M5`);
-        return { code, paths, bounds };
-    };
+        return { code, paths, bounds, error: null };
+    }, [slotParams, toolLibrary, unit]);
     
-    const generateTextCode = () => {
+    const generateTextCode = useCallback(() => {
         const toolIndex = toolLibrary.findIndex(t => t.id === textParams.toolId);
         if (toolIndex === -1) return { error: "Please select a tool." };
         const selectedTool = toolLibrary[toolIndex];
@@ -828,10 +828,10 @@ const GCodeGeneratorModal: React.FC<GCodeGeneratorModalProps> = ({ isOpen, onCan
         
         const bounds = { minX: startOffsetX, maxX: startOffsetX + totalTextWidth, minY: startY, maxY: startY + height };
         
-        return { code, paths, bounds };
-    };
+        return { code, paths, bounds, error: null };
+    }, [textParams, toolLibrary, unit]);
 
-    const generateThreadMillingCode = () => {
+    const generateThreadMillingCode = useCallback(() => {
         const toolIndex = toolLibrary.findIndex(t => t.id === threadParams.toolId);
         if (toolIndex === -1) return { error: "Please select a tool." };
         const selectedTool = toolLibrary[toolIndex];
@@ -907,10 +907,10 @@ const GCodeGeneratorModal: React.FC<GCodeGeneratorModalProps> = ({ isOpen, onCan
         const boundsRadius = type === 'internal' ? diameter / 2 : pathRadius;
         const bounds = { minX: centerX - boundsRadius, maxX: centerX + boundsRadius, minY: centerY - boundsRadius, maxY: centerY + boundsRadius };
         
-        return { code, paths, bounds };
-    };
+        return { code, paths, bounds, error: null };
+    }, [threadParams, toolLibrary, unit]);
     
-    const applyArrayPattern = (singleOpResult) => {
+    const applyArrayPattern = useCallback((singleOpResult) => {
         const { code: singleCode, paths: singlePaths, bounds: singleBounds } = singleOpResult;
         const { pattern, rectCols, rectRows, rectSpacingX, rectSpacingY, circCopies, circRadius, circCenterX, circCenterY, circStartAngle } = arraySettings;
         const inputLines = singleCode;
@@ -983,7 +983,7 @@ const GCodeGeneratorModal: React.FC<GCodeGeneratorModalProps> = ({ isOpen, onCan
         });
 
         return { code: finalCode, paths: finalPaths, bounds: finalBounds };
-    };
+    }, [arraySettings]);
 
     const handleGenerate = useCallback(() => { setGenerationError(null); let result = { code: [], paths: [], bounds: {}, error: null }; if (activeTab === 'surfacing')
         result = generateSurfacingCode(); else if (activeTab === 'drilling') result = generateDrillingCode();
@@ -1008,21 +1008,26 @@ const GCodeGeneratorModal: React.FC<GCodeGeneratorModalProps> = ({ isOpen, onCan
 
         setGeneratedGCode(result.code.join('\n'));
         setPreviewPaths({ paths: result.paths, bounds: result.bounds });
-    }, [activeTab, surfaceParams, drillParams, drillType, boreParams, pocketParams, profileParams, slotParams, textParams, threadParams, toolLibrary, arraySettings, generateSurfacingCode, generateDrillingCode, generateBoreCode, generatePocketCode, generateProfileCode, generateSlotCode, generateTextCode, generateThreadMillingCode]);
+    }, [activeTab, surfaceParams, drillParams, drillType, boreParams, pocketParams, profileParams, slotParams, textParams, threadParams, toolLibrary, arraySettings, generateSurfacingCode, generateDrillingCode, generateBoreCode, generatePocketCode, generateProfileCode, generateSlotCode, generateTextCode, generateThreadMillingCode, applyArrayPattern]);
     
-    // This effect triggers the G-code generation whenever the parameters change.
     useEffect(() => {
         handleGenerate();
     }, [handleGenerate]);
 
     if (!isOpen) return null;
     
-    const renderSurfaceForm = () => <div className='space-y-4'><SurfacingGenerator onUpdate={setSurfaceParams} toolLibrary={toolLibrary} unit={unit} settings={settings} /></div>;
-    const renderDrillForm = () => <div className='space-y-4'><DrillingGenerator onUpdate={({ drillType: dt, params: p }) => { setDrillType(dt); setDrillParams(p); }} toolLibrary={toolLibrary} unit={unit} settings={settings} /></div>;
-    const renderBoreForm = () => <div className='space-y-4'><BoreGenerator onUpdate={setBoreParams} toolLibrary={toolLibrary} unit={unit} settings={settings} /></div>;
-
-  const renderPocketForm = () => <div className='space-y-4'><PocketGenerator onUpdate={setPocketParams} toolLibrary={toolLibrary} unit={unit} settings={settings} /></div>;
+    const handleSurfaceUpdate = useCallback(setSurfaceParams, []);
+    const handleDrillUpdate = useCallback(({ drillType: dt, params: p }) => { setDrillType(dt); setDrillParams(p); }, []);
+    const handleBoreUpdate = useCallback(setBoreParams, []);
+    const handlePocketUpdate = useCallback(setPocketParams, []);
     
+    const handleParamChange = useCallback((setter, params, field, value) => {
+        const numValue = value === '' ? '' : parseFloat(value);
+        if (isNaN(numValue as number)) return;
+        const newParams = { ...params, [field]: numValue };
+        setter(newParams);
+    }, []);
+
      const renderProfileForm = () => <div className='space-y-4'>
         {/* <ToolSelector selectedId={profileParams.toolId} onChange={(id) => setProfileParams(p => ({ ...p, toolId: id }))} unit={unit} toolLibrary={toolLibrary} /> */}
         <hr className='border-secondary' />
@@ -1043,7 +1048,7 @@ const GCodeGeneratorModal: React.FC<GCodeGeneratorModalProps> = ({ isOpen, onCan
         <hr className='border-secondary' />
         <label className='flex items-center gap-2 cursor-pointer'>
             <input type='checkbox' checked={profileParams.tabsEnabled} onChange={e => setProfileParams(p => ({...p, tabsEnabled: e.target.checked}))} className='h-4 w-4 rounded border-secondary text-primary' />
-            Add Hold-down Tabs
+            Add Hold-down Tabs 
       </label>
         {profileParams.tabsEnabled && <div className='grid grid-cols-3 gap-4 pl-6'>
              <Input label='# Tabs' value={profileParams.numTabs} onChange={e => handleParamChange(setProfileParams, profileParams, 'numTabs', e.target.value)} />
@@ -1058,12 +1063,12 @@ const GCodeGeneratorModal: React.FC<GCodeGeneratorModalProps> = ({ isOpen, onCan
         <hr className='border-secondary' />
         <RadioGroup options={[{ value: 'straight', label: 'Straight' }, { value: 'arc', label: 'Arc' }]} selected={slotParams.type} onChange={val => setSlotParams(p => ({...p, type: val}))} />
         {slotParams.type === 'straight' ? <>
-            <Input label='Start Point (X, Y)' valueX={slotParams.startX} valueY={slotParams.startY} onChangeX={e => handleParamChange(setSlotParams, slotParams, 'startX', e.target.value)} onChangeY={e => handleParamChange(setSlotParams, slotParams, 'startY', e.target.value)} isXY={true} unit={unit} />
-            <Input label='End Point (X, Y)' valueX={slotParams.endX} valueY={slotParams.endY} onChangeX={e => handleParamChange(setSlotParams, slotParams, 'endX', e.target.value)} onChangeY={e => handleParamChange(setSlotParams, slotParams, 'endY', e.target.value)} isXY={true} unit={unit} />
+            <Input label='Start Point (X, Y)' valueX={slotParams.startX} valueY={slotParams.startY} onChangeX={e => handleParamChange(setSlotParams, slotParams, 'startX', e.target.value)} onChangeY={e => handleParamChange(setSlotParams, slotParams, 'startY', e.target.value)} isXY unit={unit} />
+            <Input label='End Point (X, Y)' valueX={slotParams.endX} valueY={slotParams.endY} onChangeX={e => handleParamChange(setSlotParams, slotParams, 'endX', e.target.value)} onChangeY={e => handleParamChange(setSlotParams, slotParams, 'endY', e.target.value)} isXY unit={unit} />
         </> : <>
-            <Input label='Center Point (X, Y)' valueX={slotParams.centerX} valueY={slotParams.centerY} onChangeX={e => handleParamChange(setSlotParams, slotParams, 'centerX', e.target.value)} onChangeY={e => handleParamChange(setSlotParams, slotParams, 'centerY', e.target.value)} isXY={true} unit={unit} />
+            <Input label='Center Point (X, Y)' valueX={slotParams.centerX} valueY={slotParams.centerY} onChangeX={e => handleParamChange(setSlotParams, slotParams, 'centerX', e.target.value)} onChangeY={e => handleParamChange(setSlotParams, slotParams, 'centerY', e.target.value)} isXY unit={unit} />
             <Input label='Radius' value={slotParams.radius} onChange={e => handleParamChange(setSlotParams, slotParams, 'radius', e.target.value)} unit={unit} />
-            <Input label='Start, End Angle' valueX={slotParams.startAngle} valueY={slotParams.endAngle} onChangeX={e => handleParamChange(setSlotParams, slotParams, 'startAngle', e.target.value)} onChangeY={e => handleParamChange(setSlotParams, slotParams, 'endAngle', e.target.value)} isXY={true} unit='°' />
+            <Input label='Start, End Angle' valueX={slotParams.startAngle} valueY={slotParams.endAngle} onChangeX={e => handleParamChange(setSlotParams, slotParams, 'startAngle', e.target.value)} onChangeY={e => handleParamChange(setSlotParams, slotParams, 'endAngle', e.target.value)} isXY unit='°' />
         </>}
         <hr className='border-secondary' />
         <Input label='Slot Width' value={slotParams.slotWidth} onChange={e => handleParamChange(setSlotParams, slotParams, 'slotWidth', e.target.value)} unit={unit} />
@@ -1125,6 +1130,11 @@ const GCodeGeneratorModal: React.FC<GCodeGeneratorModalProps> = ({ isOpen, onCan
         <ArrayControls settings={arraySettings} onChange={setArraySettings} unit={unit} />
     </div>
     );
+
+    const renderSurfaceForm = () => <div className='space-y-4'><SurfacingGenerator onUpdate={handleSurfaceUpdate} toolLibrary={toolLibrary} unit={unit} settings={settings} /></div>;
+    const renderDrillForm = () => <div className='space-y-4'><DrillingGenerator onUpdate={handleDrillUpdate} toolLibrary={toolLibrary} unit={unit} settings={settings} /></div>;
+    const renderBoreForm = () => <div className='space-y-4'><BoreGenerator onUpdate={handleBoreUpdate} toolLibrary={toolLibrary} unit={unit} settings={settings} /></div>;
+    const renderPocketForm = () => <div className='space-y-4'><PocketGenerator onUpdate={handlePocketUpdate} toolLibrary={toolLibrary} unit={unit} settings={settings} /></div>;
     
     const isLoadDisabled = !generatedGCode || !!generationError;
 
