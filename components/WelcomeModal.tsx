@@ -49,9 +49,20 @@ const WelcomeModal: React.FC<WelcomeModalProps> = ({
                         <SetupStep title="Machine Setup" description="Define your machine's work area and spindle speeds." isComplete={isMachineSetupComplete} onAction={onOpenSettings} actionText="Open Settings" />
                         <SetupStep title="Tool Library" description="Add at least one tool to your library." isComplete={isToolLibrarySetupComplete} onAction={onOpenToolLibrary} actionText="Open Tool Library" />
                     </div>
-                    <div className="text-center pt-4">
-                        <p className="text-sm text-text-secondary mb-2">Or, if you just want to try out the software:</p>
-                        <button onClick={onTrySimulator} className="px-6 py-2 bg-primary text-white font-bold rounded-md hover:bg-primary-focus flex items-center gap-2 mx-auto"><Zap className="w-5 h-5" />Try the Simulator</button>
+                    <div className="pt-6 border-t border-secondary space-y-4">
+                        <button
+                            onClick={onClose}
+                            disabled={!isMachineSetupComplete || !isToolLibrarySetupComplete}
+                            className="w-full flex items-center justify-center gap-3 p-4 bg-primary text-white font-bold rounded-md hover:bg-primary-focus focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-surface transition-colors disabled:bg-secondary disabled:cursor-not-allowed text-xl"
+                        >
+                            Get Started
+                        </button>
+                        <div className="text-center">
+                            <p className="text-sm text-text-secondary mb-2">Or, if you just want to try out the software:</p>
+                            <button onClick={onTrySimulator} className="px-4 py-2 bg-secondary text-white font-semibold rounded-md hover:bg-secondary-focus flex items-center gap-2 mx-auto">
+                                <Zap className="w-5 h-5" />Try the Simulator
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>

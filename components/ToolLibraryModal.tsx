@@ -143,7 +143,8 @@ const ToolLibraryModal: React.FC<ToolLibraryModalProps> = ({ isOpen, onCancel, o
                 <div className="bg-background px-6 py-4 flex justify-end items-center rounded-b-lg flex-shrink-0">
                     <button
                         onClick={handleSaveAndClose}
-                        className="px-6 py-2 bg-primary text-white font-bold rounded-md hover:bg-primary-focus flex items-center gap-2"
+                        disabled={isEditing}
+                        className="px-6 py-2 bg-primary text-white font-bold rounded-md hover:bg-primary-focus flex items-center gap-2 disabled:bg-secondary disabled:cursor-not-allowed"
                     >
                         <Save className="w-5 h-5" />Save & Close
                     </button>
