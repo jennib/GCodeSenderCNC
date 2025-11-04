@@ -138,6 +138,23 @@ const GCodeGeneratorModal: React.FC<GCodeGeneratorModalProps> = ({ isOpen, onCan
         toolId: null,
     });
 
+    // --- Bore State ---
+    const [boreParams, setBoreParams] = useState({
+        centerX: 50,
+        centerY: 50,
+        holeDiameter: 20,
+        holeDepth: -15,
+        counterboreEnabled: true,
+        cbDiameter: 30,
+        cbDepth: -5,
+        depthPerPass: 2,
+        feed: 400,
+        plungeFeed: 150,
+        spindle: settings.spindle.max || 8000,
+        safeZ: 5,
+        toolId: null as number | null,
+    });
+
     // --- Pocket State ---
     const [pocketParams, setPocketParams] = useState({
         shape: 'rect',
@@ -358,6 +375,86 @@ const GCodeGeneratorModal: React.FC<GCodeGeneratorModalProps> = ({ isOpen, onCan
 
         code.push(`G0 Z${safeZ}`, `M5`, `G0 X0 Y0`);
         const bounds = shape === 'rect' ? { minX: 0, minY: 0, maxX: width, maxY: length } : { minX: 0, minY: 0, maxX: diameter, maxY: diameter };
+        return { code, paths, bounds, error: null };
+    };
+
+    const generateBoreCode = () => {
+        const toolIndex = toolLibrary.findIndex(t => t.id === boreParams.toolId);
+        if (toolIndex === -1) return { error: "Please select a tool." };
+        const selectedTool = toolLibrary[toolIndex];
+        if (!selectedTool) return { error: "Please select a tool." };
+
+        const { centerX, centerY, holeDiameter, holeDepth, counterboreEnabled, cbDiameter, cbDepth, depthPerPass, feed, plungeFeed, spindle, safeZ } = boreParams;
+
+        if (holeDiameter <= selectedTool.diameter) {
+            return { error: "Tool must be smaller than hole diameter." };
+        }
+        if (counterboreEnabled && cbDiameter <= selectedTool.diameter) {
+            return { error: "Tool must be smaller than counterbore diameter." };
+        }
+        if (counterboreEnabled && cbDiameter <= holeDiameter) {
+            return { error: "Counterbore must be larger than hole diameter." };
+        }
+
+        const code = [
+            `(--- Bore Operation ---)`,
+            `(Tool: ${selectedTool.name} - Ø${selectedTool.diameter}${unit})`,
+            `G21 G90`, `M3 S${spindle}`
+        ];
+        const paths = [];
+        const bounds = { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity };
+        const updateBounds = (x, y, r) => {
+            bounds.minX = Math.min(bounds.minX, x - r);
+            bounds.maxX = Math.max(bounds.maxX, x + r);
+            bounds.minY = Math.min(bounds.minY, y - r);
+            bounds.maxY = Math.max(bounds.maxY, y + r);
+        };
+
+        const doHelicalBore = (targetDiameter, targetDepth, startZ = 0) => {
+            const pathRadius = (targetDiameter - selectedTool.diameter) / 2;
+            if (pathRadius <= 0) return;
+
+            code.push(`(Boring to Ø${targetDiameter} at Z=${targetDepth})`);
+            paths.push({ cx: centerX, cy: centerY, r: targetDiameter / 2, stroke: 'var(--color-text-secondary)', strokeDasharray: '4 2', strokeWidth: '0.5%' });
+            updateBounds(centerX, centerY, targetDiameter / 2);
+
+            code.push(`G0 X${centerX.toFixed(3)} Y${centerY.toFixed(3)} Z${safeZ.toFixed(3)}`);
+            code.push(`G1 Z${startZ.toFixed(3)} F${plungeFeed}`);
+
+            let currentDepth = startZ;
+            while (currentDepth > targetDepth) {
+                currentDepth = Math.max(targetDepth, currentDepth - depthPerPass);
+                // Ramp in
+                code.push(`G2 X${(centerX + pathRadius).toFixed(3)} Y${centerY.toFixed(3)} I${pathRadius / 2} J0 Z${currentDepth.toFixed(3)} F${feed}`);
+                // Full circle
+                code.push(`G2 I${-pathRadius.toFixed(3)} J0`);
+                // Ramp out
+                code.push(`G2 X${centerX.toFixed(3)} Y${centerY.toFixed(3)} I${-pathRadius / 2} J0`);
+
+                if (currentDepth === Math.max(targetDepth, startZ - depthPerPass)) {
+                    paths.push({ cx: centerX, cy: centerY, r: pathRadius, stroke: 'var(--color-primary)' });
+                }
+            }
+        };
+
+        if (counterboreEnabled) {
+            // Order depths from shallowest to deepest
+            if (cbDepth > holeDepth) {
+                doHelicalBore(cbDiameter, cbDepth);
+                doHelicalBore(holeDiameter, holeDepth, cbDepth);
+            } else {
+                // This case is less common but possible
+                doHelicalBore(holeDiameter, holeDepth);
+                doHelicalBore(cbDiameter, cbDepth); // This will just re-trace in air, but handles the logic simply
+            }
+        } else {
+            doHelicalBore(holeDiameter, holeDepth);
+        }
+
+        code.push(`G0 Z${safeZ.toFixed(3)}`);
+        code.push(`M5`);
+        code.push(`G0 X0 Y0`);
+
         return { code, paths, bounds, error: null };
     };
 
@@ -754,13 +851,8 @@ const GCodeGeneratorModal: React.FC<GCodeGeneratorModalProps> = ({ isOpen, onCan
         <SurfacingGenerator onGenerate={onLoadGCode} toolLibrary={toolLibrary} unit={unit} settings={settings} />
     </div>;
     
- const renderDrillForm = () => <div className='space-y-4'>
-        <DrillingGenerator onGenerate={onLoadGCode} toolLibrary={toolLibrary} unit={unit} settings={settings} />
-    </div>;
-    
-   const renderBoreForm = () => <div className='space-y-4'>
-        <BoreGenerator onGenerate={onLoadGCode} toolLibrary={toolLibrary} unit={unit} settings={settings} />
-    </div>;
+    const renderDrillForm = () => <div className='space-y-4'><DrillingGenerator onGenerate={onLoadGCode} toolLibrary={toolLibrary} unit={unit} settings={settings} /></div>;
+    const renderBoreForm = () => <div className='space-y-4'><BoreGenerator onUpdate={setBoreParams} toolLibrary={toolLibrary} unit={unit} settings={settings} /></div>;
 
   const renderPocketForm = () => <div className='space-y-4'><PocketGenerator onUpdate={setPocketParams} toolLibrary={toolLibrary} unit={unit} settings={settings} /></div>;
     

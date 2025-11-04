@@ -1,15 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { Tool, MachineSettings } from '../types';
-import { ToolSelector, Input, SpindleAndFeedControls, ArrayControls } from './SharedControls';
+import { ToolSelector, Input, SpindleAndFeedControls } from './SharedControls';
 
 interface BoreGeneratorProps {
-    onGenerate: (gcode: string, name: string) => void;
+    onUpdate: (params: any) => void;
     toolLibrary: Tool[];
     unit: 'mm' | 'in';
     settings: MachineSettings;
 }
 
-const BoreGenerator: React.FC<BoreGeneratorProps> = ({ onGenerate, toolLibrary, unit, settings }) => {
+const BoreGenerator: React.FC<BoreGeneratorProps> = ({ onUpdate, toolLibrary, unit, settings }) => {
     const [params, setParams] = useState({
         centerX: 50,
         centerY: 50,
@@ -31,6 +31,10 @@ const BoreGenerator: React.FC<BoreGeneratorProps> = ({ onGenerate, toolLibrary, 
         if (isNaN(numValue as number)) return;
         setParams(p => ({ ...p, [field]: numValue }));
     };
+
+    useEffect(() => {
+        onUpdate(params);
+    }, [params, onUpdate]);
 
     return (
         <div className='space-y-4'>
