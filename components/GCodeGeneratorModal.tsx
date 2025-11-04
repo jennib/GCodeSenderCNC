@@ -8,6 +8,7 @@ import { MachineSettings, Tool } from '../types';
 import SurfacingGenerator from './SurfacingGenerator';
 import DrillingGenerator from './DrillingGenerator';
 import BoreGenerator from './BoreGenerator';
+import ProfileGenerator from './ProfileGenerator';
 import PocketGenerator from './PocketGenerator';
 
 interface TabProps {
@@ -103,16 +104,114 @@ const Preview: React.FC<PreviewProps> = ({ paths, viewBox }) => {
     );
 };
 
+const ProfileForm = React.memo(({ params, onParamChange, onArrayChange, unit, toolLibrary, arraySettings }) => (
+    <div className='space-y-4'>
+        {/* <ToolSelector selectedId={params.toolId} onChange={(id) => onParamChange('toolId', id)} unit={unit} toolLibrary={toolLibrary} /> */}
+        <hr className='border-secondary' />
+        <RadioGroup options={[{ value: 'rect', label: 'Rectangle' }, { value: 'circ', label: 'Circle' }]} selected={params.shape} onChange={val => onParamChange('shape', val)} />
+        {params.shape === 'rect' ? <>
+            <Input label='Width (X), Length (Y)' valueX={params.width} valueY={params.length} onChangeX={e => onParamChange('width', e.target.value)} onChangeY={e => onParamChange('length', e.target.value)} isXY={true} unit={unit} />
+            <Input label='Corner Radius' value={params.cornerRadius} onChange={e => onParamChange('cornerRadius', e.target.value)} unit={unit} />
+        </> : <>
+            <Input label='Diameter' value={params.diameter} onChange={e => onParamChange('diameter', e.target.value)} unit={unit} />
+        </>}
+        <hr className='border-secondary' />
+        <RadioGroup label='Cut Side' options={[{ value: 'outside', label: 'Outside' }, { value: 'inside', label: 'Inside' }, { value: 'online', label: 'On-line' }]} selected={params.cutSide} onChange={val => onParamChange('cutSide', val)} />
+        <div className='grid grid-cols-2 gap-4'>
+            <Input label='Total Depth' value={params.depth} onChange={e => onParamChange('depth', e.target.value)} unit={unit} help='Negative value' />
+            <Input label='Depth per Pass' value={params.depthPerPass} onChange={e => onParamChange('depthPerPass', e.target.value)} unit={unit} />
+        </div>
+        <SpindleAndFeedControls params={params} onParamChange={(field, value) => onParamChange(field, value)} unit={unit} />
+        <hr className='border-secondary' />
+        <label className='flex items-center gap-2 cursor-pointer'>
+            <input type='checkbox' checked={params.tabsEnabled} onChange={e => onParamChange('tabsEnabled', e.target.checked)} className='h-4 w-4 rounded border-secondary text-primary' />
+            Add Hold-down Tabs
+        </label>
+        {params.tabsEnabled && <div className='grid grid-cols-3 gap-4 pl-6'>
+            <Input label='# Tabs' value={params.numTabs} onChange={e => onParamChange('numTabs', e.target.value)} />
+            <Input label='Tab Width' value={params.tabWidth} onChange={e => onParamChange('tabWidth', e.target.value)} unit={unit} />
+            <Input label='Tab Height' value={params.tabHeight} onChange={e => onParamChange('tabHeight', e.target.value)} unit={unit} help='From bottom' />
+        </div>}
+        <ArrayControls settings={arraySettings} onChange={onArrayChange} unit={unit} />
+    </div>
+));
+
+const SlotForm = React.memo(({ params, onParamChange, onArrayChange, unit, toolLibrary, arraySettings }) => (
+    <div className='space-y-4'>
+        {/* <ToolSelector selectedId={params.toolId} onChange={(id) => onParamChange('toolId', id)} unit={unit} toolLibrary={toolLibrary} /> */}
+        <hr className='border-secondary' />
+        <RadioGroup options={[{ value: 'straight', label: 'Straight' }, { value: 'arc', label: 'Arc' }]} selected={params.type} onChange={val => onParamChange('type', val)} />
+        {params.type === 'straight' ? <>
+            <Input label='Start Point (X, Y)' valueX={params.startX} valueY={params.startY} onChangeX={e => onParamChange('startX', e.target.value)} onChangeY={e => onParamChange('startY', e.target.value)} isXY={true} unit={unit} />
+            <Input label='End Point (X, Y)' valueX={params.endX} valueY={params.endY} onChangeX={e => onParamChange('endX', e.target.value)} onChangeY={e => onParamChange('endY', e.target.value)} isXY={true} unit={unit} />
+        </> : <>
+            <Input label='Center Point (X, Y)' valueX={params.centerX} valueY={params.centerY} onChangeX={e => onParamChange('centerX', e.target.value)} onChangeY={e => onParamChange('centerY', e.target.value)} isXY unit={unit} />
+            <Input label='Radius' value={params.radius} onChange={e => onParamChange('radius', e.target.value)} unit={unit} />
+            <Input label='Start, End Angle' valueX={params.startAngle} valueY={params.endAngle} onChangeX={e => onParamChange('startAngle', e.target.value)} onChangeY={e => onParamChange('endAngle', e.target.value)} isXY unit='°' />
+        </>}
+        <hr className='border-secondary' />
+        <Input label='Slot Width' value={params.slotWidth} onChange={e => onParamChange('slotWidth', e.target.value)} unit={unit} />
+        <div className='grid grid-cols-2 gap-4'>
+            <Input label='Total Depth' value={params.depth} onChange={e => onParamChange('depth', e.target.value)} unit={unit} help='Negative value' />
+            <Input label='Depth per Pass' value={params.depthPerPass} onChange={e => onParamChange('depthPerPass', e.target.value)} unit={unit} />
+        </div>
+        <SpindleAndFeedControls params={params} onParamChange={(field, value) => onParamChange(field, value)} unit={unit} />
+        <ArrayControls settings={arraySettings} onChange={onArrayChange} unit={unit} />
+    </div>
+));
+
+const TextForm = React.memo(({ params, onParamChange, onArrayChange, unit, toolLibrary, arraySettings }) => (
+    <div className='space-y-4'>
+        {/* <ToolSelector selectedId={params.toolId} onChange={(id) => onParamChange('toolId', id)} unit={unit} toolLibrary={toolLibrary} /> */}
+        <hr className='border-secondary' />
+        <div>
+            <label className='block text-sm font-medium text-text-secondary mb-1'>Font</label>
+            <select value={params.font} onChange={e => onParamChange('font', e.target.value)} className='w-full bg-background border-secondary rounded-md py-1 px-2 focus:outline-none focus:ring-1 focus:ring-primary'>{Object.keys(FONTS).map(name => <option key={name} value={name}>{name}</option>)}</select>
+        </div>
+        <div>
+            <label className='block text-sm font-medium text-text-secondary mb-1'>Text Content</label>
+            <textarea value={params.text} onChange={e => onParamChange('text', e.target.value)} rows={2} className='w-full bg-background border-secondary rounded-md py-1 px-2 focus:outline-none focus:ring-1 focus:ring-primary font-mono uppercase' />
+        </div>
+        <div className='grid grid-cols-2 gap-4'>
+            <Input label='Char Height' value={params.height} onChange={e => onParamChange('height', e.target.value)} unit={unit} />
+            <Input label='Char Spacing' value={params.spacing} onChange={e => onParamChange('spacing', e.target.value)} unit={unit} />
+        </div>
+        <RadioGroup label='Alignment' options={[{ value: 'left', label: 'Left' }, { value: 'center', label: 'Center' }, { value: 'right', label: 'Right' }]} selected={params.alignment} onChange={val => onParamChange('alignment', val)} />
+        <Input label='Start Point (X, Y)' valueX={params.startX} valueY={params.startY} onChangeX={e => onParamChange('startX', e.target.value)} onChangeY={e => onParamChange('startY', e.target.value)} isXY={true} unit={unit} help='Alignment reference point' />
+        <hr className='border-secondary' />
+        <Input label='Engraving Depth' value={params.depth} onChange={e => onParamChange('depth', e.target.value)} unit={unit} help='Negative value' />
+        <SpindleAndFeedControls params={params} onParamChange={(field, value) => onParamChange(field, value)} unit={unit} />
+        <ArrayControls settings={arraySettings} onChange={onArrayChange} unit={unit} />
+    </div>
+));
+
+const ThreadMillingForm = React.memo(({ params, onParamChange, onArrayChange, unit, toolLibrary, arraySettings }) => (
+    <div className='space-y-4'>
+        {/* <ToolSelector selectedId={params.toolId} onChange={(id) => onParamChange('toolId', id)} unit={unit} toolLibrary={toolLibrary} /> */}
+        <hr className='border-secondary' />
+        <RadioGroup label='Type' options={[{ value: 'internal', label: 'Internal' }, { value: 'external', label: 'External' }]} selected={params.type} onChange={val => onParamChange('type', val)} />
+        <RadioGroup label='Hand' options={[{ value: 'right', label: 'Right-Hand' }, { value: 'left', label: 'Left-Hand' }]} selected={params.hand} onChange={val => onParamChange('hand', val)} />
+        <hr className='border-secondary' />
+        <div className='grid grid-cols-2 gap-4'>
+            <Input label='Thread Diameter' value={params.diameter} onChange={e => onParamChange('diameter', e.target.value)} unit={unit} help='Major diameter' />
+            <Input label='Pitch' value={params.pitch} onChange={e => onParamChange('pitch', e.target.value)} unit={unit} help='Distance between threads' />
+        </div>
+        <Input label='Thread Depth' value={params.depth} onChange={e => onParamChange('depth', e.target.value)} unit={unit} help='Length of thread' />
+        <SpindleAndFeedControls params={params} onParamChange={(field, value) => onParamChange(field, value)} unit={unit} />
+        <ArrayControls settings={arraySettings} onChange={onArrayChange} unit={unit} />
+    </div>
+));
+
 interface GCodeGeneratorModalProps {
     isOpen: boolean;
-    onCancel: () => void;
+    onClose: () => void;
     onLoadGCode: (gcode: string, name: string) => void;
     unit: 'mm' | 'in';
     settings: MachineSettings;
     toolLibrary: Tool[];
 }
 
-const GCodeGeneratorModal: React.FC<GCodeGeneratorModalProps> = ({ isOpen, onCancel, onLoadGCode, unit, settings, toolLibrary }) => {
+const GCodeGeneratorModal: React.FC<GCodeGeneratorModalProps> = ({ isOpen, onClose, onLoadGCode, unit, settings, toolLibrary }) => {
     const [activeTab, setActiveTab] = useState('surfacing');
     const [generatedGCode, setGeneratedGCode] = useState('');
     const [previewPaths, setPreviewPaths] = useState({ paths: [], bounds: { minX: 0, maxX: 100, minY: 0, maxY: 100 } });
@@ -1020,121 +1119,18 @@ const GCodeGeneratorModal: React.FC<GCodeGeneratorModalProps> = ({ isOpen, onCan
     const handleDrillUpdate = useCallback(({ drillType: dt, params: p }) => { setDrillType(dt); setDrillParams(p); }, []);
     const handleBoreUpdate = useCallback(setBoreParams, []);
     const handlePocketUpdate = useCallback(setPocketParams, []);
-    
+    const handleProfileUpdate = useCallback(setProfileParams, []);
+
     const handleParamChange = useCallback((setter, params, field, value) => {
         const numValue = value === '' ? '' : parseFloat(value);
         if (isNaN(numValue as number)) return;
         const newParams = { ...params, [field]: numValue };
         setter(newParams);
     }, []);
-
-     const renderProfileForm = () => <div className='space-y-4'>
-        {/* <ToolSelector selectedId={profileParams.toolId} onChange={(id) => setProfileParams(p => ({ ...p, toolId: id }))} unit={unit} toolLibrary={toolLibrary} /> */}
-        <hr className='border-secondary' />
-        <RadioGroup options={[{ value: 'rect', label: 'Rectangle' }, { value: 'circ', label: 'Circle' }]} selected={profileParams.shape} onChange={val => setProfileParams(p => ({...p, shape: val}))} />
-        {profileParams.shape === 'rect' ? <>
-            <Input label='Width (X), Length (Y)' valueX={profileParams.width} valueY={profileParams.length} onChangeX={e => handleParamChange(setProfileParams, profileParams, 'width', e.target.value)} onChangeY={e => handleParamChange(setProfileParams, profileParams, 'length', e.target.value)} isXY={true} unit={unit} />
-            <Input label='Corner Radius' value={profileParams.cornerRadius} onChange={e => handleParamChange(setProfileParams, profileParams, 'cornerRadius', e.target.value)} unit={unit} />
-        </> : <>
-            <Input label='Diameter' value={profileParams.diameter} onChange={e => handleParamChange(setProfileParams, profileParams, 'diameter', e.target.value)} unit={unit} />
-        </>}
-        <hr className='border-secondary' />
-        <RadioGroup label='Cut Side' options={[{ value: 'outside', label: 'Outside' }, { value: 'inside', label: 'Inside' }, { value: 'online', label: 'On-line' }]} selected={profileParams.cutSide} onChange={val => setProfileParams(p => ({...p, cutSide: val}))} />
-        <div className='grid grid-cols-2 gap-4'>
-            <Input label='Total Depth' value={profileParams.depth} onChange={e => handleParamChange(setProfileParams, profileParams, 'depth', e.target.value)} unit={unit} help='Negative value' />
-            <Input label='Depth per Pass' value={profileParams.depthPerPass} onChange={e => handleParamChange(setProfileParams, profileParams, 'depthPerPass', e.target.value)} unit={unit} />
-        </div>
-        <SpindleAndFeedControls params={profileParams} onParamChange={(field, value) => handleParamChange(setProfileParams, profileParams, field, value)} unit={unit} />
-        <hr className='border-secondary' />
-        <label className='flex items-center gap-2 cursor-pointer'>
-            <input type='checkbox' checked={profileParams.tabsEnabled} onChange={e => setProfileParams(p => ({...p, tabsEnabled: e.target.checked}))} className='h-4 w-4 rounded border-secondary text-primary' />
-            Add Hold-down Tabs 
-      </label>
-        {profileParams.tabsEnabled && <div className='grid grid-cols-3 gap-4 pl-6'>
-             <Input label='# Tabs' value={profileParams.numTabs} onChange={e => handleParamChange(setProfileParams, profileParams, 'numTabs', e.target.value)} />
-             <Input label='Tab Width' value={profileParams.tabWidth} onChange={e => handleParamChange(setProfileParams, profileParams, 'tabWidth', e.target.value)} unit={unit} />
-             <Input label='Tab Height' value={profileParams.tabHeight} onChange={e => handleParamChange(setProfileParams, profileParams, 'tabHeight', e.target.value)} unit={unit} help='From bottom' />
-        </div>}
-        <ArrayControls settings={arraySettings} onChange={setArraySettings} unit={unit} />
-    </div>;
-
-    const renderSlotForm = () => <div className='space-y-4'>
-        {/* <ToolSelector selectedId={slotParams.toolId} onChange={(id) => setSlotParams(p => ({ ...p, toolId: id }))} unit={unit} toolLibrary={toolLibrary} /> */}
-        <hr className='border-secondary' />
-        <RadioGroup options={[{ value: 'straight', label: 'Straight' }, { value: 'arc', label: 'Arc' }]} selected={slotParams.type} onChange={val => setSlotParams(p => ({...p, type: val}))} />
-        {slotParams.type === 'straight' ? <>
-            <Input label='Start Point (X, Y)' valueX={slotParams.startX} valueY={slotParams.startY} onChangeX={e => handleParamChange(setSlotParams, slotParams, 'startX', e.target.value)} onChangeY={e => handleParamChange(setSlotParams, slotParams, 'startY', e.target.value)} isXY unit={unit} />
-            <Input label='End Point (X, Y)' valueX={slotParams.endX} valueY={slotParams.endY} onChangeX={e => handleParamChange(setSlotParams, slotParams, 'endX', e.target.value)} onChangeY={e => handleParamChange(setSlotParams, slotParams, 'endY', e.target.value)} isXY unit={unit} />
-        </> : <>
-            <Input label='Center Point (X, Y)' valueX={slotParams.centerX} valueY={slotParams.centerY} onChangeX={e => handleParamChange(setSlotParams, slotParams, 'centerX', e.target.value)} onChangeY={e => handleParamChange(setSlotParams, slotParams, 'centerY', e.target.value)} isXY unit={unit} />
-            <Input label='Radius' value={slotParams.radius} onChange={e => handleParamChange(setSlotParams, slotParams, 'radius', e.target.value)} unit={unit} />
-            <Input label='Start, End Angle' valueX={slotParams.startAngle} valueY={slotParams.endAngle} onChangeX={e => handleParamChange(setSlotParams, slotParams, 'startAngle', e.target.value)} onChangeY={e => handleParamChange(setSlotParams, slotParams, 'endAngle', e.target.value)} isXY unit='°' />
-        </>}
-        <hr className='border-secondary' />
-        <Input label='Slot Width' value={slotParams.slotWidth} onChange={e => handleParamChange(setSlotParams, slotParams, 'slotWidth', e.target.value)} unit={unit} />
-        <div className='grid grid-cols-2 gap-4'>
-            <Input label='Total Depth' value={slotParams.depth} onChange={e => handleParamChange(setSlotParams, slotParams, 'depth', e.target.value)} unit={unit} help='Negative value' />
-            <Input label='Depth per Pass' value={slotParams.depthPerPass} onChange={e => handleParamChange(setSlotParams, slotParams, 'depthPerPass', e.target.value)} unit={unit} />
-        </div>
-        <SpindleAndFeedControls params={slotParams} onParamChange={(field, value) => handleParamChange(setSlotParams, slotParams, field, value)} unit={unit} />
-        <ArrayControls settings={arraySettings} onChange={setArraySettings} unit={unit} />
-    </div>;
-    
-    const renderTextForm = () => (
-        <div className='space-y-4'>
-        {/* <ToolSelector selectedId={textParams.toolId} onChange={(id) => setTextParams(p => ({ ...p, toolId: id }))} unit={unit} toolLibrary={toolLibrary} /> */}
-        <hr className='border-secondary' />
-        <div>
-            <label className='block text-sm font-medium text-text-secondary mb-1'>Font</label>
-            <select
-                value={textParams.font}
-                onChange={e => setTextParams(p => ({ ...p, font: e.target.value }))}
-                className='w-full bg-background border-secondary rounded-md py-1 px-2 focus:outline-none focus:ring-1 focus:ring-primary'
-            >{Object.keys(FONTS).map(name => <option key={name} value={name}>{name}</option>)}</select>
-        </div>
-        <div>
-            <label className='block text-sm font-medium text-text-secondary mb-1'>Text Content</label>
-            <textarea
-                value={textParams.text}
-                onChange={e => setTextParams(p => ({ ...p, text: e.target.value }))}
-                rows={2}
-                className='w-full bg-background border-secondary rounded-md py-1 px-2 focus:outline-none focus:ring-1 focus:ring-primary font-mono uppercase'
-            />
-        </div>
-        <div className='grid grid-cols-2 gap-4'>
-            <Input label='Char Height' value={textParams.height} onChange={e => handleParamChange(setTextParams, textParams, 'height', e.target.value)} unit={unit} />
-            <Input label='Char Spacing' value={textParams.spacing} onChange={e => handleParamChange(setTextParams, textParams, 'spacing', e.target.value)} unit={unit} />
-        </div>
-        <RadioGroup label='Alignment' options={[{ value: 'left', label: 'Left' }, { value: 'center', label: 'Center' }, { value: 'right', label: 'Right' }]} selected={textParams.alignment} onChange={val => setTextParams(p => ({ ...p, alignment: val }))} />
-        <Input label='Start Point (X, Y)' valueX={textParams.startX} valueY={textParams.startY} onChangeX={e => handleParamChange(setTextParams, textParams, 'startX', e.target.value)} onChangeY={e => handleParamChange(setTextParams, textParams, 'startY', e.target.value)} isXY={true} unit={unit} help='Alignment reference point' />
-        <hr className='border-secondary' />
-        <Input label='Engraving Depth' value={textParams.depth} onChange={e => handleParamChange(setTextParams, textParams, 'depth', e.target.value)} unit={unit} help='Negative value' />
-        <SpindleAndFeedControls params={textParams} onParamChange={(field, value) => handleParamChange(setTextParams, textParams, field, value)} unit={unit} />
-        <ArrayControls settings={arraySettings} onChange={setArraySettings} unit={unit} />
-    </div>
-    );
-
-    const renderThreadMillingForm = () => (
-        <div className='space-y-4'>
-        {/* <ToolSelector selectedId={threadParams.toolId} onChange={(id) => setThreadParams(p => ({ ...p, toolId: id }))} unit={unit} toolLibrary={toolLibrary} /> */}
-        <hr className='border-secondary' />
-        <RadioGroup label='Type' options={[{ value: 'internal', label: 'Internal' }, { value: 'external', label: 'External' }]} selected={threadParams.type} onChange={val => setThreadParams(p => ({ ...p, type: val }))} />
-        <RadioGroup label='Hand' options={[{ value: 'right', label: 'Right-Hand' }, { value: 'left', label: 'Left-Hand' }]} selected={threadParams.hand} onChange={val => setThreadParams(p => ({ ...p, hand: val }))} />
-        <hr className='border-secondary' />
-        <div className='grid grid-cols-2 gap-4'>
-            <Input label='Thread Diameter' value={threadParams.diameter} onChange={e => handleParamChange(setThreadParams, threadParams, 'diameter', e.target.value)} unit={unit} help='Major diameter' />
-            <Input label='Pitch' value={threadParams.pitch} onChange={e => handleParamChange(setThreadParams, threadParams, 'pitch', e.target.value)} unit={unit} help='Distance between threads' />
-        </div>
-        <Input label='Thread Depth' value={threadParams.depth} onChange={e => handleParamChange(setThreadParams, threadParams, 'depth', e.target.value)} unit={unit} help='Length of thread' />
-        <SpindleAndFeedControls params={threadParams} onParamChange={(field, value) => handleParamChange(setThreadParams, threadParams, field, value)} unit={unit} />
-        <ArrayControls settings={arraySettings} onChange={setArraySettings} unit={unit} />
-    </div>
-    );
-
-    const renderSurfaceForm = () => <div className='space-y-4'><SurfacingGenerator onUpdate={handleSurfaceUpdate} toolLibrary={toolLibrary} unit={unit} settings={settings} /></div>;
-    const renderDrillForm = () => <div className='space-y-4'><DrillingGenerator onUpdate={handleDrillUpdate} toolLibrary={toolLibrary} unit={unit} settings={settings} /></div>;
-    const renderBoreForm = () => <div className='space-y-4'><BoreGenerator onUpdate={handleBoreUpdate} toolLibrary={toolLibrary} unit={unit} settings={settings} /></div>;
-    const renderPocketForm = () => <div className='space-y-4'><PocketGenerator onUpdate={handlePocketUpdate} toolLibrary={toolLibrary} unit={unit} settings={settings} /></div>;
+    const handleSlotUpdate = useCallback((field, value) => handleParamChange(setSlotParams, slotParams, field, value), [slotParams, handleParamChange]);
+    const handleTextUpdate = useCallback((field, value) => handleParamChange(setTextParams, textParams, field, value), [textParams, handleParamChange]);
+    const handleThreadUpdate = useCallback((field, value) => handleParamChange(setThreadParams, threadParams, field, value), [threadParams, handleParamChange]);
+    const handleProfileUpdateCallback = useCallback((field, value) => handleParamChange(setProfileParams, profileParams, field, value), [profileParams, handleParamChange]);
     
     const isLoadDisabled = !generatedGCode || !!generationError;
 
@@ -1169,7 +1165,7 @@ const GCodeGeneratorModal: React.FC<GCodeGeneratorModalProps> = ({ isOpen, onCan
     }
 
     const renderPreviewContent = () => {
-        if (currentParams && currentParams.toolId === null) {
+        if (!currentParams || currentParams.toolId === null) {
             return (
                 <div className="aspect-square w-full bg-secondary rounded flex items-center justify-center p-4 text-center text-text-secondary">
                     Please select a tool to generate a preview.
@@ -1191,11 +1187,11 @@ const GCodeGeneratorModal: React.FC<GCodeGeneratorModalProps> = ({ isOpen, onCan
     };
 
     return (
-        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-40 flex items-center justify-center" onClick={onCancel}>
+        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-40 flex items-center justify-center" onClick={onClose}>
             <div className="bg-surface rounded-lg shadow-2xl w-full max-w-4xl border border-secondary transform transition-all max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
                 <div className="p-6 border-b border-secondary flex justify-between items-center">
                     <h2 className="text-2xl font-bold text-text-primary">G-Code Generator</h2>
-                    <button onClick={onCancel} className="p-1 rounded-md text-text-secondary hover:text-text-primary">
+                    <button onClick={onClose} className="p-1 rounded-md text-text-secondary hover:text-text-primary">
                         <X className="w-6 h-6" />
                     </button>
                 </div>
@@ -1213,14 +1209,14 @@ const GCodeGeneratorModal: React.FC<GCodeGeneratorModalProps> = ({ isOpen, onCan
                             <div className="w-full text-xs text-text-secondary uppercase tracking-wider mt-2">Text & Engraving</div>
                             <Tab label="Text" isActive={activeTab === 'text'} onClick={() => setActiveTab('text')} />
                         </div>
-                        {activeTab === 'surfacing' && renderSurfaceForm()}
-                        {activeTab === 'drilling' && renderDrillForm()}
-                        {activeTab === 'bore' && renderBoreForm()}
-                        {activeTab === 'pocket' && renderPocketForm()}
-                        {activeTab === 'profile' && renderProfileForm()}
-                        {activeTab === 'slot' && renderSlotForm()}
-                        {activeTab === 'text' && renderTextForm()}
-                        {activeTab === 'thread' && renderThreadMillingForm()}
+                        {activeTab === 'surfacing' && <div className='space-y-4'><SurfacingGenerator onUpdate={handleSurfaceUpdate} toolLibrary={toolLibrary} unit={unit} settings={settings} /></div>}
+                        {activeTab === 'drilling' && <div className='space-y-4'><DrillingGenerator onUpdate={handleDrillUpdate} toolLibrary={toolLibrary} unit={unit} settings={settings} /></div>}
+                        {activeTab === 'bore' && <div className='space-y-4'><BoreGenerator onUpdate={handleBoreUpdate} toolLibrary={toolLibrary} unit={unit} settings={settings} /></div>}
+                        {activeTab === 'pocket' && <div className='space-y-4'><PocketGenerator onUpdate={handlePocketUpdate} toolLibrary={toolLibrary} unit={unit} settings={settings} /></div>}
+                        {activeTab === 'profile' && <ProfileGenerator onUpdate={handleProfileUpdateCallback} toolLibrary={toolLibrary} unit={unit} settings={settings} />}
+                        {activeTab === 'slot' && <SlotForm params={slotParams} onParamChange={handleSlotUpdate} onArrayChange={setArraySettings} unit={unit} toolLibrary={toolLibrary} arraySettings={arraySettings} />}
+                        {activeTab === 'text' && <TextForm params={textParams} onParamChange={handleTextUpdate} onArrayChange={setArraySettings} unit={unit} toolLibrary={toolLibrary} arraySettings={arraySettings} />}
+                        {activeTab === 'thread' && <ThreadMillingForm params={threadParams} onParamChange={handleThreadUpdate} onArrayChange={setArraySettings} unit={unit} toolLibrary={toolLibrary} arraySettings={arraySettings} />}
                     </div>
                     <div className="bg-background p-4 rounded-md flex flex-col gap-4">
                         <div className="flex justify-between items-center border-b border-secondary pb-2 mb-2">
@@ -1247,7 +1243,7 @@ const GCodeGeneratorModal: React.FC<GCodeGeneratorModalProps> = ({ isOpen, onCan
                     </div>
                 </div>
                 <div className="bg-background px-6 py-4 flex justify-end gap-4 rounded-b-lg">
-                    <button onClick={onCancel} className="px-4 py-2 bg-secondary text-white font-semibold rounded-md hover:bg-secondary-focus">
+                    <button onClick={onClose} className="px-4 py-2 bg-secondary text-white font-semibold rounded-md hover:bg-secondary-focus">
                         Cancel
                     </button>
                     <button

@@ -25,6 +25,7 @@ import { Analytics } from '@vercel/analytics/react';
 import GCodeGeneratorModal from './components/GCodeGeneratorModal';
 import Footer from './components/Footer';
 import ContactModal from './components/ContactModal';
+import ErrorBoundary from './ErrorBoundary';
 import UnsupportedBrowser from './components/UnsupportedBrowser';
 
 const GRBL_ALARM_CODES: { [key: number | string]: { name: string; desc: string; resolution: string } } = {
@@ -106,8 +107,7 @@ const DEFAULT_SETTINGS = {
 
 // FIX: Properly type the usePrevious hook to be generic and type-safe.
 const usePrevious = <T,>(value: T): T | undefined => {
-    // FIX: Provide an initial value to useRef to fix "Expected 1 arguments, but got 0" error.
-    const ref = useRef<T>();
+    const ref = useRef<T | undefined>();
     useEffect(() => {
         ref.current = value;
     });
@@ -118,7 +118,6 @@ const buildTimestamp = new Date().toISOString().replace('T', ' ').substring(0, 1
 
 
 const App: React.FC = () => {
-    // FIX: Initialize `isConnected` state with `false`.
     const [isConnected, setIsConnected] = useState<boolean>(false);
     const [isSimulatedConnection, setIsSimulatedConnection] = useState(false);
     const [portInfo, setPortInfo] = useState(null);
@@ -130,7 +129,6 @@ const App: React.FC = () => {
     const [error, setError] = useState<string | null>(null);
     const [isSerialApiSupported, setIsSerialApiSupported] = useState(true);
     const [useSimulator, setUseSimulator] = useState(false);
-    // FIX: Add explicit type for machineState to resolve 'unknown' type error.
     const [machineState, setMachineState] = useState<MachineState | null>(null);
     const [isJogging, setIsJogging] = useState(false);
     const [flashingButton, setFlashingButton] = useState<string | null>(null);
@@ -156,7 +154,7 @@ const App: React.FC = () => {
     const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
     const [isToolLibraryModalOpen, setIsToolLibraryModalOpen] = useState(false);
     const [isContactModalOpen, setIsContactModalOpen] = useState(false);
-    const [isGeneratorModalOpen, setIsGeneratorModalOpen] = useState(false);
+    const [isGCodeModalOpen, setIsGCodeModalOpen] = useState(false);
     const [selectedToolId, setSelectedToolId] = useState<number | null>(null);
     const [isVerbose, setIsVerbose] = useState(false);
 
@@ -294,8 +292,7 @@ const App: React.FC = () => {
     }, [removeNotification]);
 
     useEffect(() => {
-        // FIX: Handle vendor-prefixed AudioContext for cross-browser compatibility.
-        const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+        const AudioContext = window.AudioContext;
         if (!AudioContext) {
             console.error("AudioContext not supported by this browser.");
             return;
@@ -580,7 +577,7 @@ const App: React.FC = () => {
 
     const handleLoadGeneratedGCode = useCallback((gcode: string, name: string): void => {
         handleFileLoad(gcode, name);
-        setIsGeneratorModalOpen(false);
+        setIsGCodeModalOpen(false);
     }, [handleFileLoad]);
 
     const handleStartJobConfirmed = useCallback((options: { isDryRun: boolean }): void => {
@@ -982,16 +979,14 @@ const App: React.FC = () => {
         addNotification('Macro deleted!', 'success');
     }, [addNotification]);
 
-    // FIX: Add handlers for importing and exporting settings to resolve missing props on SettingsModal.
     const handleExportSettings = useCallback((): void => {
         const settingsToExport = {
             machineSettings,
             macros,
             toolLibrary,
         };
-        const blob = new Blob([JSON.stringify(settingsToExport, null, 2)], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
+        const url = URL.createObjectURL(new Blob([JSON.stringify(settingsToExport, null, 2)], { type: 'application/json' }));
         a.href = url;
         a.download = `mycnc-app-settings-${new Date().toISOString().slice(0,10)}.json`;
         document.body.appendChild(a);
@@ -1002,19 +997,17 @@ const App: React.FC = () => {
     }, [machineSettings, macros, toolLibrary, addNotification]);
 
     const handleImportSettings = useCallback((imported: any): void => {
-        if (window.confirm("This will overwrite your current macros, settings, and tool library. Are you sure?")) {
-            // Basic validation
-            if (imported.machineSettings && !imported.machineSettings.probe) {
-                imported.machineSettings.probe = DEFAULT_SETTINGS.probe;
-            }
-            if (imported.machineSettings && imported.macros && imported.toolLibrary) {
-                setMachineSettings(imported.machineSettings);
-                setMacros(imported.macros);
-                setToolLibrary(imported.toolLibrary);
-                addNotification("Settings imported successfully!", 'success');
-            } else {
-                addNotification("Invalid settings file.", 'error');
-            }
+        if (!window.confirm("This will overwrite your current macros, settings, and tool library. Are you sure?")) {
+            return;
+        }
+        if (imported.machineSettings && !imported.machineSettings.probe) {
+            imported.machineSettings.probe = DEFAULT_SETTINGS.probe;
+        }
+        if (imported.machineSettings && imported.macros && imported.toolLibrary) {
+            setMachineSettings(imported.machineSettings);
+            setMacros(imported.macros);
+            setToolLibrary(imported.toolLibrary);
+            addNotification("Settings imported successfully!", 'success');
         }
     }, [addNotification]);
     
@@ -1141,7 +1134,6 @@ const App: React.FC = () => {
                     localStorage.removeItem('cnc-app-skip-preflight');
                     addNotification("Dialog settings have been reset.", 'info');
                 }}
-                // FIX: Pass onExport and onImport handlers to SettingsModal to satisfy its prop requirements.
                 onExport={handleExportSettings}
                 onImport={handleImportSettings}
             />
@@ -1157,14 +1149,16 @@ const App: React.FC = () => {
                 onSave={setToolLibrary}
                 library={toolLibrary}
             />
-            <GCodeGeneratorModal
-                isOpen={isGeneratorModalOpen}
-                onCancel={() => setIsGeneratorModalOpen(false)}
-                onLoadGCode={handleLoadGeneratedGCode}
-                unit={unit}
-                settings={machineSettings}
-                toolLibrary={toolLibrary}
-            />
+            <ErrorBoundary>
+                <GCodeGeneratorModal
+                    isOpen={isGCodeModalOpen}
+                    onClose={() => setIsGCodeModalOpen(false)}
+                    onLoadGCode={handleLoadGeneratedGCode}
+                    unit={unit}
+                    settings={machineSettings}
+                    toolLibrary={toolLibrary}
+                />
+            </ErrorBoundary>
 
             <header className="bg-surface shadow-md p-4 flex justify-between items-center z-10 flex-shrink-0 gap-4">
                 <div className="flex items-center gap-4">
@@ -1294,7 +1288,7 @@ const App: React.FC = () => {
                         toolLibrary={toolLibrary}
                         selectedToolId={selectedToolId}
                         onToolSelect={setSelectedToolId} 
-                        onOpenGenerator={() => setIsGeneratorModalOpen(true)}
+                        onOpenGenerator={() => setIsGCodeModalOpen(true)}
                     />
                 </div>
                 <div className="flex flex-col gap-4 overflow-hidden min-h-0">
@@ -1343,5 +1337,4 @@ const App: React.FC = () => {
     );
 };
 
-// FIX: Add default export to make it importable in index.tsx
 export default App;
