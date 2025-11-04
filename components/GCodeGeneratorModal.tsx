@@ -376,7 +376,7 @@ const GCodeGeneratorModal: React.FC<GCodeGeneratorModalProps> = ({ isOpen, onClo
         fitView();
     }, [fitView]);
 
-    const generateDrillingCode = useCallback(() => {
+    const generateDrillingCode = () => {
         const toolIndex = toolLibrary.findIndex(t => t.id === drillParams.toolId);
         if (toolIndex === -1) return { error: "Please select a tool." };
         const selectedTool = toolLibrary[toolIndex];
@@ -439,7 +439,7 @@ const GCodeGeneratorModal: React.FC<GCodeGeneratorModalProps> = ({ isOpen, onClo
         code.push('M5');
 
         return { code, paths, bounds, error: null };
-    }, [drillParams, drillType, toolLibrary, unit]);
+    };
 
     const handleZoom = (factor) => {
         setViewBox(currentViewBox => {
@@ -454,7 +454,7 @@ const GCodeGeneratorModal: React.FC<GCodeGeneratorModalProps> = ({ isOpen, onClo
         });
     };
 
-    const generateProfileCode = useCallback(() => {
+    const generateProfileCode = () => {
         const toolIndex = toolLibrary.findIndex(t => t.id === profileParams.toolId);
         if (toolIndex === -1) return { error: "Please select a tool." };
         const selectedTool = toolLibrary[toolIndex];
@@ -530,9 +530,9 @@ const GCodeGeneratorModal: React.FC<GCodeGeneratorModalProps> = ({ isOpen, onClo
         
         code.push(`G0 Z${safeZ}`, `M5`);
         return { code, paths, bounds, error: null };
-    }, [profileParams, toolLibrary, unit]);
+    };
 
-    const generateSurfacingCode = useCallback(() => {
+    const generateSurfacingCode = () => {
         const toolIndex = toolLibrary.findIndex(t => t.id === surfaceParams.toolId);
         if (toolIndex === -1) return { error: "Please select a tool." };
         const selectedTool = toolLibrary[toolIndex];
@@ -587,9 +587,9 @@ const GCodeGeneratorModal: React.FC<GCodeGeneratorModalProps> = ({ isOpen, onClo
         code.push(`M5`);
         const bounds = { minX: 0, minY: 0, maxX: width, maxY: length };
         return { code, paths, bounds, error: null };
-    }, [surfaceParams, toolLibrary, unit]);
+    };
 
-    const generatePocketCode = useCallback(() => {
+    const generatePocketCode = () => {
         const toolIndex = toolLibrary.findIndex(t => t.id === pocketParams.toolId);
         if (toolIndex === -1) return { error: "Please select a tool." };
         const selectedTool = toolLibrary[toolIndex];
@@ -643,9 +643,9 @@ const GCodeGeneratorModal: React.FC<GCodeGeneratorModalProps> = ({ isOpen, onClo
         code.push(`G0 Z${safeZ}`, `M5`, `G0 X0 Y0`);
         const bounds = shape === 'rect' ? { minX: 0, minY: 0, maxX: width, maxY: length } : { minX: 0, minY: 0, maxX: diameter, maxY: diameter };
         return { code, paths, bounds, error: null };
-    }, [pocketParams, toolLibrary, unit]);
+    };
 
-    const generateBoreCode = useCallback(() => {
+    const generateBoreCode = () => {
         const toolIndex = toolLibrary.findIndex(t => t.id === boreParams.toolId);
         if (toolIndex === -1) return { error: "Please select a tool." };
         const selectedTool = toolLibrary[toolIndex];
@@ -723,9 +723,9 @@ const GCodeGeneratorModal: React.FC<GCodeGeneratorModalProps> = ({ isOpen, onClo
         code.push(`G0 X0 Y0`);
 
         return { code, paths, bounds, error: null };
-    }, [boreParams, toolLibrary, unit]);
+    };
 
-    const generateSlotCode = useCallback(() => {
+    const generateSlotCode = () => {
         const toolIndex = toolLibrary.findIndex(t => t.id === slotParams.toolId);
         if (toolIndex === -1) return { error: "Please select a tool." };
         const selectedTool = toolLibrary[toolIndex];
@@ -828,9 +828,9 @@ const GCodeGeneratorModal: React.FC<GCodeGeneratorModalProps> = ({ isOpen, onClo
 
         code.push(`G0 Z${safeZ}`, `M5`);
         return { code, paths, bounds, error: null };
-    }, [slotParams, toolLibrary, unit]);
+    };
     
-    const generateTextCode = useCallback(() => {
+    const generateTextCode = () => {
         const toolIndex = toolLibrary.findIndex(t => t.id === textParams.toolId);
         if (toolIndex === -1) return { error: "Please select a tool." };
         const selectedTool = toolLibrary[toolIndex];
@@ -928,9 +928,9 @@ const GCodeGeneratorModal: React.FC<GCodeGeneratorModalProps> = ({ isOpen, onClo
         const bounds = { minX: startOffsetX, maxX: startOffsetX + totalTextWidth, minY: startY, maxY: startY + height };
         
         return { code, paths, bounds, error: null };
-    }, [textParams, toolLibrary, unit]);
+    };
 
-    const generateThreadMillingCode = useCallback(() => {
+    const generateThreadMillingCode = () => {
         const toolIndex = toolLibrary.findIndex(t => t.id === threadParams.toolId);
         if (toolIndex === -1) return { error: "Please select a tool." };
         const selectedTool = toolLibrary[toolIndex];
@@ -1007,7 +1007,7 @@ const GCodeGeneratorModal: React.FC<GCodeGeneratorModalProps> = ({ isOpen, onClo
         const bounds = { minX: centerX - boundsRadius, maxX: centerX + boundsRadius, minY: centerY - boundsRadius, maxY: centerY + boundsRadius };
         
         return { code, paths, bounds, error: null };
-    }, [threadParams, toolLibrary, unit]);
+    };
     
     const applyArrayPattern = useCallback((singleOpResult) => {
         const { code: singleCode, paths: singlePaths, bounds: singleBounds } = singleOpResult;
@@ -1109,9 +1109,11 @@ const GCodeGeneratorModal: React.FC<GCodeGeneratorModalProps> = ({ isOpen, onClo
         setPreviewPaths({ paths: result.paths, bounds: result.bounds });
     }, [activeTab, surfaceParams, drillParams, drillType, boreParams, pocketParams, profileParams, slotParams, textParams, threadParams, toolLibrary, arraySettings, generateSurfacingCode, generateDrillingCode, generateBoreCode, generatePocketCode, generateProfileCode, generateSlotCode, generateTextCode, generateThreadMillingCode, applyArrayPattern]);
     
+    // This useEffect is the source of the infinite loop.
+    // It should depend on the state variables directly, not on handleGenerate.
     useEffect(() => {
         handleGenerate();
-    }, [handleGenerate]);
+    }, [activeTab, surfaceParams, drillParams, drillType, boreParams, pocketParams, profileParams, slotParams, textParams, threadParams, toolLibrary, arraySettings]);
 
     if (!isOpen) return null;
     
@@ -1119,18 +1121,18 @@ const GCodeGeneratorModal: React.FC<GCodeGeneratorModalProps> = ({ isOpen, onClo
     const handleDrillUpdate = useCallback(({ drillType: dt, params: p }) => { setDrillType(dt); setDrillParams(p); }, []);
     const handleBoreUpdate = useCallback(setBoreParams, []);
     const handlePocketUpdate = useCallback(setPocketParams, []);
-    const handleProfileUpdate = useCallback(setProfileParams, []);
 
-    const handleParamChange = useCallback((setter, params, field, value) => {
-        const numValue = value === '' ? '' : parseFloat(value);
-        if (isNaN(numValue as number)) return;
-        const newParams = { ...params, [field]: numValue };
-        setter(newParams);
+    const handleParamChange = useCallback((setter, field, value) => {
+        setter(prevParams => {
+            const numValue = value === '' ? '' : parseFloat(value);
+            if (isNaN(numValue as number)) return prevParams;
+            return { ...prevParams, [field]: numValue };
+        });
     }, []);
     const handleSlotUpdate = useCallback((field, value) => handleParamChange(setSlotParams, slotParams, field, value), [slotParams, handleParamChange]);
     const handleTextUpdate = useCallback((field, value) => handleParamChange(setTextParams, textParams, field, value), [textParams, handleParamChange]);
     const handleThreadUpdate = useCallback((field, value) => handleParamChange(setThreadParams, threadParams, field, value), [threadParams, handleParamChange]);
-    const handleProfileUpdateCallback = useCallback((field, value) => handleParamChange(setProfileParams, profileParams, field, value), [profileParams, handleParamChange]);
+    const handleProfileUpdateCallback = useCallback((field, value) => handleParamChange(setProfileParams, field, value), [handleParamChange]);
     
     const isLoadDisabled = !generatedGCode || !!generationError;
 

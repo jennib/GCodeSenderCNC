@@ -1149,16 +1149,18 @@ const App: React.FC = () => {
                 onSave={setToolLibrary}
                 library={toolLibrary}
             />
-            <ErrorBoundary>
-                <GCodeGeneratorModal
-                    isOpen={isGCodeModalOpen}
-                    onClose={() => setIsGCodeModalOpen(false)}
-                    onLoadGCode={handleLoadGeneratedGCode}
-                    unit={unit}
-                    settings={machineSettings}
-                    toolLibrary={toolLibrary}
-                />
-            </ErrorBoundary>
+            {isGCodeModalOpen && (
+                <ErrorBoundary>
+                    <GCodeGeneratorModal
+                        isOpen={isGCodeModalOpen}
+                        onClose={() => setIsGCodeModalOpen(false)}
+                        onLoadGCode={handleLoadGeneratedGCode}
+                        unit={unit}
+                        settings={machineSettings}
+                        toolLibrary={toolLibrary}
+                    />
+                </ErrorBoundary>
+            )}
 
             <header className="bg-surface shadow-md p-4 flex justify-between items-center z-10 flex-shrink-0 gap-4">
                 <div className="flex items-center gap-4">
