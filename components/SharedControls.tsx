@@ -56,6 +56,24 @@ export const Input: React.FC<InputProps> = ({ label, value, valueX, valueY, onCh
     </div>
 );
 
+interface CheckboxProps {
+    label: string;
+    checked: boolean;
+    onChange: (checked: boolean) => void;
+}
+
+export const Checkbox: React.FC<CheckboxProps> = ({ label, checked, onChange }) => (
+    <label className="flex items-center gap-2 cursor-pointer font-semibold text-text-primary">
+        <input
+            type="checkbox"
+            checked={checked}
+            onChange={e => onChange(e.target.checked)}
+            className="h-4 w-4 rounded border-secondary text-primary focus:ring-primary"
+        />
+        {label}
+    </label>
+);
+
 interface ToolSelectorProps {
     selectedId: number | null;
     onChange: (id: number | null) => void;
