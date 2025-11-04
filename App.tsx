@@ -575,6 +575,16 @@ const App: React.FC = () => {
         addLog({ type: 'status', message: `G-code modified (${lines.length} lines).` });
     };
 
+    const handleClearFile = useCallback(() => {
+        setGcodeLines([]);
+        setFileName('');
+        setProgress(0);
+        setJobStatus(JobStatus.Idle);
+        setSelectedToolId(null);
+        setTimeEstimate({ totalSeconds: 0, cumulativeSeconds: [] });
+        addLog({ type: 'status', message: 'G-code file cleared.' });
+    }, [addLog]);
+
     const handleLoadGeneratedGCode = useCallback((gcode: string, name: string): void => {
         handleFileLoad(gcode, name);
         setIsGCodeModalOpen(false);
@@ -1283,6 +1293,7 @@ const App: React.FC = () => {
                         isConnected={isConnected}
                         unit={unit}
                         onGCodeChange={handleGCodeChange}
+                        onClearFile={handleClearFile}
                         machineState={machineState}
                         onFeedOverride={handleFeedOverride}
                         timeEstimate={timeEstimate}

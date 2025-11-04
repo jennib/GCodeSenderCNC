@@ -40,7 +40,7 @@ interface GCodePanelProps {
     jobStatus: JobStatus;
     progress: number;
     isConnected: boolean;
-    unit: 'mm' | 'in';
+    unit: "mm" | "in";
     onGCodeChange: (content: string) => void;
     onClearFile?: () => void;
     machineState: MachineState | null;
@@ -69,7 +69,7 @@ const formatTime = (totalSeconds: number): string => {
 const GCodePanel: React.FC<GCodePanelProps> = ({ 
     onFileLoad, fileName, gcodeLines, onJobControl, 
     jobStatus, progress, isConnected, unit, onGCodeChange, 
-    onClearFile = () => {},
+    onClearFile,
     machineState, onFeedOverride, timeEstimate, 
     machineSettings, toolLibrary, selectedToolId, onToolSelect,
     onOpenGenerator 
@@ -366,7 +366,7 @@ const GCodePanel: React.FC<GCodePanelProps> = ({
                         <Upload className="w-5 h-5" />
                         Load File
                     </button>
-                    <button onClick={onClearFile} disabled={isJobActive || gcodeLines.length === 0} className="p-2 bg-secondary text-text-primary font-semibold rounded-md hover:bg-secondary-focus focus:outline-none focus:ring-2 focus:ring-secondary focus:ring-offset-2 focus:ring-offset-surface transition-colors disabled:opacity-50 disabled:cursor-not-allowed" title="Clear G-Code & Preview">
+                    <button onClick={onClearFile} disabled={isJobActive || gcodeLines.length === 0} className="p-2 bg-secondary text-text-primary font-semibold rounded-md hover:bg-secondary-focus focus:outline-none focus:ring-2 focus:ring-secondary focus:ring-offset-2 focus:ring-offset-surface transition-colors disabled:opacity-50 disabled:cursor-not-allowed" title="Clear G-Code &amp; Preview">
                         <X className="w-5 h-5" />
                     </button>
                 </div>
