@@ -1,50 +1,50 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Tool, MachineSettings } from '../types';
-import { ToolSelector, Input, RadioGroup, SpindleAndFeedControls, ArrayControls } from './SharedControls';
+import { ToolSelector, Input, RadioGroup, SpindleAndFeedControls, Checkbox } from './SharedControls';
 
 interface ProfileGeneratorProps {
-    onUpdate: (params: any) => void;
+    params: any;
+    onParamsChange: (field: string, value: any) => void;
     toolLibrary: Tool[];
     unit: 'mm' | 'in';
     settings: MachineSettings;
 }
 
-const ProfileGenerator: React.FC<ProfileGeneratorProps> = ({ onUpdate, toolLibrary, unit, settings }) => {
-    const [params, setParams] = useState({
-        shape: 'rect',
-        width: 80, length: 50, cornerRadius: 10, diameter: 60,
-        depth: -12, depthPerPass: 3, cutSide: 'outside',
-        tabsEnabled: true, numTabs: 4, tabWidth: 6, tabHeight: 2,
-        feed: 600, spindle: settings.spindle.max || 9000, safeZ: 5,
-        toolId: null as number | null,
-    });
-
-    const handleParamChange = (field: keyof typeof params, value: string) => {
-        const numValue = value === '' ? '' : parseFloat(value);
-        if (isNaN(numValue as number)) return;
-        const newParams = { ...params, [field]: numValue };
-        setParams(newParams);
-        onUpdate(newParams);
+const ProfileGenerator: React.FC<ProfileGeneratorProps> = ({ params, onParamsChange, toolLibrary, unit, settings }) => {
+    const handleParamChange = (field: string, value: any) => {
+        onParamsChange(field, value);
     };
 
     return (
         <div className='space-y-4'>
-            <ToolSelector selectedId={params.toolId} onChange={(id) => { const newParams = { ...params, toolId: id }; setParams(newParams); onUpdate(newParams); }} unit={unit} toolLibrary={toolLibrary} />
+            <ToolSelector selectedId={params.toolId} onChange={(id) => handleParamChange('toolId', id)} unit={unit} toolLibrary={toolLibrary} />
             <hr className='border-secondary' />
-            <RadioGroup options={[{ value: 'rect', label: 'Rectangle' }, { value: 'circ', label: 'Circle' }]} selected={params.shape} onChange={val => { const newParams = { ...params, shape: val }; setParams(newParams); onUpdate(newParams); }} />
+            <RadioGroup options={[{ value: 'rect', label: 'Rectangle' }, { value: 'circ', label: 'Circle' }]} selected={params.shape} onChange={val => handleParamChange('shape', val)} />
             {params.shape === 'rect' ? <>
-                <Input label='Width (X), Length (Y)' valueX={params.width} valueY={params.length} onChangeX={e => handleParamChange('width', e.target.value)} onChangeY={e => handleParamChange('length', e.target.value)} isXY unit={unit} />
+                <div className='grid grid-cols-2 gap-4'>
+                    <Input label='Width (X)' value={params.width} onChange={e => handleParamChange('width', e.target.value)} unit={unit} />
+                    <Input label='Length (Y)' value={params.length} onChange={e => handleParamChange('length', e.target.value)} unit={unit} />
+                </div>
                 <Input label='Corner Radius' value={params.cornerRadius} onChange={e => handleParamChange('cornerRadius', e.target.value)} unit={unit} />
             </> : <>
                 <Input label='Diameter' value={params.diameter} onChange={e => handleParamChange('diameter', e.target.value)} unit={unit} />
             </>}
             <hr className='border-secondary' />
-            <RadioGroup label='Cut Side' options={[{ value: 'outside', label: 'Outside' }, { value: 'inside', label: 'Inside' }, { value: 'online', label: 'On-line' }]} selected={params.cutSide} onChange={val => { const newParams = { ...params, cutSide: val }; setParams(newParams); onUpdate(newParams); }} />
+            <RadioGroup label='Cut Side' options={[{ value: 'outside', label: 'Outside' }, { value: 'inside', label: 'Inside' }, { value: 'online', label: 'On-line' }]} selected={params.cutSide} onChange={val => handleParamChange('cutSide', val)} />
             <div className='grid grid-cols-2 gap-4'>
-                <Input label='Total Depth' value={params.depth} onChange={e => handleParamChange('depth', e.target.value)} unit={unit} help='Negative value' />
+                <Input label='Total Depth' value={params.depth} onChange={e => handleParamChange('depth', e.target.value)} unit={unit} help='Should be negative' />
                 <Input label='Depth per Pass' value={params.depthPerPass} onChange={e => handleParamChange('depthPerPass', e.target.value)} unit={unit} />
             </div>
-            <SpindleAndFeedControls params={params} onParamChange={(field, value) => handleParamChange(field as any, value)} unit={unit} />
+            <hr className='border-secondary' />
+            <Checkbox label="Enable Tabs" checked={params.tabsEnabled} onChange={(checked) => handleParamChange('tabsEnabled', checked)} />
+            {params.tabsEnabled && (
+                <div className='grid grid-cols-3 gap-4 pl-4 mt-2 border-l-2 border-secondary'>
+                    <Input label='Number' value={params.numTabs} onChange={e => handleParamChange('numTabs', e.target.value)} />
+                    <Input label='Width' value={params.tabWidth} onChange={e => handleParamChange('tabWidth', e.target.value)} unit={unit} />
+                    <Input label='Height' value={params.tabHeight} onChange={e => handleParamChange('tabHeight', e.target.value)} unit={unit} />
+                </div>
+            )}
+            <SpindleAndFeedControls params={params} onParamChange={handleParamChange} unit={unit} />
         </div>
     );
 };
