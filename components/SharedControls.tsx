@@ -104,3 +104,47 @@ export const SpindleAndFeedControls: React.FC<SpindleAndFeedControlsProps> = ({ 
         <Input label="Safe Z" value={params.safeZ} onChange={e => onParamChange('safeZ', e.target.value)} unit={unit} help="Rapid height above stock" />
     </React.Fragment>
 );
+
+interface ArrayControlsProps {
+    settings: any;
+    onChange: (settings: any) => void;
+    unit: 'mm' | 'in';
+}
+
+export const ArrayControls: React.FC<ArrayControlsProps> = ({ settings, onChange, unit }) => {
+    const handleToggle = (e: React.ChangeEvent<HTMLInputElement>) => {
+        onChange({ ...settings, isEnabled: e.target.checked });
+    };
+
+    return (
+        <div className="bg-background/50 p-4 rounded-md">
+            <label className="flex items-center gap-2 cursor-pointer font-semibold text-text-primary">
+                <input
+                    type="checkbox"
+                    checked={settings.isEnabled}
+                    onChange={handleToggle}
+                    className="h-4 w-4 rounded border-secondary text-primary focus:ring-primary"
+                />
+                Enable Array Pattern
+            </label>
+            {settings.isEnabled && (
+                <div className="mt-4 pt-4 border-t border-secondary space-y-4">
+                    <RadioGroup options={[{ value: 'rect', label: 'Rectangular Grid' }, { value: 'circ', label: 'Circular Array' }]} selected={settings.pattern} onChange={val => onChange({ ...settings, pattern: val })} />
+                    {settings.pattern === 'rect' ? (
+                        <React.Fragment>
+                            <Input label="Columns, Rows" valueX={settings.rectCols} valueY={settings.rectRows} onChangeX={e => onChange({ ...settings, rectCols: e.target.value })} onChangeY={e => onChange({ ...settings, rectRows: e.target.value })} isXY />
+                            <Input label="Spacing (X, Y)" valueX={settings.rectSpacingX} valueY={settings.rectSpacingY} onChangeX={e => onChange({ ...settings, rectSpacingX: e.target.value })} onChangeY={e => onChange({ ...settings, rectSpacingY: e.target.value })} isXY unit={unit} />
+                        </React.Fragment>
+                    ) : (
+                        <React.Fragment>
+                            <Input label="Number of Copies" value={settings.circCopies} onChange={e => onChange({ ...settings, circCopies: e.target.value })} />
+                            <Input label="Center (X, Y)" valueX={settings.circCenterX} valueY={settings.circCenterY} onChangeX={e => onChange({ ...settings, circCenterX: e.target.value })} onChangeY={e => onChange({ ...settings, circCenterY: e.target.value })} isXY unit={unit} />
+                            <Input label="Radius" value={settings.circRadius} onChange={e => onChange({ ...settings, circRadius: e.target.value })} unit={unit} />
+                            <Input label="Start Angle" value={settings.circStartAngle} onChange={e => onChange({ ...settings, circStartAngle: e.target.value })} unit="°" />
+                        </React.Fragment>
+                    )}
+                </div>
+            )}
+        </div>
+    );
+};

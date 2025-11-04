@@ -6,6 +6,8 @@ import { FONTS } from '../services/cncFonts.js';
 import { MachineSettings, Tool } from '../types';
 import SurfacingGenerator from './SurfacingGenerator';
 import DrillingGenerator from './DrillingGenerator';
+import BoreGenerator from './BoreGenerator';
+import PocketGenerator from './PocketGenerator';
 
 interface TabProps {
     label: string;
@@ -100,47 +102,6 @@ const Preview: React.FC<PreviewProps> = ({ paths, viewBox }) => {
     );
 };
 
-const ArrayControls: React.FC<ArrayControlsProps> = ({ settings, onChange, activeTab, unit }) => {
-    const handleToggle = (e) => {
-        onChange({ ...settings, isEnabled: e.target.checked });
-    };
-
-    const isVisible = !['surfacing', 'drilling'].includes(activeTab);
-    if (!isVisible) return null;
-
-    return (
-        <div className="bg-background/50 p-4 rounded-md">
-            <label className="flex items-center gap-2 cursor-pointer font-semibold text-text-primary">
-                <input
-                    type="checkbox"
-                    checked={settings.isEnabled}
-                    onChange={handleToggle}
-                    className="h-4 w-4 rounded border-secondary text-primary focus:ring-primary"
-                />
-                Enable Array Pattern
-            </label>
-            {settings.isEnabled && (
-                <div className="mt-4 pt-4 border-t border-secondary space-y-4">
-                    <RadioGroup options={[{ value: 'rect', label: 'Rectangular Grid' }, { value: 'circ', label: 'Circular Array' }]} selected={settings.pattern} onChange={val => onChange({ ...settings, pattern: val })} />
-                    {settings.pattern === 'rect' ? (
-                        <React.Fragment>
-                            <Input label="Columns, Rows" valueX={settings.rectCols} valueY={settings.rectRows} onChangeX={e => onChange({ ...settings, rectCols: e.target.value })} onChangeY={e => onChange({ ...settings, rectRows: e.target.value })} isXY />
-                            <Input label="Spacing (X, Y)" valueX={settings.rectSpacingX} valueY={settings.rectSpacingY} onChangeX={e => onChange({ ...settings, rectSpacingX: e.target.value })} onChangeY={e => onChange({ ...settings, rectSpacingY: e.target.value })} isXY unit={unit} />
-                        </React.Fragment>
-                    ) : (
-                        <React.Fragment>
-                            <Input label="Number of Copies" value={settings.circCopies} onChange={e => onChange({ ...settings, circCopies: e.target.value })} />
-                            <Input label="Center (X, Y)" valueX={settings.circCenterX} valueY={settings.circCenterY} onChangeX={e => onChange({ ...settings, circCenterX: e.target.value })} onChangeY={e => onChange({ ...settings, circCenterY: e.target.value })} isXY unit={unit} />
-                            <Input label="Radius" value={settings.circRadius} onChange={e => onChange({ ...settings, circRadius: e.target.value })} unit={unit} />
-                            <Input label="Start Angle" value={settings.circStartAngle} onChange={e => onChange({ ...settings, circStartAngle: e.target.value })} unit="°" />
-                        </React.Fragment>
-                    )}
-                </div>
-            )}
-        </div>
-    );
-};
-
 interface GCodeGeneratorModalProps {
     isOpen: boolean;
     onCancel: () => void;
@@ -156,26 +117,6 @@ const GCodeGeneratorModal: React.FC<GCodeGeneratorModalProps> = ({ isOpen, onCan
     const [previewPaths, setPreviewPaths] = useState({ paths: [], bounds: { minX: 0, maxX: 100, minY: 0, maxY: 100 } });
     const [viewBox, setViewBox] = useState('0 0 100 100');
     const [generationError, setGenerationError] = useState(null);
-
-    // --- Bore State ---
-    const [boreParams, setBoreParams] = useState({
-        centerX: 50, centerY: 50,
-        holeDiameter: 20, holeDepth: -15,
-        counterboreEnabled: true,
-        cbDiameter: 30, cbDepth: -5,
-        depthPerPass: 2, feed: 400, plungeFeed: 150, spindle: settings.spindle.max || 8000, safeZ: 5,
-        toolId: null,
-    });
-
-
-    // --- Pocket State ---
-    const [pocketParams, setPocketParams] = useState({
-        shape: 'rect',
-        width: 80, length: 50, cornerRadius: 5, diameter: 60,
-        depth: -10, depthPerPass: 2, stepover: 40,
-        feed: 500, plungeFeed: 150, spindle: settings.spindle.max || 8000, safeZ: 5,
-        toolId: null,
-    });
 
     // --- Profile State ---
     const [profileParams, setProfileParams] = useState({
@@ -195,6 +136,23 @@ const GCodeGeneratorModal: React.FC<GCodeGeneratorModalProps> = ({ isOpen, onCan
         startX: 10, startY: 10, endX: 90, endY: 20,
         centerX: 50, centerY: 50, radius: 40, startAngle: 45, endAngle: 135,
         toolId: null,
+    });
+
+    // --- Pocket State ---
+    const [pocketParams, setPocketParams] = useState({
+        shape: 'rect',
+        width: 80,
+        length: 50,
+        cornerRadius: 5,
+        diameter: 60,
+        depth: -10,
+        depthPerPass: 2,
+        stepover: 40,
+        feed: 500,
+        plungeFeed: 150,
+        spindle: settings.spindle.max || 8000,
+        safeZ: 5,
+        toolId: null as number | null,
     });
 
     // --- Text State ---
@@ -267,220 +225,6 @@ const GCodeGeneratorModal: React.FC<GCodeGeneratorModalProps> = ({ isOpen, onCan
             const newY = y + (h - newH) / 2;
             return `${newX} ${newY} ${newW} ${newH}`;
         });
-    };
-
-    const generateDrillingCode = () => {
-        const toolIndex = toolLibrary.findIndex(t => t.id === drillParams.toolId);
-        if (toolIndex === -1) return { error: "Please select a tool." };
-        const selectedTool = toolLibrary[toolIndex];
-        if (!selectedTool) return { error: "Please select a tool." };
-
-        const { depth, peck, retract, feed, spindle, safeZ } = drillParams;
-        if ([depth, peck, retract, feed, spindle, safeZ].some(p => p === '' || p === null)) return { error: "Please fill all required fields." };
-        
-        const code = [
-            `(--- Drilling Operation: ${drillType} ---)`,
-            `(Tool: ${selectedTool.name})`,
-            `(Depth: ${depth}, Peck: ${peck}, Retract: ${retract})`,
-            // `T${toolIndex + 1} M6`, // Tool change disabled for non-ATC setups
-            `G21 G90`, // mm, absolute
-            `M3 S${spindle}`,
-        ];
-        
-        const paths = [];
-        const points = [];
-
-        if (drillType === 'single') {
-            points.push({ x: drillParams.singleX, y: drillParams.singleY });
-        } else if (drillType === 'rect') {
-            const { rectCols, rectRows, rectSpacingX, rectSpacingY, rectStartX, rectStartY } = drillParams;
-            for (let r = 0; r < rectRows; r++) {
-                for (let c = 0; c < rectCols; c++) {
-                    points.push({ x: rectStartX + c * rectSpacingX, y: rectStartY + r * rectSpacingY });
-                }
-            }
-        } else if (drillType === 'circ') {
-            const { circHoles, circRadius, circCenterX, circCenterY, circStartAngle } = drillParams;
-            const angleStep = 360 / circHoles;
-            for (let i = 0; i < circHoles; i++) {
-                const angle = (circStartAngle + i * angleStep) * (Math.PI / 180);
-                points.push({
-                    x: circCenterX + circRadius * Math.cos(angle),
-                    y: circCenterY + circRadius * Math.sin(angle),
-                });
-            }
-        }
-
-        points.forEach(p => {
-            code.push(`G0 X${p.x.toFixed(3)} Y${p.y.toFixed(3)}`);
-            code.push(`G0 Z${safeZ}`);
-            
-            let currentDepth = 0;
-            while (currentDepth > depth) {
-                currentDepth = Math.max(depth, currentDepth - peck);
-                code.push(`G1 Z${currentDepth.toFixed(3)} F${feed}`);
-                if (currentDepth > depth) {
-                    code.push(`G0 Z${retract}`);
-                }
-            }
-            code.push(`G0 Z${safeZ}`);
-            paths.push({ cx: p.x, cy: p.y, r: selectedTool.diameter / 2, fill: 'var(--color-primary)' });
-        });
-        
-        code.push('M5');
-
-        const bounds = points.reduce((acc, p) => ({
-            minX: Math.min(acc.minX, p.x - 2), maxX: Math.max(acc.maxX, p.x + 2),
-            minY: Math.min(acc.minY, p.y - 2), maxY: Math.max(acc.maxY, p.y + 2),
-        }), { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity });
-        
-        return { code, paths, bounds };
-    };
-
-    const generateBoreCode = () => {
-        const toolIndex = toolLibrary.findIndex(t => t.id === boreParams.toolId);
-        if (toolIndex === -1) return { error: "Please select a tool." };
-        const selectedTool = toolLibrary[toolIndex];
-        if (!selectedTool) return { error: "Please select a tool." };
-        const toolDiameter = selectedTool.diameter;
-
-        const { centerX, centerY, holeDiameter, holeDepth, counterboreEnabled, cbDiameter, cbDepth, depthPerPass, feed, plungeFeed, spindle, safeZ } = boreParams;
-        if ([centerX, centerY, holeDiameter, holeDepth, depthPerPass, feed, plungeFeed, spindle, safeZ].some(p => p === '' || p === null)) return { error: "Please fill all required fields." };
-        if (counterboreEnabled && ([cbDiameter, cbDepth].some(p => p === '' || p === null))) return { error: "Please fill counterbore fields." };
-
-        if (toolDiameter >= holeDiameter) return { error: "Tool diameter must be smaller than hole diameter." };
-        if (counterboreEnabled && toolDiameter >= cbDiameter) return { error: "Tool diameter must be smaller than counterbore diameter." };
-        if (counterboreEnabled && cbDiameter <= holeDiameter) return { error: "Counterbore must be larger than hole." };
-
-        const code = [
-            `(--- Bore/Counterbore Operation ---)`,
-            `(Tool: ${selectedTool.name} - Ø${toolDiameter}${unit})`,
-            // `T${toolIndex + 1} M6`, // Tool change disabled for non-ATC setups
-            `G21 G90`,
-            `M3 S${spindle}`,
-        ];
-        const paths = [];
-
-        const millCircularPocket = (diameter, startZ, endZ) => {
-            const radius = (diameter - toolDiameter) / 2;
-            code.push(`(--- Milling pocket Ø${diameter} from Z${startZ} to Z${endZ} ---)`);
-            
-            let currentZ = startZ;
-            while (currentZ > endZ) {
-                currentZ = Math.max(endZ, currentZ - depthPerPass);
-                code.push(`G0 X${centerX.toFixed(3)} Y${centerY.toFixed(3)}`);
-                code.push(`G1 Z${currentZ.toFixed(3)} F${plungeFeed}`);
-                code.push(`G1 X${(centerX + radius).toFixed(3)} F${feed}`);
-                code.push(`G2 I${-radius.toFixed(3)} J0`);
-                code.push(`G1 X${centerX.toFixed(3)}`);
-            }
-        };
-
-        code.push(`G0 Z${safeZ}`);
-
-        if (counterboreEnabled) {
-            millCircularPocket(cbDiameter, 0, cbDepth);
-            paths.push({ cx: centerX, cy: centerY, r: cbDiameter / 2, stroke: 'var(--color-accent-yellow)', fill: 'none', strokeWidth: '1%' });
-        }
-        
-        millCircularPocket(holeDiameter, counterboreEnabled ? cbDepth : 0, holeDepth);
-        paths.push({ cx: centerX, cy: centerY, r: holeDiameter / 2, stroke: 'var(--color-primary)', fill: 'none', strokeWidth: '1%' });
-
-
-        code.push(`G0 Z${safeZ}`, `M5`);
-        const maxDiameter = counterboreEnabled ? cbDiameter : holeDiameter;
-        const bounds = { minX: centerX - maxDiameter/2, maxX: centerX + maxDiameter/2, minY: centerY - maxDiameter/2, maxY: centerY + maxDiameter/2 };
-        return { code, paths, bounds };
-    };
-
-    const generatePocketCode = () => {
-        const toolIndex = toolLibrary.findIndex(t => t.id === pocketParams.toolId);
-        if (toolIndex === -1) return { error: "Please select a tool." };
-        const selectedTool = toolLibrary[toolIndex];
-        if (!selectedTool) return { error: "Please select a tool." };
-        const toolDiameter = selectedTool.diameter;
-
-        const { shape, width, length, cornerRadius, diameter, depth, depthPerPass, stepover, feed, plungeFeed, spindle, safeZ } = pocketParams;
-        if ([depth, depthPerPass, stepover, feed, plungeFeed, spindle, safeZ].some(p => p === '' || p === null)) return { error: "Please fill all required fields." };
-        
-        const code = [
-            `(--- Pocket Operation: ${shape} ---)`,
-            `(Tool: ${selectedTool.name} - Ø${toolDiameter}${unit})`,
-            // `T${toolIndex + 1} M6`, // Tool change disabled for non-ATC setups
-            `G21 G90`, `M3 S${spindle}`, `G0 Z${safeZ}`
-        ];
-        const paths = [];
-        const toolRadius = toolDiameter / 2;
-        const stepoverDist = toolDiameter * (stepover / 100);
-
-        let currentDepth = 0;
-        while (currentDepth > depth) {
-            currentDepth = Math.max(depth, currentDepth - depthPerPass);
-            code.push(`(--- Pass at Z=${currentDepth.toFixed(3)} ---)`);
-
-            if (shape === 'rect') {
-                const centerX = width / 2;
-                const centerY = length / 2;
-                code.push(`G0 X${centerX.toFixed(3)} Y${centerY.toFixed(3)}`);
-                code.push(`G1 Z${currentDepth.toFixed(3)} F${plungeFeed}`);
-
-                const effectiveRadius = Math.min(cornerRadius, width / 2, length / 2);
-
-                // Raster clearing
-                let y = toolRadius;
-                let direction = 1;
-                while (y <= length - toolRadius) {
-                    let lastX = (direction === 1) ? toolRadius : width - toolRadius;
-                    let nextX = (direction === 1) ? width - toolRadius : toolRadius;
-                    code.push(`G1 X${nextX.toFixed(3)} Y${y.toFixed(3)} F${feed}`);
-                    paths.push({ d: `M${lastX} ${y} L${nextX} ${y}`, stroke: 'var(--color-primary)' });
-                    
-                    y += stepoverDist;
-                    direction *= -1;
-                    if (y <= length - toolRadius) {
-                        code.push(`G1 Y${y.toFixed(3)}`);
-                        paths.push({ d: `M${nextX} ${y - stepoverDist} L${nextX} ${y}`, stroke: 'var(--color-text-secondary)' });
-                    }
-                }
-                
-                // Finishing pass
-                const r = effectiveRadius - toolRadius;
-                code.push(`G0 X${(width - toolRadius - r).toFixed(3)} Y${toolRadius.toFixed(3)}`);
-                code.push(`G1 Z${currentDepth.toFixed(3)} F${plungeFeed}`);
-                code.push(`G1 Y${(length - toolRadius - r).toFixed(3)} F${feed}`);
-                if (r > 0) code.push(`G2 X${(width - toolRadius).toFixed(3)} Y${(length - toolRadius).toFixed(3)} I${r.toFixed(3)} J0`);
-                code.push(`G1 X${(toolRadius + r).toFixed(3)}`);
-                if (r > 0) code.push(`G2 X${toolRadius.toFixed(3)} Y${(length - toolRadius - r).toFixed(3)} I0 J${-r.toFixed(3)}`);
-                code.push(`G1 Y${(toolRadius + r).toFixed(3)}`);
-                if (r > 0) code.push(`G2 X${(toolRadius + r).toFixed(3)} Y${toolRadius.toFixed(3)} I${-r.toFixed(3)} J0`);
-                code.push(`G1 X${(width - toolRadius - r).toFixed(3)}`);
-                 paths.push({
-                    d: `M ${toolRadius} ${toolRadius+r} L ${toolRadius} ${length-toolRadius-r} A ${r} ${r} 0 0 1 ${toolRadius+r} ${length-toolRadius} L ${width-toolRadius-r} ${length-toolRadius} A ${r} ${r} 0 0 1 ${width-toolRadius} ${length-toolRadius-r} L ${width-toolRadius} ${toolRadius+r} A ${r} ${r} 0 0 1 ${width-toolRadius-r} ${toolRadius} L ${toolRadius+r} ${toolRadius} A ${r} ${r} 0 0 1 ${toolRadius} ${toolRadius+r}`,
-                    stroke: 'var(--color-accent-green)', 'strokeWidth': '2%'
-                });
-            } else { // Circle
-                const centerX = diameter / 2;
-                const centerY = diameter / 2;
-                const maxRadius = diameter / 2 - toolRadius;
-                code.push(`G0 X${centerX.toFixed(3)} Y${centerY.toFixed(3)}`);
-                code.push(`G1 Z${currentDepth.toFixed(3)} F${plungeFeed}`);
-                
-                let currentRadius = stepoverDist;
-                while (currentRadius <= maxRadius) {
-                    code.push(`G1 X${(centerX + currentRadius).toFixed(3)} Y${centerY.toFixed(3)} F${feed}`);
-                    code.push(`G2 I${-currentRadius.toFixed(3)} J0`);
-                    paths.push({ cx: centerX, cy: centerY, r: currentRadius, stroke: 'var(--color-primary)', fill: 'none', strokeWidth: '1%'});
-                    currentRadius += stepoverDist;
-                }
-                 code.push(`G1 X${(centerX + maxRadius).toFixed(3)} Y${centerY.toFixed(3)} F${feed}`);
-                 code.push(`G2 I${-maxRadius.toFixed(3)} J0`);
-                 paths.push({ cx: centerX, cy: centerY, r: maxRadius, stroke: 'var(--color-accent-green)', fill: 'none', strokeWidth: '2%'});
-            }
-        }
-        
-        code.push(`G0 Z${safeZ}`, `M5`, `G0 X0 Y0`);
-        const bounds = shape === 'rect' ? { minX: 0, minY: 0, maxX: width, maxY: length } : { minX: 0, minY: 0, maxX: diameter, maxY: diameter };
-        return { code, paths, bounds };
     };
 
     const generateProfileCode = () => {
@@ -559,6 +303,62 @@ const GCodeGeneratorModal: React.FC<GCodeGeneratorModalProps> = ({ isOpen, onCan
         
         code.push(`G0 Z${safeZ}`, `M5`);
         return { code, paths, bounds };
+    };
+
+    const generatePocketCode = () => {
+        const toolIndex = toolLibrary.findIndex(t => t.id === pocketParams.toolId);
+        if (toolIndex === -1) return { error: "Please select a tool." };
+        const selectedTool = toolLibrary[toolIndex];
+        if (!selectedTool) return { error: "Please select a tool." };
+
+        const { shape, width, length, cornerRadius, diameter, depth, depthPerPass, stepover, feed, plungeFeed, spindle, safeZ } = pocketParams;
+        if ([depth, depthPerPass, stepover, feed, plungeFeed, spindle, safeZ].some(p => p === '' || p === null)) {
+            return { error: "Please fill all required fields." };
+        }
+
+        const code = [
+            `(--- Pocket Operation: ${shape} ---)`,
+            `(Tool: ${selectedTool.name} - Ø${selectedTool.diameter}${unit})`,
+            `G21 G90`, `M3 S${spindle}`, `G0 Z${safeZ}`
+        ];
+        const paths = [];
+        const toolRadius = selectedTool.diameter / 2;
+        const stepoverDist = selectedTool.diameter * (stepover / 100);
+
+        let currentDepth = 0;
+        while (currentDepth > depth) {
+            currentDepth = Math.max(depth, currentDepth - depthPerPass);
+            code.push(`(--- Pass at Z=${currentDepth.toFixed(3)} ---)`);
+
+            if (shape === 'rect') {
+                const centerX = width / 2;
+                const centerY = length / 2;
+                code.push(`G0 X${centerX.toFixed(3)} Y${centerY.toFixed(3)}`);
+                code.push(`G1 Z${currentDepth.toFixed(3)} F${plungeFeed}`);
+
+                // Simplified raster clearing for now
+                let y = toolRadius;
+                while (y <= length - toolRadius) {
+                    code.push(`G1 X${(width - toolRadius).toFixed(3)} Y${y.toFixed(3)} F${feed}`);
+                    paths.push({ d: `M${toolRadius} ${y} L${width - toolRadius} ${y}`, stroke: 'var(--color-primary)' });
+                    y += stepoverDist;
+                    if (y <= length - toolRadius) {
+                        code.push(`G1 X${toolRadius.toFixed(3)} Y${y.toFixed(3)} F${feed}`);
+                        paths.push({ d: `M${width - toolRadius} ${y - stepoverDist} L${width - toolRadius} ${y}`, stroke: 'var(--color-text-secondary)' });
+                    }
+                }
+            } else { // Circle
+                const centerX = diameter / 2;
+                const centerY = diameter / 2;
+                const maxRadius = diameter / 2 - toolRadius;
+                code.push(`G0 X${centerX.toFixed(3)} Y${centerY.toFixed(3)}`);
+                code.push(`G1 Z${currentDepth.toFixed(3)} F${plungeFeed}`);
+            }
+        }
+
+        code.push(`G0 Z${safeZ}`, `M5`, `G0 X0 Y0`);
+        const bounds = shape === 'rect' ? { minX: 0, minY: 0, maxX: width, maxY: length } : { minX: 0, minY: 0, maxX: diameter, maxY: diameter };
+        return { code, paths, bounds, error: null };
     };
 
     const generateSlotCode = () => {
@@ -959,44 +759,10 @@ const GCodeGeneratorModal: React.FC<GCodeGeneratorModalProps> = ({ isOpen, onCan
     </div>;
     
    const renderBoreForm = () => <div className='space-y-4'>
-        {/* <ToolSelector selectedId={boreParams.toolId} onChange={(id) => setBoreParams(p => ({ ...p, toolId: id }))} unit={unit} toolLibrary={toolLibrary} /> */}
-        <hr className='border-secondary' />
-        <Input label='Center Point (X, Y)' valueX={boreParams.centerX} valueY={boreParams.centerY} onChangeX={e => handleParamChange(setBoreParams, boreParams, 'centerX', e.target.value)} onChangeY={e => handleParamChange(setBoreParams, boreParams, 'centerY', e.target.value)} isXY={true} unit={unit} />
-        <div className='grid grid-cols-2 gap-4'>
-             <Input label={`Hole Diameter`} value={boreParams.holeDiameter} onChange={e => handleParamChange(setBoreParams, boreParams, 'holeDiameter', e.target.value)} unit={unit} />
-             <Input label={`Hole Depth`} value={boreParams.holeDepth} onChange={e => handleParamChange(setBoreParams, boreParams, 'holeDepth', e.target.value)} unit={unit} help='Negative value' />
-        </div>
-         <hr className='border-secondary' />
-        <label className='flex items-center gap-2 cursor-pointer font-semibold'>
-            <input type='checkbox' checked={boreParams.counterboreEnabled} onChange={e => setBoreParams(p => ({ ...p, counterboreEnabled: e.target.checked }))} className='h-4 w-4 rounded border-secondary text-primary' />
-                                            Add Counterbore
-       </label>
-        {boreParams.counterboreEnabled && <div className='grid grid-cols-2 gap-4 pl-6'>
-             <Input label={`CB Diameter`} value={boreParams.cbDiameter} onChange={e => handleParamChange(setBoreParams, boreParams, 'cbDiameter', e.target.value)} unit={unit} />
-             <Input label={`CB Depth`} value={boreParams.cbDepth} onChange={e => handleParamChange(setBoreParams, boreParams, 'cbDepth', e.target.value)} unit={unit} help='Negative value' />
-        </div>}
-        <SpindleAndFeedControls params={boreParams} onParamChange={(field, value) => handleParamChange(setBoreParams, boreParams, field, value)} plunge={true} unit={unit} />
+        <BoreGenerator onGenerate={onLoadGCode} toolLibrary={toolLibrary} unit={unit} settings={settings} />
     </div>;
 
-  const renderPocketForm = () => <div className='space-y-4'>
-        {/* <ToolSelector selectedId={pocketParams.toolId} onChange={(id) => setPocketParams(p => ({ ...p, toolId: id }))} unit={unit} toolLibrary={toolLibrary} /> */}
-        <hr className='border-secondary' />
-        <RadioGroup options={[{ value: 'rect', label: 'Rectangle' }, { value: 'circ', label: 'Circle' }]} selected={pocketParams.shape} onChange={val => setPocketParams(p => ({...p, shape: val}))} />
-        {pocketParams.shape === 'rect' ? <>
-            <Input label='Width (X), Length (Y)' valueX={pocketParams.width} valueY={pocketParams.length} onChangeX={e => handleParamChange(setPocketParams, pocketParams, 'width', e.target.value)} onChangeY={e => handleParamChange(setPocketParams, pocketParams, 'length', e.target.value)} isXY={true} unit={unit} />
-            <Input label='Corner Radius' value={pocketParams.cornerRadius} onChange={e => handleParamChange(setPocketParams, pocketParams, 'cornerRadius', e.target.value)} unit={unit} />
-        </> : <>
-            <Input label='Diameter' value={pocketParams.diameter} onChange={e => handleParamChange(setPocketParams, pocketParams, 'diameter', e.target.value)} unit={unit} />
-        </>}
-        <hr className='border-secondary' />
-        <div className='grid grid-cols-2 gap-4'>
-            <Input label='Total Depth' value={pocketParams.depth} onChange={e => handleParamChange(setPocketParams, pocketParams, 'depth', e.target.value)} unit={unit} help='Negative value' />
-            <Input label='Depth per Pass' value={pocketParams.depthPerPass} onChange={e => handleParamChange(setPocketParams, pocketParams, 'depthPerPass', e.target.value)} unit={unit} />
-        </div>
-        <Input label='Stepover' value={pocketParams.stepover} onChange={e => handleParamChange(setPocketParams, pocketParams, 'stepover', e.target.value)} unit='%' />
-        <SpindleAndFeedControls params={pocketParams} onParamChange={(field, value) => handleParamChange(setPocketParams, pocketParams, field, value)} plunge={true} unit={unit} />
-        <ArrayControls settings={arraySettings} onChange={setArraySettings} activeTab={activeTab} unit={unit} />
-    </div>;
+  const renderPocketForm = () => <div className='space-y-4'><PocketGenerator onUpdate={setPocketParams} toolLibrary={toolLibrary} unit={unit} settings={settings} /></div>;
     
      const renderProfileForm = () => <div className='space-y-4'>
         {/* <ToolSelector selectedId={profileParams.toolId} onChange={(id) => setProfileParams(p => ({ ...p, toolId: id }))} unit={unit} toolLibrary={toolLibrary} /> */}
@@ -1025,7 +791,7 @@ const GCodeGeneratorModal: React.FC<GCodeGeneratorModalProps> = ({ isOpen, onCan
              <Input label='Tab Width' value={profileParams.tabWidth} onChange={e => handleParamChange(setProfileParams, profileParams, 'tabWidth', e.target.value)} unit={unit} />
              <Input label='Tab Height' value={profileParams.tabHeight} onChange={e => handleParamChange(setProfileParams, profileParams, 'tabHeight', e.target.value)} unit={unit} help='From bottom' />
         </div>}
-        <ArrayControls settings={arraySettings} onChange={setArraySettings} activeTab={activeTab} unit={unit} />
+        <ArrayControls settings={arraySettings} onChange={setArraySettings} unit={unit} />
     </div>;
 
     const renderSlotForm = () => <div className='space-y-4'>
@@ -1047,7 +813,7 @@ const GCodeGeneratorModal: React.FC<GCodeGeneratorModalProps> = ({ isOpen, onCan
             <Input label='Depth per Pass' value={slotParams.depthPerPass} onChange={e => handleParamChange(setSlotParams, slotParams, 'depthPerPass', e.target.value)} unit={unit} />
         </div>
         <SpindleAndFeedControls params={slotParams} onParamChange={(field, value) => handleParamChange(setSlotParams, slotParams, field, value)} unit={unit} />
-        <ArrayControls settings={arraySettings} onChange={setArraySettings} activeTab={activeTab} unit={unit} />
+        <ArrayControls settings={arraySettings} onChange={setArraySettings} unit={unit} />
     </div>;
     
     const renderTextForm = () => (
@@ -1080,7 +846,7 @@ const GCodeGeneratorModal: React.FC<GCodeGeneratorModalProps> = ({ isOpen, onCan
         <hr className='border-secondary' />
         <Input label='Engraving Depth' value={textParams.depth} onChange={e => handleParamChange(setTextParams, textParams, 'depth', e.target.value)} unit={unit} help='Negative value' />
         <SpindleAndFeedControls params={textParams} onParamChange={(field, value) => handleParamChange(setTextParams, textParams, field, value)} unit={unit} />
-        <ArrayControls settings={arraySettings} onChange={setArraySettings} activeTab={activeTab} unit={unit} />
+        <ArrayControls settings={arraySettings} onChange={setArraySettings} unit={unit} />
     </div>
     );
 
@@ -1097,7 +863,7 @@ const GCodeGeneratorModal: React.FC<GCodeGeneratorModalProps> = ({ isOpen, onCan
         </div>
         <Input label='Thread Depth' value={threadParams.depth} onChange={e => handleParamChange(setThreadParams, threadParams, 'depth', e.target.value)} unit={unit} help='Length of thread' />
         <SpindleAndFeedControls params={threadParams} onParamChange={(field, value) => handleParamChange(setThreadParams, threadParams, field, value)} unit={unit} />
-        <ArrayControls settings={arraySettings} onChange={setArraySettings} activeTab={activeTab} unit={unit} />
+        <ArrayControls settings={arraySettings} onChange={setArraySettings} unit={unit} />
     </div>
     );
     
