@@ -12,6 +12,7 @@ import BoreGenerator from './BoreGenerator';
 import ProfileGenerator from './ProfileGenerator';
 import PocketGenerator from './PocketGenerator';
 import ThreadMillingGenerator from './ThreadMillingGenerator';
+import TextGenerator from './TextGenerator';
 
 interface TabProps {
     label: string;
@@ -1208,6 +1209,7 @@ const GCodeGeneratorModal: React.FC<GCodeGeneratorModalProps> = ({ isOpen, onClo
                                     onParamsChange={handleTextUpdate}
                                     toolLibrary={toolLibrary}
                                     unit={unit}
+                                    fontOptions={Object.keys(FONTS)}
                                     settings={settings}
                                 />
                             )} 
