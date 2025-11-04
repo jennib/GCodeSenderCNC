@@ -45,9 +45,9 @@ const Preview: React.FC<PreviewProps> = ({ paths, viewBox }) => {
     const roughSpacing = majorDim / targetLines;
     const spacing = magnitudes.find(m => m > roughSpacing) || magnitudes[magnitudes.length - 1];
 
-    const gridLineStyle = { stroke: 'var(--color-secondary)', strokeWidth: '0.25%', vectorEffect: 'non-scaling-stroke' };
-    const axisLineStyle = { stroke: 'var(--color-secondary-focus)', strokeWidth: '0.5%', vectorEffect: 'non-scaling-stroke' };
-    const labelStyle: React.CSSProperties = { fontSize: '4%', fill: 'var(--color-text-secondary)', vectorEffect: 'non-scaling-stroke' };
+    const gridLineStyle = { stroke: 'var(--color-secondary-focus)', opacity: 0.5, strokeWidth: '0.5%', vectorEffect: 'non-scaling-stroke' };
+    const axisLineStyle = { stroke: 'var(--color-text-secondary)', opacity: 0.5, strokeWidth: '1%', vectorEffect: 'non-scaling-stroke' };
+    const labelStyle: React.CSSProperties = { fontSize: '4%', fill: 'var(--color-text-secondary)', opacity: 0.6, vectorEffect: 'non-scaling-stroke' };
 
     if (spacing > 0 && isFinite(vbMinX) && isFinite(vbWidth)) {
         const startX = Math.floor(vbMinX / spacing) * spacing;
@@ -92,10 +92,10 @@ const Preview: React.FC<PreviewProps> = ({ paths, viewBox }) => {
                     <g key="path-group">
                         {paths.map((p, i) => {
                             if (p.d) {
-                                return <path key={i} d={p.d} stroke={p.stroke} fill={p.fill || 'none'} strokeWidth={p.strokeWidth || '1%'} strokeDasharray={p.strokeDasharray} style={{ vectorEffect: 'non-scaling-stroke' }} />;
+                                return <path key={i} d={p.d} stroke={p.stroke} fill={p.fill || 'none'} strokeWidth={p.strokeWidth || '2%'} strokeDasharray={p.strokeDasharray} style={{ vectorEffect: 'non-scaling-stroke' }} />;
                             }
                             if (p.cx !== undefined) {
-                                return <circle key={i} cx={p.cx} cy={p.cy} r={p.r} fill={p.fill || 'none'} stroke={p.stroke} strokeWidth={p.strokeWidth || '1%'} strokeDasharray={p.strokeDasharray} style={{ vectorEffect: 'non-scaling-stroke' }} />;
+                                return <circle key={i} cx={p.cx} cy={p.cy} r={p.r} fill={p.fill || 'none'} stroke={p.stroke} strokeWidth={p.strokeWidth || '2%'} strokeDasharray={p.strokeDasharray} style={{ vectorEffect: 'non-scaling-stroke' }} />;
                             }
                             return null;
                         })}
@@ -268,7 +268,7 @@ const GCodeGeneratorModal: React.FC<GCodeGeneratorModalProps> = ({ isOpen, onClo
     }>({
         type: 'internal',
         hand: 'right',
-        diameter: 6,
+        diameter: 10,
         pitch: 1,
         depth: 10,
         feed: 200,
@@ -367,7 +367,7 @@ const GCodeGeneratorModal: React.FC<GCodeGeneratorModalProps> = ({ isOpen, onClo
         code.push(`G83 Z${depth.toFixed(3)} Q${peck.toFixed(3)} R${retract.toFixed(3)} F${feed.toFixed(3)}`);
         points.forEach(p => {
             code.push(`X${p.x.toFixed(3)} Y${p.y.toFixed(3)}`);
-            paths.push({ cx: p.x, cy: p.y, r: selectedTool.diameter / 2, stroke: 'var(--color-primary)', fill: 'var(--color-primary-transparent)' });
+            paths.push({ cx: p.x, cy: p.y, r: selectedTool.diameter / 2, stroke: 'var(--color-accent-yellow)', fill: 'var(--color-accent-yellow-transparent)' });
             updateBounds(p.x, p.y);
         });
         code.push('G80'); // Cancel cycle
@@ -437,7 +437,7 @@ const GCodeGeneratorModal: React.FC<GCodeGeneratorModalProps> = ({ isOpen, onClo
                 code.push(`G1 Y${p3.y.toFixed(3)}`);
                 if (r > 0) code.push(`G2 X${p2.x.toFixed(3)} Y${(-offset).toFixed(3)} I${-r.toFixed(3)} J0`);
                 
-                 paths.push({ d: `M ${p1.x} ${p1.y} L ${p2.x} ${p2.y} A ${r} ${r} 0 0 0 ${p3.x} ${p3.y} L ${p4.x} ${p4.y} A ${r} ${r} 0 0 0 ${p5.x} ${p5.y} L ${p6.x} ${p6.y} A ${r} ${r} 0 0 0 ${p7.x} ${p7.y} L ${p8.x} ${p8.y} A ${r} ${r} 0 0 0 ${p1.x} ${p1.y}`, stroke: 'var(--color-primary)', fill: 'none', strokeWidth: '1%'});
+                 paths.push({ d: `M ${p1.x} ${p1.y} L ${p2.x} ${p2.y} A ${r} ${r} 0 0 0 ${p3.x} ${p3.y} L ${p4.x} ${p4.y} A ${r} ${r} 0 0 0 ${p5.x} ${p5.y} L ${p6.x} ${p6.y} A ${r} ${r} 0 0 0 ${p7.x} ${p7.y} L ${p8.x} ${p8.y} A ${r} ${r} 0 0 0 ${p1.x} ${p1.y}`, stroke: 'var(--color-accent-yellow)', fill: 'none', strokeWidth: '2%'});
             
             } else { // Circle
                 const radius = diameter / 2 + offset;
@@ -446,7 +446,7 @@ const GCodeGeneratorModal: React.FC<GCodeGeneratorModalProps> = ({ isOpen, onClo
                 code.push(`G0 X${(centerX + radius).toFixed(3)} Y${centerY.toFixed(3)} Z${safeZ}`);
                 code.push(`G1 Z${currentDepth.toFixed(3)} F${feed/2}`);
                 code.push(`G2 I${-radius.toFixed(3)} J0 F${Number(feed)}`);
-                paths.push({ cx: centerX, cy: centerY, r: radius, stroke: 'var(--color-primary)', fill: 'none', strokeWidth: '1%'});
+                paths.push({ cx: centerX, cy: centerY, r: radius, stroke: 'var(--color-accent-yellow)', fill: 'none', strokeWidth: '2%'});
             }
         }
         
@@ -488,7 +488,7 @@ const GCodeGeneratorModal: React.FC<GCodeGeneratorModalProps> = ({ isOpen, onClo
                 code.push(`G1 Z${depth.toFixed(3)} F${feed / 2}`);
                 code.push(`G1 X${endX.toFixed(3)} F${feed}`);
                 code.push(`G0 Z${safeZ.toFixed(3)}`);
-                paths.push({ d: `M ${startX} ${y} L ${endX} ${y}`, stroke: 'var(--color-primary)' });
+                paths.push({ d: `M ${startX} ${y} L ${endX} ${y}`, stroke: 'var(--color-accent-yellow)' });
                 y += stepoverDist;
                 xDirection *= -1; // Reverse direction for next pass
             }
@@ -502,7 +502,7 @@ const GCodeGeneratorModal: React.FC<GCodeGeneratorModalProps> = ({ isOpen, onClo
                 code.push(`G1 Z${depth.toFixed(3)} F${feed / 2}`);
                 code.push(`G1 Y${endY.toFixed(3)} F${feed}`);
                 code.push(`G0 Z${safeZ.toFixed(3)}`);
-                paths.push({ d: `M ${x.toFixed(3)} ${startY.toFixed(3)} L ${x.toFixed(3)} ${endY.toFixed(3)}`, stroke: 'var(--color-primary)' });
+                paths.push({ d: `M ${x.toFixed(3)} ${startY.toFixed(3)} L ${x.toFixed(3)} ${endY.toFixed(3)}`, stroke: 'var(--color-accent-yellow)' });
                 x += stepoverDist;
                 yDirection *= -1; // Reverse direction for next pass
             }
@@ -550,7 +550,7 @@ const GCodeGeneratorModal: React.FC<GCodeGeneratorModalProps> = ({ isOpen, onClo
                 let y = toolRadius;
                 while (y <= length - toolRadius) {
                     code.push(`G1 X${(width - toolRadius).toFixed(3)} Y${y.toFixed(3)} F${feed}`);
-                    paths.push({ d: `M${toolRadius} ${y} L${width - toolRadius} ${y}`, stroke: 'var(--color-primary)' });
+                    paths.push({ d: `M${toolRadius} ${y} L${width - toolRadius} ${y}`, stroke: 'var(--color-accent-yellow)' });
                     y += stepoverDist;
                     if (y <= length - toolRadius) {
                         code.push(`G1 X${toolRadius.toFixed(3)} Y${y.toFixed(3)} F${feed}`);
@@ -627,7 +627,7 @@ const GCodeGeneratorModal: React.FC<GCodeGeneratorModalProps> = ({ isOpen, onClo
                 code.push(`G2 X${centerX.toFixed(3)} Y${centerY.toFixed(3)} I${-pathRadius / 2} J0`);
 
                 if (currentDepth === Math.max(targetDepth, startZ - numericDepthPerPass)) {
-                    paths.push({ cx: centerX, cy: centerY, r: pathRadius, stroke: 'var(--color-primary)' });
+                    paths.push({ cx: centerX, cy: centerY, r: pathRadius, stroke: 'var(--color-accent-yellow)' });
                 }
             }
         };
@@ -720,7 +720,7 @@ const GCodeGeneratorModal: React.FC<GCodeGeneratorModalProps> = ({ isOpen, onClo
                     code.push(`G1 X${passEndX.toFixed(3)} Y${passEndY.toFixed(3)} F${feed}`);
 
                     if (currentDepth === Math.max(numericDepth, -numericDepthPerPass)) {
-                        paths.push({ d: `M${passStartX} ${passStartY} L${passEndX} ${passEndY}`, stroke: 'var(--color-primary)', strokeWidth: `${toolDiameter}%` });
+                        paths.push({ d: `M${passStartX} ${passStartY} L${passEndX} ${passEndY}`, stroke: 'var(--color-accent-yellow)', strokeWidth: `${toolDiameter}%` });
                         updateBounds(passStartX, passStartY);
                         updateBounds(passEndX, passEndY);
                     }
@@ -749,7 +749,7 @@ const GCodeGeneratorModal: React.FC<GCodeGeneratorModalProps> = ({ isOpen, onClo
                     
                     if (currentDepth === Math.max(numericDepth, -numericDepthPerPass)) {
                         const largeArcFlag = Math.abs(endAngle - startAngle) > 180 ? 1 : 0;
-                        paths.push({ d: `M ${passStartX} ${passStartY} A ${passRadius} ${passRadius} 0 ${largeArcFlag} ${sweepFlag} ${passEndX} ${passEndY}`, stroke: 'var(--color-primary)', fill: 'none', strokeWidth: `${toolDiameter}%` });
+                        paths.push({ d: `M ${passStartX} ${passStartY} A ${passRadius} ${passRadius} 0 ${largeArcFlag} ${sweepFlag} ${passEndX} ${passEndY}`, stroke: 'var(--color-accent-yellow)', fill: 'none', strokeWidth: `${toolDiameter}%` });
                         // Simple bounding box for arc
                         updateBounds(centerX - passRadius, centerY - passRadius);
                         updateBounds(centerX + passRadius, centerY + passRadius);
@@ -823,7 +823,7 @@ const GCodeGeneratorModal: React.FC<GCodeGeneratorModalProps> = ({ isOpen, onClo
                         code.push(`G1 X${p2.x.toFixed(3)} Y${p2.y.toFixed(3)} F${feed}`);
                         code.push(`G0 Z${safeZ}`);
 
-                        paths.push({ d: `M${p1.x} ${p1.y} L${p2.x} ${p2.y}`, stroke: 'var(--color-primary)' });
+                        paths.push({ d: `M${p1.x} ${p1.y} L${p2.x} ${p2.y}`, stroke: 'var(--color-accent-yellow)' });
                     }
                 } else if (fontData.type === 'outline') {
                     for (const path of charData) {
@@ -848,7 +848,7 @@ const GCodeGeneratorModal: React.FC<GCodeGeneratorModalProps> = ({ isOpen, onClo
                         code.push(`G0 Z${safeZ}`);
 
                         const pathString = "M" + scaledPath.map(p => `${p.x} ${p.y}`).join(" L ") + " Z";
-                        paths.push({ d: pathString, stroke: 'var(--color-primary)', 'strokeWidth': '1%', fill: 'none' });
+                        paths.push({ d: pathString, stroke: 'var(--color-accent-yellow)', 'strokeWidth': '2%', fill: 'none' });
                     }
                 }
             }
@@ -869,8 +869,12 @@ const GCodeGeneratorModal: React.FC<GCodeGeneratorModalProps> = ({ isOpen, onClo
         if (!selectedTool) return { error: "Please select a tool.", code: [], paths: [], bounds: {} };
         const toolDiameter = selectedTool.diameter;
 
-        const { type, hand, diameter, pitch, depth, feed, spindle, safeZ } = threadParams;
-        if ([diameter, pitch, depth, feed, spindle, safeZ].some(p => p === '' || p === null || Number(p) <= 0)) {
+        const { type, hand, feed, spindle, safeZ } = threadParams;
+        const diameter = Number(threadParams.diameter);
+        const pitch = Number(threadParams.pitch);
+        const depth = Number(threadParams.depth);
+
+        if ([diameter, pitch, depth, feed, spindle, safeZ].some(p => p === '' || p === null || isNaN(Number(p)) || Number(p) <= 0)) {
             return { error: "Please fill all fields with positive values.", code: [], paths: [], bounds: {} };
         }
         if (toolDiameter >= diameter && type === 'internal') {
@@ -907,12 +911,12 @@ const GCodeGeneratorModal: React.FC<GCodeGeneratorModalProps> = ({ isOpen, onClo
         if (pathRadius <= 0) return { error: "Invalid tool/thread diameter combination.", code: [], paths: [], bounds: {} };
 
         // Preview paths
-        paths.push({ cx: centerX, cy: centerY, r: diameter / 2, stroke: 'var(--color-text-secondary)', strokeDasharray: '4 2', strokeWidth: '0.5%', fill: 'none' });
-        paths.push({ cx: centerX, cy: centerY, r: pathRadius, stroke: 'var(--color-primary)', strokeWidth: '1%', fill: 'none' });
+        paths.push({ cx: centerX, cy: centerY, r: diameter / 2, stroke: 'var(--color-text-secondary)', strokeDasharray: '4 2', strokeWidth: '2%', fill: 'none' });
+        paths.push({ cx: centerX, cy: centerY, r: pathRadius, stroke: 'var(--color-accent-yellow)', strokeWidth: '3%', fill: 'none' });
 
         if (type === 'internal') {
             const preDrillRadius = diameter - pitch; // Approximation for pre-drill size
-            paths.push({ cx: centerX, cy: centerY, r: preDrillRadius / 2, stroke: 'var(--color-accent-yellow)', strokeDasharray: '2 2', strokeWidth: '0.5%', fill: 'none' });
+            paths.push({ cx: centerX, cy: centerY, r: preDrillRadius / 2, stroke: 'var(--color-text-secondary)', strokeDasharray: '2 2', strokeWidth: '2%', fill: 'none' });
         }
         
         const startX = centerX + pathRadius;
@@ -927,7 +931,7 @@ const GCodeGeneratorModal: React.FC<GCodeGeneratorModalProps> = ({ isOpen, onClo
         let currentZ = -numericDepth;
         while (currentZ < 0) {
             currentZ = Math.min(0, currentZ + Number(pitch));
-            code.push(`${helicalDirection} I${-pathRadius.toFixed(3)} J0 Z${currentZ.toFixed(3)} F${Number(feed)}`);
+            code.push(`${helicalDirection} X${startX.toFixed(3)} Y${centerY.toFixed(3)} I${-pathRadius.toFixed(3)} J0 Z${currentZ.toFixed(3)} F${Number(feed)}`);
         }
 
         // Retract
@@ -1277,6 +1281,5 @@ const GCodeGeneratorModal: React.FC<GCodeGeneratorModalProps> = ({ isOpen, onClo
         </div>
     );
 };
-
 
 export default GCodeGeneratorModal;

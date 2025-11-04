@@ -178,6 +178,7 @@ interface GCodeVisualizerProps {
     currentLine: number;
     machineSettings: MachineSettings;
     unit: 'mm' | 'in';
+    hoveredLineIndex: number | null;
 }
 
 export interface GCodeVisualizerHandle {
@@ -187,7 +188,7 @@ export interface GCodeVisualizerHandle {
     resetView: () => void;
 }
 
-const GCodeVisualizer = React.forwardRef<GCodeVisualizerHandle, GCodeVisualizerProps>(({ gcodeLines, currentLine, machineSettings, unit }, ref) => {
+const GCodeVisualizer = React.forwardRef<GCodeVisualizerHandle, GCodeVisualizerProps>(({ gcodeLines, currentLine, machineSettings, unit, hoveredLineIndex }, ref) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const glRef = useRef<WebGLRenderingContext | null>(null);
     const programInfoRef = useRef<any>(null);
@@ -195,7 +196,6 @@ const GCodeVisualizer = React.forwardRef<GCodeVisualizerHandle, GCodeVisualizerP
     
     // This ref will hold all dynamic data for the render loop to access without re-triggering effects.
     const renderDataRef = useRef<any>({});
-    const hoveredLineIndex = 0; // This is a placeholder. The prop was removed as it was not used.
 
     const [parsedGCode, setParsedGCode] = useState<any>(null);
     const [camera, setCamera] = useState({
@@ -495,7 +495,7 @@ const GCodeVisualizer = React.forwardRef<GCodeVisualizerHandle, GCodeVisualizerP
             workArea: workAreaBuffers,
         };
 
-    }, [parsedGCode, currentLine, hoveredLineIndex, machineSettings]);
+    }, [parsedGCode, currentLine, machineSettings]);
     
     // The main setup and continuous render loop effect. Runs ONLY ONCE.
     useEffect(() => {
