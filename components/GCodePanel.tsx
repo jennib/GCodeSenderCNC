@@ -376,6 +376,14 @@ const GCodePanel: React.FC<GCodePanelProps> = ({
             )}
             <div className="space-y-4 flex-shrink-0 mb-4">
                 <div className="grid grid-cols-3 gap-4">{renderJobControls()}</div>
+                {!isConnected && gcodeLines.length > 0 && (
+                    <div className="bg-accent-yellow/20 border border-accent-yellow text-accent-yellow p-4 rounded-md text-center">
+                        <p className="font-bold">Not Connected</p>
+                        <p className="text-sm">
+                            Please connect to your machine or the simulator using the button in the top right corner.
+                        </p>
+                    </div>
+                )}
                 <div className="w-full bg-secondary rounded-full h-4">
                     <div className="bg-primary h-4 rounded-full transition-all duration-300" style={{ width: `${progress}%` }} />
                 </div>
