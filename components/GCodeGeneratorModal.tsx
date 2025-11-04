@@ -136,13 +136,13 @@ const GCodeGeneratorModal: React.FC<GCodeGeneratorModalProps> = ({ isOpen, onClo
     });
 
     // --- Drilling State ---
-    const [drillType, setDrillType] = useState('single');
     const [drillParams, setDrillParams] = useState<{
-        depth: number | ''; peck: number | ''; retract: number | ''; feed: number | ''; spindle: number | ''; safeZ: number | '';
+        drillType: string; depth: number | ''; peck: number | ''; retract: number | ''; feed: number | ''; spindle: number | ''; safeZ: number | '';
         singleX: number | ''; singleY: number | ''; rectCols: number | ''; rectRows: number | ''; rectSpacingX: number | '';
         rectSpacingY: number | ''; rectStartX: number | ''; rectStartY: number | ''; circCenterX: number | '';
         circCenterY: number | ''; circRadius: number | ''; circHoles: number | ''; circStartAngle: number | ''; toolId: number | null;
     }>({
+        drillType: 'single',
         depth: -5,
         peck: 2,
         retract: 2,
@@ -322,7 +322,7 @@ const GCodeGeneratorModal: React.FC<GCodeGeneratorModalProps> = ({ isOpen, onClo
         }
 
         const code = [
-            `(--- Drilling Operation: ${drillType} ---)`,
+            `(--- Drilling Operation: ${drillParams.drillType} ---)`,
             `(Tool: ${selectedTool.name} - Ø${selectedTool.diameter}${unit})`,
             `G21 G90`, `M3 S${spindle}`
         ];
@@ -336,9 +336,9 @@ const GCodeGeneratorModal: React.FC<GCodeGeneratorModalProps> = ({ isOpen, onClo
         };
 
         const points = [];
-        if (drillType === 'single') {
+        if (drillParams.drillType === 'single') {
             points.push({ x: drillParams.singleX, y: drillParams.singleY });
-        } else if (drillType === 'rect') {
+        } else if (drillParams.drillType === 'rect') {
             const { rectCols, rectRows, rectSpacingX, rectSpacingY, rectStartX, rectStartY } = drillParams;
             for (let row = 0; row < rectRows; row++) {
                 for (let col = 0; col < rectCols; col++) {
@@ -1039,7 +1039,7 @@ const GCodeGeneratorModal: React.FC<GCodeGeneratorModalProps> = ({ isOpen, onClo
 
         setGeneratedGCode(result.code ? result.code.join('\n') : '');
         setPreviewPaths({ paths: result.paths, bounds: result.bounds });
-    }, [activeTab, surfaceParams, drillParams, drillType, boreParams, pocketParams, profileParams, slotParams, textParams, threadParams, toolLibrary, arraySettings, generateSurfacingCode, generateDrillingCode, generateBoreCode, generatePocketCode, generateProfileCode, generateSlotCode, generateTextCode, generateThreadMillingCode, applyArrayPattern]);
+    }, [activeTab, surfaceParams, drillParams, boreParams, pocketParams, profileParams, slotParams, textParams, threadParams, toolLibrary, arraySettings, generateSurfacingCode, generateDrillingCode, generateBoreCode, generatePocketCode, generateProfileCode, generateSlotCode, generateTextCode, generateThreadMillingCode, applyArrayPattern]);
 
     const handleGenerateRef = React.useRef(handleGenerate);
     useEffect(() => {
@@ -1059,8 +1059,6 @@ const GCodeGeneratorModal: React.FC<GCodeGeneratorModalProps> = ({ isOpen, onClo
         });
     };
 
-    const handleDrillUpdate = useCallback(({ drillType: dt, params: p }) => { setDrillType(dt); setDrillParams(p); }, []);
-
     const handleParamChange = useCallback((setter, field, value) => {
         setter((prevParams: any) => {
             const isNumberField = !['shape', 'cutSide', 'tabsEnabled', 'type', 'font', 'text', 'alignment', 'hand', 'direction'].includes(field);
@@ -1070,6 +1068,7 @@ const GCodeGeneratorModal: React.FC<GCodeGeneratorModalProps> = ({ isOpen, onClo
         });
     }, []);
     const handleSurfaceUpdate = useCallback((field, value) => handleParamChange(setSurfaceParams, field, value), [handleParamChange]);
+    const handleDrillUpdate = useCallback((field, value) => handleParamChange(setDrillParams, field, value), [handleParamChange]);
     const handleBoreUpdate = useCallback((field, value) => handleParamChange(setBoreParams, field, value), [handleParamChange]);
     const handlePocketUpdate = useCallback((field, value) => handleParamChange(setPocketParams, field, value), [handleParamChange]);
     const handleProfileUpdate = useCallback((field, value) => handleParamChange(setProfileParams, field, value), [handleParamChange]);
@@ -1159,7 +1158,6 @@ const GCodeGeneratorModal: React.FC<GCodeGeneratorModalProps> = ({ isOpen, onClo
                             {activeTab === 'drilling' && (
                                 <DrillingGenerator
                                     params={drillParams}
-                                    drillType={drillType}
                                     onParamsChange={handleDrillUpdate}
                                     toolLibrary={toolLibrary}
                                     unit={unit}
