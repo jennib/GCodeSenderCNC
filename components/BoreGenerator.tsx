@@ -1,4 +1,6 @@
-import React from 'react';
+
+ 
+   import React from 'react';
 import { Tool, MachineSettings } from '../types';
 import { ToolSelector, Input, Checkbox, SpindleAndFeedControls } from './SharedControls';
 

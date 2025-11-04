@@ -11,6 +11,7 @@ import DrillingGenerator from './DrillingGenerator';
 import BoreGenerator from './BoreGenerator';
 import ProfileGenerator from './ProfileGenerator';
 import PocketGenerator from './PocketGenerator';
+import ThreadMillingGenerator from './ThreadMillingGenerator';
 
 interface TabProps {
     label: string;
@@ -869,6 +870,7 @@ const GCodeGeneratorModal: React.FC<GCodeGeneratorModalProps> = ({ isOpen, onClo
 
         const { type, hand, diameter, pitch, depth, feed, spindle, safeZ } = threadParams;
         if ([diameter, pitch, depth, feed, spindle, safeZ].some(p => p === '' || p === null || Number(p) <= 0)) {
+            return { error: "Please fill all fields with positive values.", code: [], paths: [], bounds: {} };
         }
         if (toolDiameter >= diameter && type === 'internal') {
             return { error: "Tool diameter must be smaller than thread diameter for internal threads.", code: [], paths: [], bounds: {} };
@@ -1141,7 +1143,7 @@ const GCodeGeneratorModal: React.FC<GCodeGeneratorModalProps> = ({ isOpen, onClo
                             <Tab label="Pocket" isActive={activeTab === 'pocket'} onClick={() => setActiveTab('pocket')} />
                             <Tab label="Profile" isActive={activeTab === 'profile'} onClick={() => setActiveTab('profile')} />
                             <Tab label="Slot" isActive={activeTab === 'slot'} onClick={() => setActiveTab('slot')} />
-                            <Tab label="Thread" isActive={activeTab === 'thread'} onClick={() => setActiveTab('thread')} />
+                            <Tab label="Thread Milling" isActive={activeTab === 'thread'} onClick={() => setActiveTab('thread')} />
                             <div className="w-full text-xs text-text-secondary uppercase tracking-wider mt-2">Text & Engraving</div>
                             <Tab label="Text" isActive={activeTab === 'text'} onClick={() => setActiveTab('text')} />
                         </div>
@@ -1200,8 +1202,7 @@ const GCodeGeneratorModal: React.FC<GCodeGeneratorModalProps> = ({ isOpen, onClo
                                     settings={settings}
                                 />
                             )}
-                            {/* The components below need to be created and imported */}
-                            {/* {activeTab === 'text' && (
+                            {activeTab === 'text' && (
                                 <TextGenerator
                                     params={textParams}
                                     onParamsChange={handleTextUpdate}
@@ -1209,16 +1210,16 @@ const GCodeGeneratorModal: React.FC<GCodeGeneratorModalProps> = ({ isOpen, onClo
                                     unit={unit}
                                     settings={settings}
                                 />
-                            )}
+                            )} 
                             {activeTab === 'thread' && (
-                                <ThreadGenerator
+                                <ThreadMillingGenerator
                                     params={threadParams}
                                     onParamsChange={handleThreadUpdate}
                                     toolLibrary={toolLibrary}
                                     unit={unit}
                                     settings={settings}
                                 />
-                            )} */}
+                            )}
                         </div>
                     </div>
                     <div className="bg-background p-4 rounded-md flex flex-col gap-4">
