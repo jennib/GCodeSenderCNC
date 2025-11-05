@@ -1,3 +1,8 @@
+License: PolyForm Noncommercial License 1.0.0
+See https://polyformproject.org/licenses/noncommercial/1.0.0/
+
+
+
 <img width="421" height="101" alt="mycnclogo" src="https://github.com/user-attachments/assets/3fb2e851-098b-4d5d-8324-48aec412b328" />
 
 ## mycnc.app
@@ -73,3 +78,10 @@ Then open the URL displayed in your terminal in your browser.
 <img width="1902" height="1012" alt="Screenshot 2025-11-05 073540" src="https://github.com/user-attachments/assets/58f893a9-b19d-4379-b4e0-93cc975ee8de" />
 
 <img width="1902" height="1012" alt="Screenshot 2025-11-05 073558" src="https://github.com/user-attachments/assets/8708653e-5595-479c-ac6b-0e307e9432de" />
+
+
+Copyright 2025
+
+No Liability
+
+As far as the law allows, the software comes as is, without any warranty or condition, and the licensor will not be liable to you for any damages arising out of these terms or the use or nature of the software, under any kind of legal claim.
